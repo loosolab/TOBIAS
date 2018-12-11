@@ -48,7 +48,7 @@ def add_footprint_arguments(parser):
 	optargs = parser.add_argument_group('Optional arguments')
 	optargs.add_argument('--regions', metavar="<bed>", help="Subset to regions (RECOMMENDED) (default: genome-wide)")
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend input regions with bp (default: 100)", default=100)
-	optargs.add_argument('--score', metavar="<score>", choices=["tobias", "FOS", "sum", "modified"], help="Type of scoring to perform on cutsites (tobias/FOS/sum) (default: tobias_)", default="tobias")
+	optargs.add_argument('--score', metavar="<score>", choices=["tobias", "FOS", "sum"], help="Type of scoring to perform on cutsites (tobias/FOS/sum) (default: tobias)", default="tobias")
 	
 	optargs.add_argument('--fp_min', metavar="<int>", type=int, help="Minimum footprint width (default: 15)", default=15)
 	optargs.add_argument('--fp_max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
