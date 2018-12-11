@@ -1,0 +1,8 @@
+name: MACS_ENV
+
+channels:
+  - bioconda
+  - conda-forge
+  
+dependencies:
+  - macs2

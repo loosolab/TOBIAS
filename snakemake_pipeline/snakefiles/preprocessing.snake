@@ -1,0 +1,97 @@
+# vim: syntax=python tabstop=4 expandtab
+# coding: utf-8
+
+# ------------------------------------------------------------------------------------------------------------------ #
+# ------------------------------------------------- Bam processing ------------------------------------------------- #
+# ------------------------------------------------------------------------------------------------------------------ #
+
+# Merge sample bam files to condition bam file
+# if only one sample per condition, copy sample bam to merged bam file name for further processing
+rule conditionbam:
+  input: lambda wildcards: config["data"][wildcards.condition]
+  output:
+    bam = os.path.join(OUTPUTDIR, "mapping", "{condition}.bam"),
+    bai = os.path.join(OUTPUTDIR, "mapping", "{condition}.bam.bai")
+  threads: 2
+  message: "Joining individual bamfiles from condition {wildcards.condition}"
+  run:
+    if len(input) > 1:
+      shell("samtools merge -@ {threads} {output.bam} {input}")
+      shell("samtools index {output.bam}")
+    else:
+      shell("cp {input} {output.bam}")
+      shell("samtools index {output.bam}")
+
+
+# ------------------------------------------------------------------------------------------------------------------ #
+# --------------------------------------------------- Peak-calling ------------------------------------------------- #
+# ------------------------------------------------------------------------------------------------------------------ #
+
+# Peak-calling
+gsizes = {"human":"hs",
+          "mouse":"mm"}
+            
+rule macs:
+  input:
+     lambda wildcards: id2bam[wildcards.condition][wildcards.sample_id]
+  output: 
+    macs = os.path.join(OUTPUTDIR, "peak_calling", "{condition}", "{sample_id}_peaks.broadPeak"),
+    raw = os.path.join(OUTPUTDIR, "peak_calling", "{condition}", "{sample_id}_raw.bed")
+  log: os.path.join(OUTPUTDIR, "logs", "{condition}_{sample_id}_peak_calling.log")
+  message: "Running macs2 with .bam-file: {input}"
+  params:
+    "--name {sample_id}",
+    "--outdir " + os.path.join(OUTPUTDIR, "peak_calling", "{condition}"),
+    "--gsize " + str(gsizes[config["run_info"]["organism"]]),
+    config["macs"],
+  shell:
+    "set +u; source activate MACS_ENV;"
+    "macs2 callpeak -t {input} {params} &> {log}; "
+    "cp {output.macs} {output.raw}; " 
+
+
+# ------------------------------------------------------------------------------------------------------------------ #
+# ------------------------------------------------- Peak-processing ------------------------------------------------ #
+# ------------------------------------------------------------------------------------------------------------------ #
+# process peaks:
+# 1. reduce to genomic location columns and sort
+# 2. merge peaks per condition
+# 3. remove blacklisted regions and add unique peak ids
+rule process_peaks:
+  input: 
+    peaks = lambda wildcards: [os.path.join(OUTPUTDIR, "peak_calling", wildcards.condition, sample_id + "_raw.bed") for sample_id in id2bam[wildcards.condition].keys()],
+    blacklisted = BLACKLIST
+  output: 
+    peaks = os.path.join(OUTPUTDIR, "peak_calling", "{condition}_union.bed"),
+  message: "Processing peaks from condition {wildcards.condition}"
+  shell:
+    "cat {input.peaks} | cut -f1-3 | sort -k1,1 -k2,2n | bedtools merge -d 5 | bedtools subtract -a - -b {input.blacklisted} -A | "
+    "awk '$1 !~ /[M]/' | "
+    "awk '{{print $s\"\\t{wildcards.condition}_\"NR}}' > {output.peaks}"
+
+
+# Union peaks across all conditions
+rule merge_condition_peaks:
+  input: expand(os.path.join(OUTPUTDIR, "peak_calling", "{condition}_union.bed"), condition=CONDITION_IDS)
+  output: os.path.join(OUTPUTDIR, "peak_calling", "all_merged.bed")
+  message: "Merging peaks across conditions"
+  shell:
+    "cat {input} | sort -k1,1 -k2,2n | bedtools merge -d 5 -c 4 -o collapse > {output}"
+
+
+# Peak annotation
+# peaks per condition or across conditions, dependent on run info output
+rule uropa:
+  input: 
+    bed = os.path.join(OUTPUTDIR, "peak_calling", "all_merged.bed"),
+    gtf = GTF
+  output:
+    peaks = os.path.join(OUTPUTDIR, "peak_annotation", "all_merged_annotated.bed"),
+    header = os.path.join(OUTPUTDIR, "peak_annotation", "all_merged_annotated_header.txt"),
+  threads: 99
+  log: os.path.join(OUTPUTDIR, "logs", "uropa.log")
+  params:
+    config["uropa"]
+  shell:
+    "peak_annotation.sh -i {input.bed} -o {output.peaks} -p {output.header} -g {input.gtf} {params} -c {threads} -l {log} &> {log}; "
+    

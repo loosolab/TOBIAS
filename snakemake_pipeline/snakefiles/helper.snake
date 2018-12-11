@@ -1,0 +1,46 @@
+import string
+import re
+
+def check_format(file):
+
+	found_format = None
+
+	#Read first nlines of file
+	nlines = 100
+	count = 0
+	file_content = ""
+	with open(file) as f:
+		for line in f:
+			count += 1
+			file_content += line
+
+			if count == nlines:
+				break
+
+	#Bed file
+	if re.match("(^.+\s\d+\s\d+.*\n)+", file_content):
+		found_format = "bed"
+		#print("{0} is a .bed-file".format(file))
+
+	#Jaspar file
+	elif re.match("(>.+\n([^>]+\n){4})+.*", file_content): 
+		found_format = "jaspar"
+		#print("{0} is a jaspar pfm file".format(file))
+
+	#Meme file
+	elif re.match(".*MEME version.*ALPHABET.*MOTIF.*", file_content, flags=re.DOTALL):
+		found_format = "meme"
+		#print("{0} is a meme file".format(file))
+
+	else:
+		print("Could not recognize format of file {0}".format(file))
+
+	return(found_format)
+
+
+
+def filafy(astring): 	#Make name into accepted filename
+	
+	valid_chars = "-_.%s%s" % (string.ascii_letters, string.digits)
+	filename = ''.join(char for char in astring if char in valid_chars)
+	return(filename)

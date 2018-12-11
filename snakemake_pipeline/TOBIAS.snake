@@ -1,0 +1,195 @@
+"""
+Upper level TOBIAS snake
+"""
+
+import os
+import subprocess
+import itertools
+
+#Set config
+if workflow.overwrite_configfile != None:
+	configfile: str(workflow.overwrite_configfile)
+else:
+	configfile: 'TOBIAS.config'
+CONFIGFILE = str(workflow.overwrite_configfile)
+
+include: "snakefiles/helper.snake"
+#shell.prefix("")
+
+#-------------------------------------------------------------------------------#
+#------------------------- CHECK FORMAT OF CONFIG FILE -------------------------#
+#-------------------------------------------------------------------------------#
+
+required = [("data",),
+			("run_info",),
+				("run_info", "organism"),
+				("run_info", "fasta"),
+				("run_info", "blacklist"),
+				("run_info", "gtf"),
+				("run_info", "motifs"),
+				("run_info", "output"),
+			]
+
+#Check if all keys are existing and contain information
+for key_list in required:
+	lookup_dict = config
+	for key in key_list:
+		try:
+			lookup_dict = lookup_dict[key]
+			if lookup_dict == None:
+				print("ERROR: Missing input for key {0}".format(key_list))
+		except:
+			print("ERROR: Could not find key(s) \"{0}\" in configfile {1}. Please check that your configfile has right format for TOBIAS.".format(":".join(key_list), CONFIGFILE))
+			sys.exit()
+
+#Check if there is at least one condition with bamfiles
+if len(config["data"]) > 0:
+	for condition in config["data"]:
+		if len(config["data"][condition]) == 0:
+			print("ERROR: Could not find any bamfiles in \"{0}\" in configfile {1}".format(":".join(("data", condition)), CONFIGFILE))
+else:
+	print("ERROR: Could not find any conditions (\"data:\{condition\}\") in configfile {0}".format(CONFIGFILE))
+	sys.exit()
+
+
+#-------------------------------------------------------------------------------#
+#------------------------- WHICH FILES/INFO WERE INPUT? ------------------------#
+#-------------------------------------------------------------------------------#
+
+input_files = []
+
+#Files related to experimental data (bam)
+CONDITION_IDS = list(config["data"].keys())
+for condition in CONDITION_IDS:
+	if not isinstance(config["data"][condition], list):
+		config['data'][condition] = [config['data'][condition]]
+	input_files.extend(config['data'][condition])
+
+
+#Flatfiles independent from experimental data (run_info)
+FASTA = config['run_info']['fasta']
+BLACKLIST = config['run_info']['blacklist']
+GTF = config['run_info']['gtf']
+OUTPUTDIR = config['run_info']["output"]
+BLACKLIST = config['run_info']['blacklist']
+MOTIFDIR = config['run_info']['motifs']
+
+input_files.extend([FASTA, BLACKLIST, GTF])
+
+
+#---------- Test that input files exist -----------#
+for file in input_files:
+	if file != None:
+		full_path = os.path.abspath(file) 
+		if not os.path.exists(full_path):
+			exit("ERROR: The following file given in config does not exist: {0}".format(full_path))
+
+
+
+#-------------------------------------------------------------------------------#
+#------------------------ WHICH FILES SHOULD BE CREATED? -----------------------#
+#-------------------------------------------------------------------------------#
+
+output_files = []
+
+#--------------------------------- MOTIFS --------------------------------------#
+#Identify IDS of motifs
+files = os.listdir(MOTIFDIR)
+MOTIF_FILES = {}
+for file in files:
+	full_file = os.path.join(MOTIFDIR, file)
+	with open(full_file) as f:
+		for line in f:
+			if line.startswith("MOTIF"):
+				columns = line.rstrip().split()
+				ID = columns[2] + "_" + columns[1]
+				ID = filafy(ID)
+			elif line.startswith(">"):
+				columns = line.replace(">", "").rstrip().split()
+				ID = columns[1] + "_" + columns[0]
+				ID = filafy(ID)	
+		MOTIF_FILES[ID] = full_file
+
+TF_IDS = list(MOTIF_FILES.keys())
+
+
+#---------------------------- OUTPUT PER CONDITION -----------------------------#
+
+id2bam = {condition:{} for condition in CONDITION_IDS}
+
+for condition in CONDITION_IDS:
+
+	config_bams = config['data'][condition]
+	sampleids = [os.path.splitext(os.path.basename(bam))[0] for bam in config_bams]
+	id2bam[condition] = {sampleids[i]:config_bams[i] for i in range(len(sampleids))}	# Link sample ids to bams
+
+
+PLOTNAMES = expand("{condition}_{plotname}", condition=CONDITION_IDS, plotname=["heatmap", "aggregate"])
+if len(CONDITION_IDS) > 1:
+	PLOTNAMES.extend(["heatmap_comparison", "aggregate_comparison"]) 
+
+output_files.append(expand(os.path.join(OUTPUTDIR, "footprinting", "{condition}_footprints.bw"), condition=CONDITION_IDS))
+
+#output_files.append(os.path.join(OUTPUTDIR, "overview", "TFBS_distance.txt"))
+output_files.append(os.path.join(OUTPUTDIR, "TFBS", "bindetect_results.txt"))
+output_files.append(os.path.join(OUTPUTDIR, "overview", "bindetect_results.txt"))
+
+#Visualization
+output_files.extend(expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_{plotname}.pdf"), TF=TF_IDS, plotname=PLOTNAMES))
+output_files.extend(expand(os.path.join(OUTPUTDIR, "overview", "all_{plotname}.pdf"), plotname=PLOTNAMES))
+
+
+#-------------------------- OUTPUT ACROSS CONDITIONS ---------------------------#
+
+"""
+COMPARE_COND = 0
+if len(CONDITION_IDS) > 1:
+	COMPARE_COND = 1 	# flag
+	output_files.extend(expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_heatmap_comparison.pdf"), TF=TF_IDS))
+	output_files.extend(expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison.pdf"), TF=TF_IDS))
+	#output_files.extend([os.path.join(OUTPUTDIR, "overview", "diff_bind_plot.pdf")])
+
+"""
+#-------------------------------- OTHER OUTPUT ---------------------------------#
+
+
+
+
+#-------------------------------------------------------------------------------#
+#--------------------- WHICH SNAKE MODULES SHOULD BE USED? ---------------------#
+#-------------------------------------------------------------------------------#
+
+include: "snakefiles/preprocessing.snake"
+include: "snakefiles/footprinting.snake"
+include: "snakefiles/visualization.snake"
+
+
+
+#-------------------------------------------------------------------------------#
+#------------------------ DEAL WITH SPECIAL ENVIRONMENTS -----------------------#
+#-------------------------------------------------------------------------------#
+
+"""
+sys_env = subprocess.check_output(['conda', 'env', 'list'], universal_newlines=True)
+env_list = [line.split()[0] for line in sys_env.split("\n") if len(line.split()) > 0]
+
+# default TOBIAS environment
+if "TOBIAS_ENV" not in env_list:
+	print("Creating TOBIAS environment for the first time")
+	subprocess.call(["conda", "env", "create", "--file", "environments/tobias.yaml"])
+
+# python 2 related envs 
+if "MACS_ENV" not in env_list:
+	print("Creating macs environment for the first time")
+	subprocess.call(["conda", "env", "create", "--file", "environments/macs.yaml"])
+
+"""
+#-------------------------------------------------------------------------------#
+#---------------------------------- RUN :-) ------------------------------------#
+#-------------------------------------------------------------------------------#
+
+rule all:
+	input: 
+		output_files
+	message: "Rule all"
+

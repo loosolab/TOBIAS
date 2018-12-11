@@ -1,0 +1,99 @@
+# vim: syntax=python tabstop=4 expandtab
+# coding: utf-8
+
+#--------------------------------------------------------------------------------------------------------#
+#Format motifs to pfm format
+rule format_motifs:
+	input: 
+		MOTIF_FILES.values()	#MOTIF_FILES is a dict
+	output:
+		os.path.join(OUTPUTDIR, "motifs", "all_motifs.txt") 
+	priority: 2
+	log: 
+		os.path.join(OUTPUTDIR, "logs", "format_motifs.log")
+	shell:
+		"TOBIAS FormatMotifs --input {input} --format pfm --task join --output {output} &> {log}"
+		
+#--------------------------------------------------------------------------------------------------------#
+#Correct reads for Tn5 sequence bias
+rule atacorrect:
+	input:
+		bam = os.path.join(OUTPUTDIR, "mapping", "{condition}.bam"),
+		peaks = os.path.join(OUTPUTDIR, "peak_calling", "all_merged.bed"),
+		genome = FASTA
+	output:
+		os.path.join(OUTPUTDIR, "bias_correction", "{condition}_uncorrected.bw"),
+		os.path.join(OUTPUTDIR, "bias_correction", "{condition}_bias.bw"),
+		os.path.join(OUTPUTDIR, "bias_correction", "{condition}_expected.bw"),
+		os.path.join(OUTPUTDIR, "bias_correction", "{condition}_corrected.bw"),
+	params: 
+		"--blacklist " + BLACKLIST if BLACKLIST != "" else "",
+		"--outdir " + os.path.join(OUTPUTDIR, "bias_correction"),
+		"--prefix " + "{condition}",
+		config["atacorrect"]
+	priority: 2
+	threads: 99 	#unless there are more than 99 cores, this rule will run on max threads
+	log: 
+		os.path.join(OUTPUTDIR, "logs", "{condition}_atacorrect.log")
+	message: 
+		"Running ATACorrect for condition {wildcards.condition} ({input.bam})"
+	shell:
+		"TOBIAS ATACorrect -b {input.bam} -g {input.genome} -p {input.peaks} --cores {threads} {params} &> {log}"
+
+
+#--------------------------------------------------------------------------------------------------------#
+#Calculate footprint scores per condition
+rule footprinting:
+	input: 
+		signal = os.path.join(OUTPUTDIR, "bias_correction", "{condition}_corrected.bw"),
+		regions = os.path.join(OUTPUTDIR, "peak_calling", "all_merged.bed")
+	output: 
+		footprints = os.path.join(OUTPUTDIR, "footprinting", "{condition}_footprints.bw"),
+	params:
+		config["footprinting"]
+	priority: 2
+	threads: 99
+	log:
+		os.path.join(OUTPUTDIR, "logs", "{condition}_footprinting.log")
+	message:
+		"Running footprinting for condition {wildcards.condition} ({input.signal})"
+	shell:
+		"TOBIAS FootprintScores --signal {input.signal} --regions {input.regions} --output {output.footprints} --cores {threads} {params} &> {log}"
+
+
+#--------------------------------------------------------------------------------------------------------#
+#Estimate bound sites from scored file
+rule bindetect:
+	input: 
+		motifs = os.path.join(OUTPUTDIR, "motifs", "all_motifs.txt"),
+		footprints = expand(os.path.join(OUTPUTDIR, "footprinting", "{condition}_footprints.bw"), condition=CONDITION_IDS),
+		genome = FASTA,
+		peaks = os.path.join(OUTPUTDIR, "peak_annotation", "all_merged_annotated.bed"),
+		peak_header = os.path.join(OUTPUTDIR, "peak_annotation", "all_merged_annotated_header.txt")
+	output:
+		bedfiles = expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "beds", "{TF}_{suffix}.bed"), TF=TF_IDS, suffix=["all"] + expand("{condition}_{state}", condition=CONDITION_IDS, state=["bound", "unbound"])),
+		overview = expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "{TF}_overview.txt"), TF=TF_IDS),
+		figures = os.path.join(OUTPUTDIR, "TFBS", "bindetect_figures.pdf"),
+		local = [os.path.join(OUTPUTDIR, "TFBS", fil) for fil in ["bindetect_results.txt", "bindetect_results.xlsx"]],
+	
+	threads: 99	
+	priority: 2
+	log:
+		os.path.join(OUTPUTDIR, "logs", "bindetect.log")
+	params:
+		"--outdir " + os.path.join(OUTPUTDIR, "TFBS"),
+		"--cond_names " + " ".join(CONDITION_IDS),
+		config["bindetect"]
+	message: 
+		"Running BINDetect"
+	shell:
+		"TOBIAS BINDetect --motifs {input.motifs} --signals {input.footprints} --genome {input.genome} --peaks {input.peaks} --peak_header {input.peak_header} --cores {threads} {params} &> {log}; "
+
+rule copy_to_overview:
+	input: 
+		[os.path.join(OUTPUTDIR, "TFBS", fil) for fil in ["bindetect_results.txt", "bindetect_results.xlsx"]],
+	output:
+		[os.path.join(OUTPUTDIR, "overview", fil) for fil in ["bindetect_results.txt", "bindetect_results.xlsx"]]
+	priority: 2
+	shell:
+		"cp " + os.path.join(OUTPUTDIR, "TFBS", "bindetect_*") + " " + os.path.join(OUTPUTDIR, "overview")
