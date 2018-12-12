@@ -182,7 +182,7 @@ def main():
 		sys.exit()
 
 	#if args are pointing to specific tool, and no other arguments are given, print help for this
-	if sys.argv[1] in all_tool_parsers and len(sys.argv) == 2:
+	if sys.argv[1].lower() in all_tool_parsers and len(sys.argv) == 2:
 		chosen_tool = sys.argv[1]
 		all_tool_parsers[chosen_tool.lower()].print_help()
 		sys.exit()

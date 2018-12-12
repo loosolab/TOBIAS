@@ -44,9 +44,9 @@ def add_footprint_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('-s', '--signal', metavar="<bigwig>", help="A .bw file of ATAC-seq cutsite signal")
 	required.add_argument('-o', '--output', metavar="<bigwig>", help="Full path to output bigwig")			
+	required.add_argument('-r', '--regions', metavar="<bed>", help="Genomic regions to run footprinting in")
 
 	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--regions', metavar="<bed>", help="Subset to regions (RECOMMENDED) (default: genome-wide)")
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend input regions with bp (default: 100)", default=100)
 	optargs.add_argument('--score', metavar="<score>", choices=["tobias", "FOS", "sum"], help="Type of scoring to perform on cutsites (tobias/FOS/sum) (default: tobias)", default="tobias")
 	
@@ -133,7 +133,7 @@ def run_footprinting(args):
 	
 	begin_time = datetime.now()
 	
-	check_required(args, ["signal", "output"])
+	check_required(args, ["signal", "output", "regions"])
 
 	#---------------------------------------------------------------------------------------#
 	# Create logger and write info to log
