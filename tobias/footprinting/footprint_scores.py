@@ -134,6 +134,8 @@ def run_footprinting(args):
 	begin_time = datetime.now()
 	
 	check_required(args, ["signal", "output", "regions"])
+	check_files([args.signal, args.regions], "r")
+	check_files([args.output], "w")
 
 	#---------------------------------------------------------------------------------------#
 	# Create logger and write info to log

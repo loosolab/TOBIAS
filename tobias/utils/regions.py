@@ -154,7 +154,6 @@ class OneRegion(list):
 			signal = np.zeros(self.end - self.start)
 			signal[:] = np.nan
 
-		#self.signal = signal
 		return(signal)	
 
 
@@ -256,6 +255,14 @@ class RegionList(list):
 	def score_sort(self):
 		""" Sorts list of region objects based on score in last column """
 		self.sort(key=lambda region: float(region[-1]), reverse=True)
+
+	def get_chroms(self):
+
+		chroms = {}
+		for region in self:
+			chroms[region.chrom] = ""
+			
+		return(list(chroms.keys()))
 
 
 	def split_chrom(self):

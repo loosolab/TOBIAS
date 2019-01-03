@@ -13,7 +13,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from scipy.spatial.distance import squareform
 
 #Plotting
-#import matplotlib
+import matplotlib
 from matplotlib import pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
@@ -24,6 +24,8 @@ from adjustText import adjust_text
 
 #Internal functions and classes
 from tobias.utils.utilities import *
+
+import warnings
 
 #---------------------------------------------------------------------------------------------------#
 def add_diffplot_arguments(parser):
@@ -36,12 +38,12 @@ def add_diffplot_arguments(parser):
 
 	args = parser.add_argument_group('Arguments')
 	args.add_argument('-m', '--matrix', metavar="", help="Distance matrix from TF clustering")
-	args.add_argument('-b', '--bindetect', metavar="", help="Differential binding scores from all_bindetect.txt file")
-	args.add_argument('-o', '--output', default="diff_bind.pdf")
+	args.add_argument('-b', '--bindetect', metavar="", help="Differential binding scores from bindetect_results.txt file")
+	args.add_argument('-o', '--output', metavar="", help="(default: diff_bind.pdf)", default="diff_bind.pdf")
 
-	args.add_argument('--cluster_threshold', metavar="", help="(default: 0.5)", type=float, default=0.5)
+	args.add_argument('--cluster_threshold', metavar="", help="Clustering threshold (default: 0.5)", type=float, default=0.5)
 	args.add_argument('--change_threshold', metavar="", help="Set change threshold (default: None)", type=float, default=None)
-	args.add_argument('--pvalue_threshold', metavar="", help="Set pvalue threshold (default: set at 5% percentile)", type=float, default=None)
+	args.add_argument('--pvalue_threshold', metavar="", help="Set pvalue threshold (default: set at 5%% percentile)", type=float, default=None)
 
 	return(parser)
 
@@ -72,8 +74,9 @@ def cluster_matrix(similarity_mat):
 	return(linkage_mat, labels, clusters)
 
 #---------------------------------------------------------------------------------------------------#
-def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_threshold=None, pvalue_threshold=None):
+def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, change_threshold=None, pvalue_threshold=None):
 	""" Conditions refer to the order of the fold_change divison, meaning condition1/condition2 """
+	warnings.filterwarnings("ignore")
 
 	comparison = conditions
 	IDS = np.array(IDS)
@@ -95,10 +98,18 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 	yvalues = -np.log10(pvalues)
 
 	if pvalue_threshold is None:
-		pvalue_threshold = np.percentile(pvalues[pvalues != minval], 5)
+		all_but_null = pvalues[pvalues != minval]
+		if len(all_but_null) > 0:
+			pvalue_threshold = np.percentile(all_but_null, 5)
+		else:
+			pvalue_threshold = 0
 
-	if fc_threshold is None:
-		fc_threshold = 0
+	if change_threshold is None:
+		all_but_null = np.abs(xvalues[xvalues != 0])
+		if len(all_but_null) > 0:
+			change_threshold = np.percentile(all_but_null, 95)
+		else:
+			change_threshold = 0
 
 	#>>>>>>>>>>> Clustering 
 	#Find clusters below threshold
@@ -134,25 +145,24 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 	#--------------------------------------- Figure -------------------------------- #
 	#Make figure
 	no_rows, no_cols = 2,2	
-	h_ratios = [0.8,int(no_IDS/20)]
+	h_ratios = [1,max(1,no_IDS/25)]
+	figsize = (8,10+7*(no_IDS/25))
 	
-	fig = plt.figure(figsize = (no_cols*4, no_IDS/float(4)))
+	fig = plt.figure(figsize = figsize)
 	gs = gridspec.GridSpec(no_rows, no_cols, height_ratios=h_ratios)
+	gs.update(hspace=0.0001, bottom=0.00001, top=0.999999)
 
 	ax1 = fig.add_subplot(gs[0,:])	#volcano
 	ax2 = fig.add_subplot(gs[1,0])	#long scatter overview
 	ax3 = fig.add_subplot(gs[1,1])  #dendrogram
 	
-
 	######### Volcano plot on top of differential values ########
+	
 	ax1.set_title("BINDetect volcano plot", fontsize=16, pad=20)
 
 	row, col = 0,0
 	labels = IDS
 	ax1.scatter(xvalues, yvalues, color="black", s=5)
-
-	#Set x limits so they fit to bottom diffplot
-	#lim = np.max(np.abs(ax2.get_xlim()))  #xlim from diffplot
 
 	#Add +/- 10% to make room for labels
 	ylim = ax1.get_ylim()
@@ -166,17 +176,17 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 
 	x0,x1 = ax1.get_xlim()
 	y0,y1 = ax1.get_ylim()
-	ax1.set_aspect((x1-x0)/(y1-y0))	#square volcano plot
+	ax1.set_aspect((x1-x0)/(y1-y0))		#square volcano plot
 
 	#Plot in pvalue threshold as dotted line
 	if pvalue_threshold is not 0:
 		threshold = -np.log10(pvalue_threshold)
-		ax1.axhline(y=threshold, color="grey", linestyle="--")
+		ax1.axhline(y=threshold, color="grey", linestyle="--", linewidth=0.5)
 		ax1.annotate(" {0:.2E}".format(pvalue_threshold), (lim, threshold), horizontalalignment='left',verticalalignment='center', color="grey")
 
-	if fc_threshold is not 0:
-		ax1.axvline(-abs(fc_threshold), color="grey", linestyle="--")
-		ax1.axvline(abs(fc_threshold), color="grey", linestyle="--")			#Plot thresholds 
+	if change_threshold is not 0:
+		ax1.axvline(-abs(change_threshold), color="grey", linestyle="--", linewidth=0.5)
+		ax1.axvline(abs(change_threshold), color="grey", linestyle="--", linewidth=0.5)			#Plot thresholds 
 
 	#Decorate plot
 	ax1.set_xlabel("Differential binding score")
@@ -191,6 +201,12 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 
 	ax3.set_ylabel("Transcription factor clustering based on TFBS overlap", rotation=270, labelpad=20)
 	ax3.yaxis.set_label_position("right")
+
+	#set aspect
+	x0,x1 = ax3.get_xlim()
+	y0,y1 = ax3.get_ylim()
+
+	ax3.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)		#square volcano plot
 
 	########## Differential binding scores per TF ##########
 	#row, col = 1,0
@@ -215,7 +231,7 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 		pvalue = diff_scores[TF]["pvalue"]
 
 		#Set size based on pvalue
-		if pvalue <= pvalue_threshold:
+		if pvalue <= pvalue_threshold or score < -change_threshold or score > change_threshold:
 			fill = "full"
 		else:
 			fill = "none"
@@ -228,25 +244,29 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 	lim = np.max(np.abs(ax2.get_xlim()))
 	ax2.set_xlim((-lim, lim))	#center on 0
 
-	
-	plt.tight_layout() 		############ tight layout before setting ids in volcano plot
+	#set aspect
+	x0,x1 = ax2.get_xlim()
+	y0,y1 = ax2.get_ylim()
+	ax2.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)		#square volcano plot
+
+	plt.tight_layout()    #tight layout before setting ids in volcano plot
 
 	# Color points and set labels in volcano
 	txts = []
 
 	#points with -fc -> blue
-	included = np.logical_and(xvalues <= -fc_threshold, pvalues <= pvalue_threshold)
+	included = np.logical_and(xvalues < 0, np.logical_or(xvalues <= -change_threshold, pvalues <= pvalue_threshold))
 	chosen_x, chosen_y, chosen_l = xvalues[included], yvalues[included], names[included]
-	ax1.scatter(chosen_x, chosen_y, color="blue", s=4)
+	ax1.scatter(chosen_x, chosen_y, color="blue", s=4.5)
 	for i, txt in enumerate(chosen_l):
-		txts.append(ax1.text(chosen_x[i], chosen_y[i], txt, fontsize=6))
+		txts.append(ax1.text(chosen_x[i], chosen_y[i], txt, fontsize=7))
 
 	#points with +fc -> red
-	included = np.logical_and(xvalues >= fc_threshold, pvalues <= pvalue_threshold)
+	included = np.logical_and(xvalues > 0, np.logical_or(xvalues >= change_threshold, pvalues <= pvalue_threshold))
 	chosen_x, chosen_y, chosen_l = xvalues[included], yvalues[included], names[included]
-	ax1.scatter(chosen_x, chosen_y, color="red", s=4)
+	ax1.scatter(chosen_x, chosen_y, color="red", s=4.5)
 	for i, txt in enumerate(chosen_l):
-		txts.append(ax1.text(chosen_x[i], chosen_y[i], txt, fontsize=6))
+		txts.append(ax1.text(chosen_x[i], chosen_y[i], txt, fontsize=7))
 
 	adjust_text(txts, ax=ax1, text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1)) #, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))
 	
@@ -254,7 +274,6 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="More bound in {0}".format(conditions[0])),
 						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="More bound in {0}".format(conditions[1]))]
 	ax1.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
-
 
 	return(fig)
 
@@ -264,7 +283,7 @@ def plot_bindetect(IDS, similarity_mat, changes, pvalues, conditions, fc_thresho
 #################################################################################################
 
 def run_diffplot(args):
-	
+
 	#Test input
 	check_required(args, ["matrix", "bindetect"]) 
 	check_files([args.matrix, args.bindetect], "r")
@@ -331,7 +350,7 @@ def run_diffplot(args):
 		conditions = comparison.split("_")
 		print(conditions)
 
-		fig = plot_bindetect(IDS, distance_mat, changes, pvalues, conditions, fc_threshold=args.change_threshold, pvalue_threshold=args.pvalue_threshold)
+		fig = plot_bindetect(IDS, distance_mat, changes, pvalues, conditions, change_threshold=args.change_threshold, pvalue_threshold=args.pvalue_threshold)
 		figure_pdf.savefig(fig,  bbox_inches='tight')
 
 	figure_pdf.close()

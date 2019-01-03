@@ -5,4 +5,3 @@ build/
 dist/
 *.egg
 *.egg-info
-test_data/tobias_output/*

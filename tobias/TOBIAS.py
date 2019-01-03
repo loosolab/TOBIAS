@@ -134,13 +134,15 @@ def main():
 	heatmap_parser.set_defaults(func=run_heatmap)
 	all_tool_parsers[name.lower()] = heatmap_parser
 	
+	
 	name, hlp = "PlotBINDetect", "Plotting function from BINDetect (to re-plot output)"
 	parser.description += "   {0}\t{1}\n".format(name, hlp)
 	diffplot_parser = subparsers.add_parser(name, usage=SUPPRESS)
 	diffplot_parser = add_diffplot_arguments(diffplot_parser)
 	diffplot_parser.set_defaults(func=run_diffplot)
 	all_tool_parsers[name.lower()] = diffplot_parser
-
+	
+	
 	name, hlp = "PlotChanges", "Plot changes in TF binding across multiple conditions (from BINDetect output)"
 	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
 	changeplot_parser = subparsers.add_parser(name, usage=SUPPRESS)
@@ -186,7 +188,7 @@ def main():
 		chosen_tool = sys.argv[1]
 		all_tool_parsers[chosen_tool.lower()].print_help()
 		sys.exit()
-
+	
 	args = parser.parse_args()
 	args.func(args)		#run specified function with arguments
 

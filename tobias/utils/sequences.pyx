@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#cython: language_level=3
 
 """
 Classes and functions for working with sequences, as well as counting and scoring with PWMs/DWMs
@@ -15,7 +16,6 @@ import cython
 from libc.math cimport log2
 
 import pysam
-from regions import *
 complement = {0:1, 1:0, 2:3, 3:2}
 
 
@@ -257,7 +257,6 @@ class DiNucleotideMatrix(SequenceMatrix):
 		self.bg_dwm_log = np.log2(self.bg_dwm)
 
 
-
 	@cython.boundscheck(False)
 	@cython.cdivision(True)		#no check for zero division
 	@cython.wraparound(False) 	#dont deal with negative indices
@@ -342,7 +341,32 @@ class DiNucleotideMatrix(SequenceMatrix):
 
 		return(scores)
 
+#--------------------------------------------------------------------------------------------------#
+def nuc_to_num(str sequence):
 
+	cdef int length = len(sequence)
+	cdef np.ndarray[np.int_t, ndim=1] num_sequence = np.zeros(length, dtype=int)
+	cdef int i, num
+	cdef str nuc
+
+	for i in range(length):
+		nuc = sequence[i]
+
+		#number format
+		if nuc == "A" or nuc == "a":
+			num = 0
+		elif nuc == "T" or nuc == "t":
+			num = 1
+		elif nuc == "C" or nuc == "c":
+			num = 2
+		elif nuc == "G" or nuc == "g":
+			num = 3
+		else:
+			num = 4
+
+		num_sequence[i] = num
+
+	return(num_sequence)
 
 #--------------------------------------------------------------------------------------------------#
 class GenomicSequence:
@@ -402,7 +426,6 @@ class GenomicSequence:
 		self.revcomp = revcomp_sequence
 
 		return(self)
-
 
 
 def get_gc_content(regions, fasta):

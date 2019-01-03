@@ -1,5 +1,5 @@
 """
-TFBScan.py produces the data to be used to join the footprint and motif information across genome
+TFBScan.py scans for positions of transcription factor binding sites across the genome
 
 @author: Anastasiia Petrova and Mette Bentsen
 @contact: anastasiia.petrova(at)mpi-bn.mpg.de and mette.bentsen(at)mpi-bn.mpg.de
@@ -165,15 +165,15 @@ def run_tfbscan(args):
 	#If subset, setup regions
 	if args.regions:
 		regions = RegionList().from_bed(args.regions)
+		
 
 	else:	#set up regions from fasta references
 		regions = fasta_regions
 
-		#Subset regions to maximum length and extend to overlap at junctions
-		regions = regions.apply_method(OneRegion.split_region, 1000000)
-		regions = regions.apply_method(OneRegion.extend_reg, 50)
-		regions = regions.apply_method(OneRegion.check_boundary, fasta_chrom_info, "cut")
-		#logger.info("Split regions: {0} ".format(len(regions)))
+	#Subset regions to maximum length and extend to overlap at junctions
+	regions = regions.apply_method(OneRegion.split_region, 1000000)
+	regions = regions.apply_method(OneRegion.extend_reg, 50)
+	regions = regions.apply_method(OneRegion.check_boundary, fasta_chrom_info, "cut")
 
 	logger.info("- Total of {0} regions (after splitting)".format(len(regions)))
 

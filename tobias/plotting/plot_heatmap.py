@@ -187,7 +187,7 @@ def run_heatmap(args):
 	#------------------------------ Signals from all sites ------------------------------#
 	#------------------------------------------------------------------------------------#
 
-	logger.info("\n#----- Reading signals from bigwigs ------#")
+	logger.info("#----- Reading signals from bigwigs ------#")
 	for col in range(len(args.TFBS)):
 
 		bigwig_f = heatmap_info[col][0]["bigwig_f"]		#bigwig is the same for all rows, therefore row == 0
@@ -271,7 +271,7 @@ def run_heatmap(args):
 	#------------------------------------ Set up plots ----------------------------------#
 	#------------------------------------------------------------------------------------#
 
-	logger.info("\n#----- Setting up plots ------#")
+	logger.info("#----- Setting up plots ------#")
 
 	total_columns = no_signals + no_columns
 	xvals = np.arange(-args.flank, args.flank)
@@ -333,7 +333,7 @@ def run_heatmap(args):
 	#--------------------------------- Fill in plots ------------------------------------#
 	#------------------------------------------------------------------------------------#
 
-	logger.info("\n#----- Plotting heatmaps ------#")
+	logger.info("#----- Plotting heatmaps ------#")
 
 	#Colormaps
 	for col, bigwig in enumerate(args.signals):
