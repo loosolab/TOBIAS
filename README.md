@@ -55,14 +55,56 @@ Output files:
 (...)
 ```
 
+Command-line examples
+-------------
+
+These examples use the test data provided in the [TOBIAS/test_data](https://github.molgen.mpg.de/loosolab/TOBIAS/tree/master/test_data) directory, so please make sure you are in the upper TOBIAS/ directory when running the commands.
+
+**ATACorrect: Bias correction of ATAC-seq reads in open chromatin**     
+`TOBIAS ATACorrect --bam test_data/Bcell_chr4.bam --genome test_data/genome_chr4.fa.gz --peaks test_data/merged_peaks.bed --blacklist test_data/blacklist_chr4.bed --outdir atacorrect_test --prefix Bcell --cores 8`
+
+**FootprintScores: Calculate footprint scores from corrected cutsites**    
+`TOBIAS FootprintScores --signal test_data/Bcell_corrected.bw --regions test_data/merged_peaks.bed --output Bcell_footprints.bw --cores 8`
+
+**BINDetect: Estimation of differentially bound motifs based on scores, sequence and motifs**   
+`TOBIAS BINDetect --motifs test_data/example_motifs.txt --signals test_data/Bcell_footprints.bw test_data/Tcell_footprints.bw --genome test_data/genome_chr4.fa.gz --peaks test_data/annotated_peaks.bed --peak_header test_data/annotated_peaks_header.txt --outdir bindetect_output --cond_names Bcell Tcell --cores 8`
+
+**PlotAggregate: Plot aggregated ATAC-seq signals in combinations of .bed/.bw to visualize footprints**  
+
+Visualize the difference in footprints between two conditions for all accessible sites:    
+`TOBIAS PlotAggregate --TFBS test_data/BATFJUN_all.bed  --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_footprint_comparison_all.pdf --share_y both --plot_boundaries`
+
+Visualize the difference in footprints between two conditions exclusively for bound sites:   
+`TOBIAS PlotAggregate --TFBS test_data/BATFJUN_Bcell_bound.bed test_data/BATFJUN_Tcell_bound.bed --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_footprint_comparison_subsets.pdf --share_y both --plot_boundaries`   
+
+Visualize the split of bound/unbound sites for one condition:   
+`TOBIAS PlotAggregate --TFBS test_data/IRF1_all.bed test_data/IRF1_bound.bed test_data/IRF1_unbound.bed --signals test_data/Bcell_uncorrected.bw test_data/Bcell_expected.bw test_data/Bcell_corrected.bw --output IRF1_footprint.pdf  --share_y rows --plot_boundaries`
+
+**PlotHeatmap: Plot heatmaps and aggregates of ATAC-seq signals in combinations of .bed/.bw to visualize footprints**   
+``TOBIAS PlotHeatmap --TFBS test_data/BATFJUN_Bcell_bound.bed test_data/BATFJUN_Bcell_unbound.bed --TFBS test_data/BATFJUN_Tcell_bound.bed test_data/BATFJUN_Tcell_unbound.bed --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_heatmap.pdf --signal_labels Bcell Tcell --share_colorbar``
+
+**FormatMotifs: A utility to convert and join/split across different motif-file formats**    
+Join individual motif files to one:    
+`TOBIAS FormatMotifs --input test_data/individual_motifs/* --format pfm --task join --output example_motifs.txt`  
+
+Split a motif file containing several motifs:    
+`TOBIAS FormatMotifs --input test_data/example_motifs.txt --format pfm --task split --output split_motifs`
+
+
 Snakemake pipeline
 ------------
 
-You can run each TOBIAS tool independently or as part of a pipeline using the included snakemake workflow. Simply set the paths to required data within snakemake_pipeline/TOBIAS.config and run using:
+You can run each TOBIAS tool independently or as part of a pipeline using the included snakemake workflow. To use the snakemake pipeline, make sure the included conda environments are installed:
+```
+$ conda env create -f snakemake_pipeline/environments/tobias.yaml
+$ conda env create -f snakemake_pipeline/environments/macs.yaml
+```
+
+You can use the example config (snakemake_pipeline/TOBIAS_example.config) or adjust to your own data by replacing the values for each key. Run using:
 ```bash
 $ cd snakemake_pipeline
 $ conda activate TOBIAS_ENV
-$ snakemake --snakefile TOBIAS.snake --configfile TOBIAS.config --cores [number of cores] --keep-going
+$ snakemake --snakefile TOBIAS.snake --configfile TOBIAS_example.config --cores [number of cores] --keep-going
 ```
 For further info on setup, configfile and output, please consult the [wiki](https://github.molgen.mpg.de/loosolab/TOBIAS/wiki/snakemake-pipeline).
 
