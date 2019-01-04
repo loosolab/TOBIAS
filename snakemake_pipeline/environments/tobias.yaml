@@ -22,5 +22,6 @@ dependencies:
   - openjdk
   - xlsxwriter
   - cloudpickle=0.5.6
+  - seaborn
   - pip: 
     - adjustText
