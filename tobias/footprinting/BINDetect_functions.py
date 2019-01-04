@@ -274,7 +274,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		#Subset bed table
 		chosen_bool = 1 if state == "bound" else 0
 		bed_table_subset = bed_table.loc[bed_table[condition + "_bound"] == chosen_bool]
-		bed_table_subset.sort_values([condition + "_score"], ascending=False)
+		bed_table_subset = bed_table_subset.sort_values([condition + "_score"], ascending=False)
 
 		#Write out subset with subset of columns
 		chosen_columns = header[:-no_cond-1] + [condition + "_score"]

@@ -113,7 +113,7 @@ for file in files:
 TF_IDS = list(MOTIF_FILES.keys())
 
 
-#---------------------------- OUTPUT PER CONDITION -----------------------------#
+#----------------------------------- OUTPUT  -----------------------------------#
 
 id2bam = {condition:{} for condition in CONDITION_IDS}
 
@@ -124,34 +124,18 @@ for condition in CONDITION_IDS:
 	id2bam[condition] = {sampleids[i]:config_bams[i] for i in range(len(sampleids))}	# Link sample ids to bams
 
 
-PLOTNAMES = expand("{condition}_{plotname}", condition=CONDITION_IDS, plotname=["heatmap", "aggregate"])
+PLOTNAMES = expand("{condition}_{plotname}", condition=CONDITION_IDS, plotname=["aggregate"])
 if len(CONDITION_IDS) > 1:
-	PLOTNAMES.extend(["heatmap_comparison", "aggregate_comparison"]) 
+	PLOTNAMES.extend(["heatmap_comparison", "aggregate_comparison_all", "aggregate_comparison_bound"]) 
 
 output_files.append(expand(os.path.join(OUTPUTDIR, "footprinting", "{condition}_footprints.bw"), condition=CONDITION_IDS))
 
-#output_files.append(os.path.join(OUTPUTDIR, "overview", "TFBS_distance.txt"))
 output_files.append(os.path.join(OUTPUTDIR, "TFBS", "bindetect_results.txt"))
 output_files.append(os.path.join(OUTPUTDIR, "overview", "bindetect_results.txt"))
 
 #Visualization
 output_files.extend(expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_{plotname}.pdf"), TF=TF_IDS, plotname=PLOTNAMES))
 output_files.extend(expand(os.path.join(OUTPUTDIR, "overview", "all_{plotname}.pdf"), plotname=PLOTNAMES))
-
-
-#-------------------------- OUTPUT ACROSS CONDITIONS ---------------------------#
-
-"""
-COMPARE_COND = 0
-if len(CONDITION_IDS) > 1:
-	COMPARE_COND = 1 	# flag
-	output_files.extend(expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_heatmap_comparison.pdf"), TF=TF_IDS))
-	output_files.extend(expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison.pdf"), TF=TF_IDS))
-	#output_files.extend([os.path.join(OUTPUTDIR, "overview", "diff_bind_plot.pdf")])
-
-"""
-#-------------------------------- OTHER OUTPUT ---------------------------------#
-
 
 
 
@@ -164,12 +148,11 @@ include: "snakefiles/footprinting.snake"
 include: "snakefiles/visualization.snake"
 
 
-
 #-------------------------------------------------------------------------------#
 #------------------------ DEAL WITH SPECIAL ENVIRONMENTS -----------------------#
 #-------------------------------------------------------------------------------#
 
-"""
+
 sys_env = subprocess.check_output(['conda', 'env', 'list'], universal_newlines=True)
 env_list = [line.split()[0] for line in sys_env.split("\n") if len(line.split()) > 0]
 
@@ -183,7 +166,7 @@ if "MACS_ENV" not in env_list:
 	print("Creating macs environment for the first time")
 	subprocess.call(["conda", "env", "create", "--file", "environments/macs.yaml"])
 
-"""
+
 #-------------------------------------------------------------------------------#
 #---------------------------------- RUN :-) ------------------------------------#
 #-------------------------------------------------------------------------------#

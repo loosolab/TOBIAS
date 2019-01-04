@@ -1,7 +1,7 @@
 #----------------------------------------------------------------#
 #---------------------------- Heatmaps --------------------------#
 #----------------------------------------------------------------#
-
+"""
 #Heatmaps split in bound/unbound within conditions
 rule plot_heatmaps_within:
 	input:
@@ -16,7 +16,7 @@ rule plot_heatmaps_within:
 		"--title '{TF} heatmap'",
 	shell:
 		"TOBIAS PlotHeatmap --TFBS {input.beds} --signals {input.tracks} --output {output.heatmap} {params} >/dev/null"
-
+"""
 
 #Heatmaps across conditions
 rule plot_heatmaps_across:
@@ -44,8 +44,7 @@ rule plot_heatmaps_across:
 rule plot_aggregate_within:
 	input: 
 		TFBS = [os.path.join(OUTPUTDIR, "TFBS", "{TF}", "beds", "{TF}_all.bed")] + [os.path.join(OUTPUTDIR, "TFBS", "{TF}", "beds", "{TF}_{condition}_" + state + ".bed") for state in ["bound", "unbound"]],
-		signals = [os.path.join(OUTPUTDIR, "bias_correction", "{condition}_" + state + ".bw") for state in ["uncorrected", "bias", "expected", "corrected"]],
-		#whitelist = os.path.join(OUTPUTDIR, "peaks", condition + "_union.bed")
+		signals = [os.path.join(OUTPUTDIR, "bias_correction", "{condition}_" + state + ".bw") for state in ["uncorrected", "expected", "corrected"]],
 	output:
 		os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_{condition}_aggregate.pdf")
 	message: "Plotting split between bound/unbound around TFBS for TF \"{wildcards.TF}\" in condition \"{wildcards.condition}\""
@@ -57,16 +56,15 @@ rule plot_aggregate_within:
 		"TOBIAS PlotAggregate --TFBS {input.TFBS} --signals {input.signals} --output {output} {params} >/dev/null "
 
 
-#Aggregates across conditions
+#Aggregates across conditions for all and for bound subsets
 rule plot_aggregate_across:
 	input: 
 		TFBS_all = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "beds", "{TF}_all.bed"),
 		TFBS_bound = expand(os.path.join(OUTPUTDIR, "TFBS", "{{TF}}", "beds", "{{TF}}_{condition}_bound.bed"), condition=CONDITION_IDS),
 		signals = expand(os.path.join(OUTPUTDIR, "bias_correction", "{condition}_corrected.bw"), condition=CONDITION_IDS),
-		#regions = os.path.join(OUTPUTDIR, "peaks", condition + "_union.bed") #[os.path.join(OUTPUTDIR, "peaks", condition + "_union.bed") for condition in CONDITION_IDS]
 	output: 
-		all_compare = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison.pdf"),
-		#bound_compare = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison_bound.pdf")
+		all_compare = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison_all.pdf"),
+		bound_compare = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison_bound.pdf")
 	priority: 2
 	params: 
 		"--title {0}".format("{TF}"),
@@ -74,8 +72,8 @@ rule plot_aggregate_across:
 		"--share_y both",
 	message: "Plotting comparison of cutsite signals for \"{wildcards.TF}\" between conditions"
 	shell:
-		"TOBIAS PlotAggregate --TFBS {input.TFBS_all} {input.TFBS_bound} --signals {input.signals} --output {output.all_compare} {params} >/dev/null"
-		#"TOBIAS PlotAggregate --TFBS {input.TFBS_bound} --signals {input.signals} --output {output.bound_compare} {params};"
+		"TOBIAS PlotAggregate --TFBS {input.TFBS_all} --signals {input.signals} --output {output.all_compare} {params} >/dev/null; "
+		"TOBIAS PlotAggregate --TFBS {input.TFBS_bound} --signals {input.signals} --output {output.bound_compare} {params}  >/dev/null;"
 
 
 #----------------------------------------------------------------#
