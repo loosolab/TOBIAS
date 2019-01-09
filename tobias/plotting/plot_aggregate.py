@@ -67,10 +67,14 @@ def add_aggregate_arguments(parser):
 
 
 def run_aggregate(args):
+	""" Function to make aggregate plot given input from args """
 
 	begin_time = datetime.now()
 
+	#Check input parameters
 	check_required(args, ["TFBS", "signals"])
+	check_files([args.TFBS, args.signals, args.regions, args.whitelist, args.blacklist], action="r")
+	check_files([args.output], action="w")
 	
 	#### Test input ####
 	if args.region_names != None and (len(args.regions) != len(args.region_names)):
@@ -89,7 +93,7 @@ def run_aggregate(args):
 	args.TFBS_names = [os.path.splitext(os.path.basename(f))[0] for f in args.TFBS]
 	args.region_names = [os.path.splitext(os.path.basename(f))[0] for f in args.regions] if args.region_names == None else args.region_names 
 	args.signal_names = [os.path.splitext(os.path.basename(f))[0] for f in args.signals] if args.signal_names == None else args.signal_names 
-	#args.output = os.path.abspath("signal_aggregate.pdf") if args.output == None else os.path.abspath(args.output)
+	args.output = os.path.abspath(args.output)
 
 
 	#########################################################################################
@@ -111,11 +115,13 @@ def run_aggregate(args):
 	############################ Get input regions/signals ready ############################
 	#########################################################################################
 
+	logger.info("Reading information from input files")
+
 	#Make combinations of TFBS / regions
 	column_names = []
 
 	if len(args.regions) > 0:
-		logger.info("Overlapping regions")
+		logger.info("Overlapping sites to --regions")
 		regions_dict = {}
 
 		combis = itertools.product(range(len(args.TFBS)),range(len(args.regions)))
@@ -142,7 +148,6 @@ def run_aggregate(args):
 	else:
 		column_names = args.TFBS_names
 		regions_dict = {args.TFBS_names[i]: RegionList().from_bed(args.TFBS[i]) for i in range(len(args.TFBS))}
-
 
 
 	#-------- Do overlap of regions if whitelist / blacklist -------#
@@ -179,7 +184,7 @@ def run_aggregate(args):
 
 	# Print number of sites
 	for regions_id in regions_dict:
-		logger.info("{0}: {1}".format(regions_id, len(regions_dict[regions_id])))
+		logger.info("{0}: {1} sites".format(regions_id, len(regions_dict[regions_id])))
 
 
 
@@ -322,6 +327,8 @@ def run_aggregate(args):
 
 	#------------- Finishing up plots ---------------#
 
+	logger.info("Adjusting final details")
+
 	#remove lower-right corner if not applicable
 	if no_rows != no_cols:
 		axarr[-1,-1] = None
@@ -363,6 +370,8 @@ def run_aggregate(args):
 	
 	plt.savefig(args.output, bbox_inches='tight')
 	plt.close()
+
+	logger.info("Finished PlotAggregate! Output file is: {0}".format(os.path.abspath(args.output)))
 
 
 #--------------------------------------------------------------------------------------------------------#

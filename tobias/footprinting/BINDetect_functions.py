@@ -17,6 +17,7 @@ import itertools
 import xlsxwriter
 import random
 
+#Plotting
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -39,18 +40,19 @@ from tobias.plotting.plot_bindetect import *
 
 def get_gc_content(regions, fasta):
 	""" Get GC content from regions in fasta """
+	nuc_count = {"T":0, "t":0, "A":0, "a":0, "G":1, "g":1, "C":1, "c":1}
+
 	gc = 0
 	total = 0
 	fasta_obj = pysam.FastaFile(fasta)
 	for region in regions:
 		seq = fasta_obj.fetch(region.chrom, region.start, region.end)
-		gc += sum([1 for nuc in seq if (nuc == "G" or nuc == "g" or nuc == "C" or nuc == "c")])
+		gc += sum([nuc_count.get(nuc, 0.5) for nuc in seq])
 		total += region.end - region.start
 	fasta_obj.close()
 	gc_content = gc / float(total)
 
 	return(gc_content)
-
 
 def find_nearest_idx(array, value):
     idx = np.abs(array - value).argmin()
@@ -78,22 +80,18 @@ def main_logger_process(queue, logger):
 
 	return(1)
 
-
+"""
 def norm_fit(x, loc, scale, size):
-	""" size scales the height of the pdf-curve """
+	size scales the height of the pdf-curve 
 	return(scipy.stats.norm.pdf(x, loc, scale) * size)
 	
-def lognorm_fit(x, s, loc, scale, size):
-	""" size scales the height of the pdf-curve """
 
-	#Calculate norm of distribution
-	#mode = scipy.optimize.fmin(lambda x: -scipy.stats.lognorm.pdf(x, s, loc, scale), 0, disp=False)[0]
-	#if mode <= 0:
-	#	y = 100000.0
-	#else:
+def lognorm_fit(x, s, loc, scale, size):
+	size scales the height of the pdf-curve 
+
 	y = scipy.stats.lognorm.pdf(x, s, loc=loc, scale=scale) * size
 	return(y) 
-
+"""
 
 #---------------------------------------------------------------------------------------------------------#
 #------------------------------------------- Main functions ----------------------------------------------#
@@ -112,8 +110,8 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	fasta_obj = pysam.FastaFile(args.genome)
 	chrom_boundaries = dict(zip(fasta_obj.references, fasta_obj.lengths))
 
-	gc_window = 200
-	rand_window = 200
+	gc_window = 500
+	rand_window = 500
 	extend = int(np.ceil(gc_window / 2.0))
 
 	background_signal = {"gc":[], "signal":{condition:[] for condition in args.cond_names}}
@@ -154,9 +152,11 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		seq = fasta_obj.fetch(region.chrom, extended_region.start, extended_region.end)
 
 		#Calculate GC content for regions
-		num_sequence = nuc_to_num(seq)  # Convert to 0/1 gc
-		boolean = 1 * (num_sequence  > 1)
-		boolean = boolean.astype(np.float64)	#due to input of fast_rolling_math
+		num_sequence = nuc_to_num(seq) 
+		Ns = num_sequence == 4
+		boolean = 1 * (num_sequence > 1)		# Convert to 0/1 gc
+		boolean[Ns] = 0.5						# replace Ns 0.5 - with neither GC nor AT
+		boolean = boolean.astype(np.float64)	# due to input of fast_rolling_math
 		gc = fast_rolling_math(boolean, gc_window, "mean")
 		gc = gc[extend:-extend]
 		background_signal["gc"].extend([gc[pos] for pos in rand_positions])
@@ -280,7 +280,6 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		chosen_columns = header[:-no_cond-1] + [condition + "_score"]
 		bed_table_subset.to_csv(outfile, sep="\t", index=False, header=False, columns=chosen_columns)
 
-
 	#### Calculate statistical test in comparison to background ####
 	fig_out = os.path.abspath(os.path.join(args.outdir, TF_name, "plots", TF_name + "_log2fcs.pdf"))
 	log2fc_pdf = PdfPages(fig_out, keep_empty=True)
@@ -295,30 +294,36 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		bed_table[base + "_log2fc"] = bed_table[base + "_log2fc"].round(5)
 		
 		# Compare log2fcs to background log2fcs
-		excluded = np.logical_and(np.isclose(bed_table[cond1 + "_score"].values, 0), np.isclose(bed_table[cond2 + "_score"].values, 0))
+		excluded = np.logical_and(np.isclose(bed_table[cond1 + "_score"].values, 0), np.isclose(bed_table[cond2 + "_score"].values, 0))		#exclude 0's from both conditions
 		subset = bed_table[np.logical_not(excluded)].copy() 		#included subset 
 		subset.loc[:,"peak_id"] = ["_".join([chrom, str(start), str(end)]) for (chrom, start, end) in zip(subset["peak_chr"].values, subset["peak_start"].values, subset["peak_end"].values)]	
 		observed_log2fcs = subset.groupby('peak_id')[base + '_log2fc'].mean().reset_index()[base + "_log2fc"].values		#if more than one TFBS per peak -> take mean value
+		observed_gcs = subset.groupby('peak_id')["GC"].mean().reset_index()["GC"].values									#if more than one TFBS per peak -> take mean value
 
 		#Resample from background
-		sampling = log2fc_params[(cond1, cond2)].resample(int(info_table.at[TF_name, "total_tfbs"]*2))
-		sampled_log2fcs, sampled_gcs = sampling[0,:], sampling[1,:]
+		log2fc_params[(cond1, cond2)].set_params(random_state=len(observed_log2fcs))
+		sampling, labels = log2fc_params[(cond1, cond2)].sample(int(info_table.at[TF_name, "total_tfbs"]*2))
+		sampled_log2fcs, sampled_gcs = sampling[:,0], sampling[:,1]
 
 		indices = []
-		for val in subset["GC"]:
+		for val in observed_gcs:
 			idx = find_nearest_idx(sampled_gcs, val)
 			indices.append(idx)
 			sampled_gcs[idx] = np.inf
 
 		bg_log2fcs = sampled_log2fcs[indices]
 
-		obs_mean, obs_std = np.mean(observed_log2fcs), np.std(observed_log2fcs)
-		bg_mean, bg_std = np.mean(bg_log2fcs), np.std(bg_log2fcs)
+		#Estimate mean/std
+		bg_params = scipy.stats.norm.fit(bg_log2fcs)
+		obs_params = scipy.stats.norm.fit(observed_log2fcs)
+
+		obs_mean, obs_std = obs_params
+		bg_mean, bg_std = bg_params
 		obs_no = np.min([len(observed_log2fcs), 50000])		#Set cap on obs_no to prevent super small p-values
 
 		#If there was any change found at all (0 can happen if two bigwigs are the same)
 		if obs_mean != bg_mean: 
-			info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / bg_std  	#((bg_std + obs_std)*0.5)		#effect size
+			info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / bg_std  #effect size
 			info_table.at[TF_name, base + "_change"] = np.round(info_table.at[TF_name, base + "_change"], 5)
 		
 			#pval = scipy.stats.mannwhitneyu(observed_log2fcs, bg_log2fcs, alternative="two-sided")[1]

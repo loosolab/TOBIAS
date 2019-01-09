@@ -89,12 +89,16 @@ def run_heatmap(args):
 	parser = add_heatmap_arguments(argparse.ArgumentParser())
 	logger.comment(arguments_overview(parser, args))
 
+
 	########################################################
 
 	#Check valid input parameters (number of input TFBS vs. bigwig etc.)
 	no_signals = len(args.signals)
 	no_columns = len(args.show_columns)
 	no_TFBS_col = len(args.TFBS)
+
+	if no_TFBS_col > 1 and len(args.show_columns) > 0:
+		sys.exit("Error: option --show_columns is not available for multiple --TFBS inputs.")
 
 	if no_TFBS_col > 1 and no_signals != no_TFBS_col:
 		sys.exit("Error: Number of --TFBS does not match number of signals")
@@ -110,6 +114,7 @@ def run_heatmap(args):
 	else:
 		for i, signal in enumerate(args.signals):
 			logger.info("Using {0} with signal from {1}".format(args.TFBS[i], signal))
+
 
 	###logger overview of bedfiles per column?
 	
@@ -133,7 +138,8 @@ def run_heatmap(args):
 	seen_bed = []
 
 	#Read regions per heatmap in grid
-	logger.info("#------ Reading bedfiles ------#")
+	logger.comment("")
+	logger.info("Reading bedfiles")
 	for col in range(len(heatmap_info)):
 		for row in range(len(heatmap_info[col])):
 		
@@ -179,7 +185,7 @@ def run_heatmap(args):
 
 			#Logger info about bedfile
 			if heatmap_info[col][row]["bed_f"] not in seen_bed:
-				logger.info("Read {1} sites from {0} of width {2}".format(heatmap_info[col][row]["bed_f"], len(heatmap_info[col][row]["regions"]), heatmap_info[col][row]["width"]))
+				logger.info("- Read {1} sites from {0} of width {2}".format(heatmap_info[col][row]["bed_f"], len(heatmap_info[col][row]["regions"]), heatmap_info[col][row]["width"]))
 			seen_bed.append(heatmap_info[col][row]["bed_f"])
 
 
@@ -187,7 +193,8 @@ def run_heatmap(args):
 	#------------------------------ Signals from all sites ------------------------------#
 	#------------------------------------------------------------------------------------#
 
-	logger.info("#----- Reading signals from bigwigs ------#")
+	logger.comment("")
+	logger.info("Reading signals from bigwigs")
 	for col in range(len(args.TFBS)):
 
 		bigwig_f = heatmap_info[col][0]["bigwig_f"]		#bigwig is the same for all rows, therefore row == 0
@@ -195,7 +202,7 @@ def run_heatmap(args):
 		
 		for row in heatmap_info[col]:
 		
-			logger.info("Reading {0} from {1}".format(heatmap_info[col][row]["bed_f"], bigwig_f))
+			logger.info("- Reading {0} from {1}".format(heatmap_info[col][row]["bed_f"], bigwig_f))
 
 			if len(heatmap_info[col][row]["regions"]) > 0:
 				heatmap_info[col][row]["signal_mat"] = np.array([region.get_signal(pybw) for region in heatmap_info[col][row]["regions"]]) 
@@ -206,7 +213,7 @@ def run_heatmap(args):
 		
 		pybw.close()
 
-
+	logger.comment("")
 
 	#------------------------------------------------------------------------------------#
 	#---------------------------------- Colorbar min/max --------------------------------#
@@ -267,11 +274,12 @@ def run_heatmap(args):
 	##################################### PLOTTING #######################################
 	######################################################################################
 
+
 	#------------------------------------------------------------------------------------#
 	#------------------------------------ Set up plots ----------------------------------#
 	#------------------------------------------------------------------------------------#
 
-	logger.info("#----- Setting up plots ------#")
+	logger.info("Setting up plotting grid")
 
 	total_columns = no_signals + no_columns
 	xvals = np.arange(-args.flank, args.flank)
@@ -333,7 +341,7 @@ def run_heatmap(args):
 	#--------------------------------- Fill in plots ------------------------------------#
 	#------------------------------------------------------------------------------------#
 
-	logger.info("#----- Plotting heatmaps ------#")
+	logger.info("Filling in grid")
 
 	#Colormaps
 	for col, bigwig in enumerate(args.signals):
@@ -375,14 +383,24 @@ def run_heatmap(args):
 	#------------------------------------------------------------------------------------#
 
 	if args.plot_boundaries:
+		for col in heatmap_info:
 
-		for ax in axarr:
-
+			motif_len = heatmap_info[col][0]["width"] 
 			mstart = int(-np.floor(motif_len/2.0))
 			mend = int(np.ceil(motif_len/2.0))
 
-			ax.axvline(mstart, color="black", linestyle="dashed", linewidth=1)
-			ax.axvline(mend, color="black", linestyle="dashed", linewidth=1)
+			axdict[col]["aggregate"].axvline(mstart, color="black", linestyle="dashed", linewidth=1)
+			axdict[col]["aggregate"].axvline(mend, color="black", linestyle="dashed", linewidth=1)
+
+			for row in heatmap_info[col]:
+
+				motif_len = heatmap_info[col][row]["width"] 
+				mstart = int(-np.floor(motif_len/2.0))
+				mend = int(np.ceil(motif_len/2.0))
+
+				axdict[col][row].axvline(mstart+args.flank, color="black", linestyle="dashed", linewidth=1)
+				axdict[col][row].axvline(mend+args.flank, color="black", linestyle="dashed", linewidth=1)
+
 
 	#Add legend to aggregate plots
 	for col in range(len(args.signals)):
@@ -390,22 +408,10 @@ def run_heatmap(args):
 	
 	
 	if args.share_colorbar == True:
-		ymin = min([axdict[col]["aggregate"].get_ylim()[0] for col in heatmap_info])
-		ymax = max([axdict[col]["aggregate"].get_ylim()[1] for col in heatmap_info])
-		for col in heatmap_info:
+		ymin = min([axdict[col]["aggregate"].get_ylim()[0] for col in range(no_signals)])
+		ymax = max([axdict[col]["aggregate"].get_ylim()[1] for col in range(no_signals)])
+		for col in range(no_signals):
 			axdict[col]["aggregate"].set_ylim([ymin, ymax])
-
-	"""
-	#Plot TFBS boundaries
-	if TFBS["bound"]["no_sites"] > 0:
-		motif_len = TFBS["bound"]["regions"][0].end - TFBS["bound"]["regions"][0].start
-	else:
-		motif_len = TFBS["unbound"]["regions"][0].end - TFBS["unbound"]["regions"][0].start
-
-	mstart = int(-np.floor(motif_len/2.0))
-	mend = int(np.ceil(motif_len/2.0))
-
-	"""
 
 
 	#------------------------------------------------------------------------------------#
@@ -423,11 +429,11 @@ def run_heatmap(args):
 	plt.subplots_adjust(top=0.95)
 	plt.suptitle(args.title, fontsize=25)
 
-	logger.info("Writing output to {0}".format(args.output))
+	logger.info("Writing output file")
 	plt.savefig(args.output, bbox_inches='tight')
 	plt.close()
 
-	logger.info("\n#----- Finished ------#")
+	logger.info("Finished PlotHeatmap! Output file is: {0}".format(os.path.abspath(args.output)))
 
 
 #--------------------------------------------------------------------------------------------------------#

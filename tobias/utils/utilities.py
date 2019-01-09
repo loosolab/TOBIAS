@@ -260,7 +260,7 @@ def check_files(lst_of_files, action="r"):
 						with open(fil, "w") as f:
 							pass
 					except:
-						sys.exit("ERROR: Could not open file \"{0}\" for writing".format(fil))
+						sys.exit("ERROR: Could not open file \"{0}\" for writing. Please check that you do not have the file open and that you have write permission.".format(fil))
 				
 def make_directory(directory):
 	if not os.path.isfile(directory) and not os.path.exists(directory):
