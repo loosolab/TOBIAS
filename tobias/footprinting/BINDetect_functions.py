@@ -28,6 +28,7 @@ import MOODS.scan
 import MOODS.tools
 import MOODS.parsers
 
+#Internal functions and classes
 from tobias.utils.regions import *
 from tobias.utils.sequences import *
 from tobias.utils.utilities import *
@@ -58,8 +59,10 @@ def find_nearest_idx(array, value):
     idx = np.abs(array - value).argmin()
     return(idx)
 
+"""
 def is_nan(x):
     return (x is np.nan or x != x)
+"""
 
 ### Logger runs in main process
 def main_logger_process(queue, logger):

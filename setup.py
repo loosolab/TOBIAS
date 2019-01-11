@@ -10,7 +10,7 @@ ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.pyx"], include_d
                Extension("tobias.utils.signals", ["tobias/utils/signals.pyx"], include_dirs=[np.get_include()])]
 
 setup(name='tobias',
-      version='1.0.0',
+      version='0.1',
       description='Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal',
       long_description=readme(),
       url='https://github.molgen.mpg.de/loosolab/TOBIAS',
@@ -32,7 +32,6 @@ setup(name='tobias',
         'scikit-learn',
         'pandas',
         'pypdf2',
-        'seaborn',
         'xlsxwriter',
         'adjustText',
       ],

@@ -182,29 +182,29 @@ class RegionList(list):
 	def from_bed(self, bedfile_f):
 		""" Initialize Object from bedfile """
 
-		with open(bedfile_f) as f:
-			line_no = 0
-			for line in f:
-				line_no += 1
+		#Read all lines
+		bedlines = open(bedfile_f).readlines()
+		self = RegionList([None]*len(bedlines))
+		for i, line in enumerate(bedlines):
+		
+			if line.startswith("#"): #comment lines are excluded
+				continue
 
-				if line.startswith("#"): #comment lines are excluded
-					continue
+			#Test line format
+			if re.match("[^\s]+\t\d+\t\d+.", line) == None:
+				print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
+				sys.exit()
 
-				#Test line format
-				if re.match("[^\s]+\t\d+\t\d+.", line) == None:
-					print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(line_no, bedfile_f, line))
-					sys.exit()
+			columns = line.rstrip().split("\t")
+			columns[1] = int(columns[1]) #start
+			columns[2] = int(columns[2]) #end
+			
+			if columns[1] >= columns[2]:
+				print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
+				sys.exit()
 
-				columns = line.rstrip().split("\t")
-				columns[1] = int(columns[1]) #start
-				columns[2] = int(columns[2]) #end
-				
-				if columns[1] >= columns[2]:
-					print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(line_no, bedfile_f, line))
-					sys.exit()
-
-				region = OneRegion(columns)
-				self.append(region)
+			region = OneRegion(columns)
+			self[i] = region
 
 		return(self)
 

@@ -111,21 +111,25 @@ def main_logger_process(queue, logger):
 #----------------------------------- Multiprocessing ---------------------------------------#
 #-------------------------------------------------------------------------------------------#
 
-def file_writer(q, keys, files, args):
-	""" File-writer per key """
+def file_writer(q, key_file_dict, args):
+	""" File-writer per key -> to value file """
 
 	#time_spent_writing = 0
-	handles = {}
-
-	#print("Opened bed writer for TFs {0}".format(TF_names))
-	for i, key in enumerate(keys):
-		try: 
-			handles[key] = open(files[i], "w")
+	#Open handles for all files (but only once per file!)
+	file2handle = {}
+	for fil in set(key_file_dict.values()):
+		try:
+			file2handle[fil] = open(fil, "w")
 		except Exception:
-			print("Tried opening file {0} in file_writer but something went wrong?".format(files[i]))
+			print("Tried opening file {0} in file_writer but something went wrong?".format(fil))
 			traceback.print_exc(file=sys.stderr)
 
-	#print("getting stuff from queue")
+	#Assign handles to keys
+	handles = {}
+	for key in key_file_dict:
+		handles[key] = file2handle[key_file_dict[key]]
+
+	#Fetching string content from queue
 	while True:
 		try:
 			(key, content) = q.get()
@@ -146,9 +150,8 @@ def file_writer(q, keys, files, args):
 			break
 
 	#Got all regions in queue, close files
-	#print("Closing files")
-	for key in keys:
-		handles[key].close()
+	for fil, handle in file2handle.items():
+		handle.close()
 		
 	return(1)	
 

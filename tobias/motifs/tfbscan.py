@@ -15,19 +15,10 @@ import multiprocessing as mp
 import itertools
 
 import pysam
-
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.sequences import * 
 from tobias.utils.motifs import *
-
-
-def restricted_float(f, f_min, f_max):
-    f = float(f)
-    if f < f_min or f > f_max:
-        raise argparse.ArgumentTypeError("{0} not in range [0.0, 1.0]".format(f))
-    return f
-
 
 #----------------------------------------------------------------------------------------------------------#
 def add_tfbscan_arguments(parser):
@@ -35,7 +26,8 @@ def add_tfbscan_arguments(parser):
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
 	description = "Find positions of Transcription Factor Binding Sites (TFBS) in FASTA sequences by scanning with motifs.\n\n" 
 	description += "Usage:\nTOBIAS TFBScan --motifs <motifs.txt> --fasta <genome.fa> \n\n"
-	description += "Output files:\n- <outdir>/<TF1>.bed\n- <outdir>/<TF2>.bed\n- (...)\n\n"
+	description += "By setting --outdir, the output files are:\n- <outdir>/<TF1>.bed\n- <outdir>/<TF2>.bed\n- (...)\n\n"
+	description += "By setting --outfile, all TFBS are written to one file (with motif specified in the 4th column of the .bed)."
 	parser.description = format_help_description("TFBScan", description)
 
 	parser._action_groups.pop()	#pop -h
@@ -46,12 +38,13 @@ def add_tfbscan_arguments(parser):
 
 	#all other arguments are optional
 	optional_arguments = parser.add_argument_group('Optional arguments')
-	optional_arguments.add_argument('-o', '--outdir', metavar="", help='Output directory (default: ./motifscan_output/)', default="motifscan_output")
 	optional_arguments.add_argument('-r', '--regions', metavar="", help='Subset scanning to regions of interest')
+	optional_arguments.add_argument('--outdir', metavar="", help='Output directory for TFBS sites in one file per motif (default: ./tfbscan_output/). NOTE: Select either --outdir or --outfile.', default=None)
+	optional_arguments.add_argument('--outfile', metavar="", help='Output file for TFBS sites joined in one bed-file (default: not set). NOTE: Select either --outdir or --outfile.', default=None)
+
 	optional_arguments.add_argument('--naming', metavar="", help="Naming convention for bed-ids and output files ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
 	optional_arguments.add_argument('--gc', metavar="", type=lambda x: restricted_float(x,0,1), help='Set the gc content for background regions (default: will be estimated from fasta)')
 	optional_arguments.add_argument('--pvalue', metavar="", type=lambda x: restricted_float(x,0,1), help='Set p-value for motif matches (default: 0.0001)', default=0.0001)
-	##optional_arguments.add_argument('--tool', metavar="", choices=['FIMO', 'MOODS'], help='Choose the tool to perform motif scanning with (default: MOODS)', default='MOODS')
 	optional_arguments.add_argument('--keep_overlaps', action='store_true', help='Keep overlaps of same motifs (default: overlaps are resolved by keeping best-scoring site)')
 	
 	optional_arguments.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
@@ -59,11 +52,9 @@ def add_tfbscan_arguments(parser):
 	optional_arguments.add_argument('--log', metavar="", help="Path to logfile (default: writes to stdout)")
 	optional_arguments.add_argument('--debug', action="store_true", help=argparse.SUPPRESS)
 
-
 	return(parser)
 
 #----------------------------------------------------------------------------------------------------------#
-
 def motif_scanning(regions, args, motifs_obj):
 	""" motifs_obj is a MotifList object """
 
@@ -78,10 +69,24 @@ def motif_scanning(regions, args, motifs_obj):
 
 		seq = fasta_obj.fetch(region.chrom, region.start, region.end)
 		region_TFBS = motifs_obj.scan_sequence(seq, region)		#Scan sequence
+		
+		#Check format of region chromosome and convert sites if needed
+		m = re.match("(.+)\:([0-9]+)\-([0-9]+)\s+.+", region.chrom)
+		if m:
+			reg_chrom, reg_start, reg_end = m.group(1), m.group(2), m.group(3)
+			for TFBS in region_TFBS:
+				TFBS.chrom = region.chrom
+				TFBS.start = int(reg_start) + TFBS.start
+				TFBS.end = int(reg_start) + TFBS.end
 
 		#Split to single TFs
 		for TFBS in region_TFBS:
 			all_TFBS[TFBS.name].append(TFBS)
+
+	#Resolve overlaps
+	if args.keep_overlaps == False:	#default
+		for name in all_TFBS:
+			all_TFBS[name] = all_TFBS[name].resolve_overlaps()
 
 	#Write to queue
 	for name in all_TFBS:
@@ -91,42 +96,23 @@ def motif_scanning(regions, args, motifs_obj):
 	return(1)
 
 
-def process_TFBS(file, args):
-	""" Process TFBS bedfile - remove duplicates, overlaps and sort """
+def process_TFBS(infile, args):
+	""" Process TFBS bedfile - remove duplicates and sort """
 
-	outfile = file.replace(".tmp", ".bed")
+	if args.outdir != None:
+		outfile = infile.replace(".tmp", ".bed")	 #single files, the names are controlled as motif names
+	elif args.outfile != None:
+		outfile = args.outfile
 
-	#Read sites to regionList
-	TFBS = RegionList().from_bed(file)
+	#Sort and print unique lines
+	os.system("sort -k1,1 -k2,2n {0} | uniq > {1}".format(infile, outfile))
 
-	#Remove overlaps
-	if args.keep_overlaps == False:
-		TFBS = TFBS.resolve_overlaps()		#automatically removes duplicates as well
-	else:
-		TFBS = TFBS.remove_duplicates()		#
-
-	#If chrom looks like subset -> convert to true coordinates 
-	for site in TFBS:
-
-		m = re.match("(.+)\:([0-9]+)\-([0-9]+)", site.chrom)
-		if m:
-			reg_chrom, reg_start, reg_end = m.group(1), m.group(2), m.group(3)
-
-			site.chrom = reg_chrom
-			site.start = int(reg_start) + site.start
-			site.end = int(reg_start) + site.end
-			site.update()
-
-	#Write out to bed
-	TFBS.loc_sort()
-	TFBS.write_bed(outfile)
-	
 	#Remove the tmp file
 	if not args.debug:
 		try:
-			os.remove(file)
+			os.remove(infile)
 		except:
-			print("Error removing file {0}".format(file))
+			print("Error removing file {0}".format(infile))
 
 	return(1)
 
@@ -139,10 +125,21 @@ def run_tfbscan(args):
 	###### Check input arguments ######
 	check_required(args, ["motifs", "fasta"])				#Check input arguments
 	check_files([args.motifs, args.fasta, args.regions]) 	#Check if files exist
-	make_directory(args.outdir)							#Check and create output directory
+
+	##Test input
+	if args.outdir != None and args.outfile != None:								#Error - both set
+		sys.exit("ERROR: Please choose either --outdir or --outfile")
+	elif ((args.outdir == None or args.outdir != None) and args.outfile == None): 	#Separate files	
+		args.outdir = "tfbscan_output/" if args.outdir == None else args.outdir
+		make_directory(args.outdir) #Check and create output directory
+	elif args.outdir == None and args.outfile != None: 								#Joined file
+		check_files([args.outfile], "w")
 
 	###### Create logger and write argument overview ######
-	logger = create_logger(2, args.log) 
+	if args.debug:
+		logger = create_logger(3, args.log) 
+	else:
+		logger = create_logger(2, args.log)
 
 	logger.comment("#TOBIAS TFBScan (run started {0})\n".format(begin_time))
 	logger.comment("#Command line call: {0}\n".format(" ".join(sys.argv)))
@@ -151,6 +148,8 @@ def run_tfbscan(args):
 	logger.comment(arguments_overview(parser, args))	
 
 	######## Read sequences from file and estimate background gc ########
+	
+	logger.critical("Handling input files")
 	logger.info("Reading sequences from fasta")
 
 	fastafile = pysam.FastaFile(args.fasta)
@@ -165,21 +164,19 @@ def run_tfbscan(args):
 	#If subset, setup regions
 	if args.regions:
 		regions = RegionList().from_bed(args.regions)
-		
 
 	else:	#set up regions from fasta references
 		regions = fasta_regions
+		regions = regions.apply_method(OneRegion.split_region, 1000000)	
+		regions = regions.apply_method(OneRegion.extend_reg, 50)		#extend to overlap at junctions	
 
-	#Subset regions to maximum length and extend to overlap at junctions
-	regions = regions.apply_method(OneRegion.split_region, 1000000)
-	regions = regions.apply_method(OneRegion.extend_reg, 50)
+	#Clip regions at chromosome boundaries
 	regions = regions.apply_method(OneRegion.check_boundary, fasta_chrom_info, "cut")
-
 	logger.info("- Total of {0} regions (after splitting)".format(len(regions)))
 
 	#Background gc
 	if args.gc == None:
-		logger.info("Estimating GC content from fasta")
+		logger.info("Estimating GC content from fasta (set --gc to skip this step)")
 		args.gc = get_gc_content(regions, args.fasta)
 	
 	bg = np.array([(1-args.gc)/2.0, args.gc/2.0, args.gc/2.0, (1-args.gc)/2.0])
@@ -209,7 +206,6 @@ def run_tfbscan(args):
 	
 	motif_names = list(set([motif.name for motif in motif_list]))
 
-
 	pool = mp.Pool(processes=args.cores)
 	outlist = pool.starmap(OneMotif.get_threshold, itertools.product(motif_list, [args.pvalue])) 
 	motif_list = MotifList(outlist)	
@@ -224,35 +220,49 @@ def run_tfbscan(args):
 
 	manager = mp.Manager()
 
-	writer_cores = max(1,int(args.cores*0.1))
-	worker_cores = max(1,int(args.cores*0.9))
+	if args.outdir != None:
+		writer_cores = max(1,int(args.cores*0.1))
+		worker_cores = max(1,args.cores - writer_cores)
 
+	elif args.outfile != None:	#Write to one file
+		writer_cores = 1
+		worker_cores = max(1,args.cores - writer_cores)
+
+	#Setup pools
+	logger.debug("Writer cores: {0}".format(writer_cores))
+	logger.debug("Worker cores: {0}".format(worker_cores))
 	worker_pool = mp.Pool(processes=worker_cores, maxtasksperchild=1)
 	writer_pool = mp.Pool(processes=writer_cores)
 
-	#Setup bed-writers 
+	#Setup bed-writers based on --outdir or --outfile
 	temp_files = []
 	qs = {}
 	TF_names_chunks = [motif_names[i::writer_cores] for i in range(writer_cores)]
 	for TF_names_sub in TF_names_chunks:
 		logger.debug("Creating writer queue for {0}".format(TF_names_sub))
-		files = [os.path.join(args.outdir, TF + ".tmp") for TF in TF_names_sub]
-		temp_files.extend(files)
 
+		if args.outdir != None:
+			files = [os.path.join(args.outdir, TF + ".tmp") for TF in TF_names_sub]
+			temp_files.extend(files)
+		elif args.outfile != None:
+			files = [args.outfile + ".tmp" for TF in TF_names_sub]		#write to the same file for all
+			temp_files.append(files[0])
+			
 		q = manager.Queue()
-		#qs_list.append(q)
-		writer_pool.apply_async(file_writer, args=(q, TF_names_sub, files, args)) 	#, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
+
+		TF2files = dict(zip(TF_names_sub, files))
+		logger.debug("TF2files dict: {0}".format(TF2files))
+		writer_pool.apply_async(file_writer, args=(q, TF2files, args)) 	#, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
 		for TF in TF_names_sub:
 			qs[TF] = q
 	writer_pool.close() #no more jobs applied to writer_pool
-	args.qs = qs #qs is a dict
+	args.qs = qs 		#qs is a dict
 
 	#Setup scanners pool
 	input_arguments = [(chunk, args, motif_list) for chunk in region_chunks]
 	task_list = [worker_pool.apply_async(motif_scanning, (chunk, args, motif_list, )) for chunk in region_chunks]
 	monitor_progress(task_list, logger)
 	results = [task.get() for task in task_list]
-	logger.info("Done!")
 
 	#Wait for files to write
 	for TF in qs:
@@ -261,13 +271,13 @@ def run_tfbscan(args):
 
 	#Process each file output and write out
 	logger.comment("")
-	logger.critical("Processing results for each TF")
+	logger.critical("Processing results from scanning")
+	logger.debug("Running processing for files: {0}".format(temp_files))
 	task_list = [worker_pool.apply_async(process_TFBS, (file, args)) for file in temp_files]
 	worker_pool.close()
 	monitor_progress(task_list, logger)
 	worker_pool.terminate()
 	results = [task.get() for task in task_list]
-	logger.info("Done!")
 
 	logger.debug("Joining multiprocessing pools")
 	worker_pool.join()	
@@ -276,6 +286,7 @@ def run_tfbscan(args):
 	end_time = datetime.now()
 	logger.comment("")
 	logger.critical("Finished TFBScan run (total time of {0})".format(end_time - begin_time))
+
 
 
 #----------------------------------------------------------------------------------------------------------#

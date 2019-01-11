@@ -29,6 +29,8 @@ from tobias.utils.subsample_bam import *
 from tobias.utils.merge_pdfs import *
 from tobias.utils.score_bed import *
 
+TOBIAS_VERSION = "0.1"
+
 def main():
 	parser = argparse.ArgumentParser("TOBIAS", usage=SUPPRESS)
 	parser._action_groups.pop()
@@ -176,7 +178,13 @@ def main():
 
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
-	parser.description += "For help on each tool, please run: TOBIAS <TOOLNAME> --help"
+	parser.description += "For help on each tool, please run: TOBIAS <TOOLNAME> --help\n"
+
+	#Add version number to upper TOBIAS parser and all subparsers
+	parser.description += "For version number: TOBIAS --version"
+	parser.add_argument("--version", action='version', version=TOBIAS_VERSION)
+	for name in all_tool_parsers:
+		all_tool_parsers[name].add_argument("--version", action='version', version=TOBIAS_VERSION)
 
 	#If no args, print help for top-level TOBIAS
 	if len(sys.argv[1:]) == 0:

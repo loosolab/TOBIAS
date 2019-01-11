@@ -19,19 +19,20 @@ from copy import deepcopy
 import logging
 import logging.handlers
 import itertools
+import pandas as pd
 
+#Machine learning
 import sklearn
 from sklearn import mixture
-from sklearn.neighbors import KernelDensity
-from sklearn.model_selection import GridSearchCV
+#from sklearn.neighbors import KernelDensity
+#from sklearn.model_selection import GridSearchCV
+import scipy
+from scipy.optimize import curve_fit
 
+#Plotting
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.ticker import NullFormatter
-import pandas as pd
-import scipy
-from scipy.optimize import curve_fit
-from sklearn import preprocessing
 
 #Bio-specific packages
 import pyBigWig
@@ -344,7 +345,8 @@ def run_bindetect(args):
 
 		q = manager.Queue()
 		qs_list.append(q)
-		writer_pool.apply_async(file_writer, args=(q, TF_names_sub, files, args)) #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
+
+		writer_pool.apply_async(file_writer, args=(q, dict(zip(TF_names_sub,files)), args))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
 		for TF in TF_names_sub:
 			qs[TF] = q
 	writer_pool.close() #no more jobs applied to writer_pool
