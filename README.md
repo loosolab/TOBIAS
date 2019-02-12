@@ -89,7 +89,7 @@ $ TOBIAS PlotAggregate --TFBS test_data/BATFJUN_Bcell_bound.bed test_data/BATFJU
 
 Visualize the split of bound/unbound sites for one condition:   
 ```
-$ TOBIAS PlotAggregate --TFBS test_data/IRF1_all.bed test_data/IRF1_bound.bed test_data/IRF1_unbound.bed --signals test_data/Bcell_uncorrected.bw test_data/Bcell_expected.bw test_data/Bcell_corrected.bw --output IRF1_footprint.pdf  --share_y rows --plot_boundaries
+$ TOBIAS PlotAggregate --TFBS test_data/IRF1_all.bed test_data/IRF1_bound.bed test_data/IRF1_unbound.bed --signals test_data/Bcell_uncorrected.bw test_data/Bcell_expected.bw test_data/Bcell_corrected.bw --output IRF1_footprint.pdf  --share_y sites --plot_boundaries
 ```
 
 **PlotHeatmap: Plot heatmaps and aggregates of ATAC-seq signals in combinations of .bed/.bw to visualize footprints**   
