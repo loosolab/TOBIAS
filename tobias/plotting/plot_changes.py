@@ -18,6 +18,7 @@ import numpy as np
 import itertools
 
 from tobias.utils.utilities import *
+from tobias.utils.logger import *
 
 #-------------------------------------------------------------------------------------------------#
 def add_plotchanges_arguments(parser):
@@ -38,6 +39,7 @@ def add_plotchanges_arguments(parser):
 	optional_arguments = parser.add_argument_group('Optional arguments')
 	optional_arguments.add_argument('--output', metavar="", help='Output file for plot (default: bindetect_changes.pdf)', default="bindetect_changes.pdf")
 	optional_arguments.add_argument('--conditions', metavar="", help="Ordered list of conditions to show (default: conditions are ordered as within the bindetect file)", nargs="*")
+	optional_arguments = add_logger_args(optional_arguments)
 	
 	return(parser)
 
@@ -47,6 +49,7 @@ def run_plotchanges(args):
 
 	#------------------------------------ Get ready ------------------------------------#
 	logger = TobiasLogger("PlotChanges", args.verbosity)
+	logger.begin()
 
 	check_required(args, ["bindetect", "TFS"])
 	check_files([args.bindetect, args.TFS], "r")
@@ -87,7 +90,7 @@ def run_plotchanges(args):
 			logger.info("ERROR: --conditions {0} is not a subset of bindetect conditions ({1})".format(args.conditions, conditions_file))
 			sys.exit()
 		
-	condition_comparison = list(itertools.combinations(args.conditions, 2))
+	#condition_comparison = list(itertools.combinations(args.conditions, 2))
 	logger.info("Conditions in order: {0}".format(args.conditions))
 
 
@@ -103,6 +106,7 @@ def run_plotchanges(args):
 	for i, TF in enumerate(chosen_TFS):
 		no_bound = np.array([table.at[TF, "{0}_bound".format(cond)] for cond in args.conditions])
 
+		"""
 		diffs = []
 		for (cond1, cond2) in condition_comparison:
 			try:
@@ -111,6 +115,7 @@ def run_plotchanges(args):
 				diffs.append(table.at[TF, "{1}_{0}_change".format(cond1, cond2)])
 
 		diffs = np.cumsum(diffs)
+		"""
 		#diffs = [table.at[TF, "{0}_{1}_change".format(cond1, cond2)] for (cond1, cond2) in condition_comparison]
 
 		percent_bound = no_bound / table.at[TF, "total_tfbs"] * 100.0
@@ -147,7 +152,9 @@ def run_plotchanges(args):
 	plt.savefig(args.output, format="pdf", bbox_inches='tight')
 	#plt.show()
 
-	logger.info("Done! Saved figure to {0}".format(args.output))
+
+	logger.end()
+	logger.info("Saved figure to {0}".format(args.output))
 
 #--------------------------------------------------------------------------------------------------------#
 if __name__ == '__main__':
