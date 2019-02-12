@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 TFBScan.py scans for positions of transcription factor binding sites across the genome
 
@@ -14,11 +16,12 @@ from datetime import datetime
 import multiprocessing as mp
 import itertools
 
-import pysam
+import pysam	#for reading fastafile
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.sequences import * 
 from tobias.utils.motifs import *
+from tobias.utils.logger import *
 
 #----------------------------------------------------------------------------------------------------------#
 def add_tfbscan_arguments(parser):
@@ -45,12 +48,13 @@ def add_tfbscan_arguments(parser):
 	optional_arguments.add_argument('--naming', metavar="", help="Naming convention for bed-ids and output files ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
 	optional_arguments.add_argument('--gc', metavar="", type=lambda x: restricted_float(x,0,1), help='Set the gc content for background regions (default: will be estimated from fasta)')
 	optional_arguments.add_argument('--pvalue', metavar="", type=lambda x: restricted_float(x,0,1), help='Set p-value for motif matches (default: 0.0001)', default=0.0001)
-	optional_arguments.add_argument('--keep_overlaps', action='store_true', help='Keep overlaps of same motifs (default: overlaps are resolved by keeping best-scoring site)')
+	optional_arguments.add_argument('--keep-overlaps', action='store_true', help='Keep overlaps of same motifs (default: overlaps are resolved by keeping best-scoring site)')
 	
-	optional_arguments.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	optional_arguments.add_argument('--cores', metavar="", type=int, help='Number of cores to use (default: 1)', default=1)
-	optional_arguments.add_argument('--log', metavar="", help="Path to logfile (default: writes to stdout)")
-	optional_arguments.add_argument('--debug', action="store_true", help=argparse.SUPPRESS)
+	RUN = parser.add_argument_group('Run arguments')
+	RUN.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
+	RUN.add_argument('--cores', metavar="", type=int, help='Number of cores to use (default: 1)', default=1)
+	RUN.add_argument('--debug', action="store_true", help=argparse.SUPPRESS)
+	RUN = add_logger_args(optional_arguments)
 
 	return(parser)
 
@@ -120,8 +124,6 @@ def process_TFBS(infile, args):
 #----------------------------------------------------------------------------------------------------------#
 def run_tfbscan(args):
 
-	begin_time = datetime.now()
-
 	###### Check input arguments ######
 	check_required(args, ["motifs", "fasta"])				#Check input arguments
 	check_files([args.motifs, args.fasta, args.regions]) 	#Check if files exist
@@ -135,27 +137,24 @@ def run_tfbscan(args):
 	elif args.outdir == None and args.outfile != None: 								#Joined file
 		check_files([args.outfile], "w")
 
-	###### Create logger and write argument overview ######
-	if args.debug:
-		logger = create_logger(3, args.log) 
-	else:
-		logger = create_logger(2, args.log)
 
-	logger.comment("#TOBIAS TFBScan (run started {0})\n".format(begin_time))
-	logger.comment("#Command line call: {0}\n".format(" ".join(sys.argv)))
-	
+	###### Create logger and write argument overview ######
+	logger = TobiasLogger("TFBScan", args.verbosity)
+	logger.begin()
 	parser = add_tfbscan_arguments(argparse.ArgumentParser())
-	logger.comment(arguments_overview(parser, args))	
+	logger.arguments_overview(parser, args)
+	logger.output_files([args.outfile])
+
 
 	######## Read sequences from file and estimate background gc ########
 	
-	logger.critical("Handling input files")
+	logger.info("Handling input files")
 	logger.info("Reading sequences from fasta")
 
 	fastafile = pysam.FastaFile(args.fasta)
 	fasta_chrom_info = dict(zip(fastafile.references, fastafile.lengths))
 	fastafile.close()
-	logger.info("- Found {0} sequences".format(len(fasta_chrom_info)))
+	logger.stats("- Found {0} sequences in fasta".format(len(fasta_chrom_info)))
 	
 	#Create regions available in fasta 	
 	logger.info("Setting up regions")
@@ -178,6 +177,7 @@ def run_tfbscan(args):
 	if args.gc == None:
 		logger.info("Estimating GC content from fasta (set --gc to skip this step)")
 		args.gc = get_gc_content(regions, args.fasta)
+		logger.info("- GC content: {0}".format(round(args.gc, 5)))
 	
 	bg = np.array([(1-args.gc)/2.0, args.gc/2.0, args.gc/2.0, (1-args.gc)/2.0])
 
@@ -186,18 +186,21 @@ def run_tfbscan(args):
 	
 
 	#################### Read motifs from file ####################
+
 	logger.info("Reading motifs from file")
 
 	motif_content = open(args.motifs).read()
 	converted_content = convert_motif(motif_content, "pfm")
 	motif_list = pfm_to_motifs(converted_content) 			#List of OneMotif objects
 
-	logger.info("- Found {0} motifs".format(len(motif_list)))
+	logger.stats("- Found {0} motifs".format(len(motif_list)))
 	
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
 	motif_names = [motif.name for motif in motif_list]
-	motif_list.extend([motif.get_reverse() for motif in motif_list])
+
+	reverse_motifs = [motif.get_reverse() for motif in motif_list]
+	motif_list.extend(reverse_motifs)
 	for motif in motif_list:	#now with reverse motifs as well
 		motif.set_name(args.naming)
 		motif.name = filafy(motif.name)	#remove ()/: etc. which will create problems in filenames
@@ -206,9 +209,11 @@ def run_tfbscan(args):
 	
 	motif_names = list(set([motif.name for motif in motif_list]))
 
+	#Calculate scanning-threshold for each motif
 	pool = mp.Pool(processes=args.cores)
 	outlist = pool.starmap(OneMotif.get_threshold, itertools.product(motif_list, [args.pvalue])) 
 	motif_list = MotifList(outlist)	
+
 	pool.close()
 	pool.join()
 
@@ -216,7 +221,7 @@ def run_tfbscan(args):
 	#################### Find TFBS in regions #####################
 
 	logger.comment("")
-	logger.critical("Scanning for TFBS with all motifs")
+	logger.info("Scanning for TFBS with all motifs")
 
 	manager = mp.Manager()
 
@@ -239,6 +244,11 @@ def run_tfbscan(args):
 	qs = {}
 	TF_names_chunks = [motif_names[i::writer_cores] for i in range(writer_cores)]
 	for TF_names_sub in TF_names_chunks:
+
+		#Skip over any empty chunks
+		if len(TF_names_sub) == 0:
+			continue
+
 		logger.debug("Creating writer queue for {0}".format(TF_names_sub))
 
 		if args.outdir != None:
@@ -262,16 +272,17 @@ def run_tfbscan(args):
 	input_arguments = [(chunk, args, motif_list) for chunk in region_chunks]
 	task_list = [worker_pool.apply_async(motif_scanning, (chunk, args, motif_list, )) for chunk in region_chunks]
 	monitor_progress(task_list, logger)
-	results = [task.get() for task in task_list]
+	results = [task.get() for task in task_list]	#1s
 
 	#Wait for files to write
 	for TF in qs:
 		qs[TF].put((None, None))
-	writer_pool.join()	
+
+	writer_pool.join()
 
 	#Process each file output and write out
 	logger.comment("")
-	logger.critical("Processing results from scanning")
+	logger.info("Processing results from scanning")
 	logger.debug("Running processing for files: {0}".format(temp_files))
 	task_list = [worker_pool.apply_async(process_TFBS, (file, args)) for file in temp_files]
 	worker_pool.close()
@@ -283,11 +294,7 @@ def run_tfbscan(args):
 	worker_pool.join()	
 	writer_pool.join()
 
-	end_time = datetime.now()
-	logger.comment("")
-	logger.critical("Finished TFBScan run (total time of {0})".format(end_time - begin_time))
-
-
+	logger.end()
 
 #----------------------------------------------------------------------------------------------------------#
 if __name__ == "__main__":

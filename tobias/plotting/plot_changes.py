@@ -23,7 +23,7 @@ from tobias.utils.utilities import *
 def add_plotchanges_arguments(parser):
 
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
-	description = "" 
+	description = "PlotChanges is a utility to plot the changes in TF binding across multiple conditions as predicted by TOBIAS BINdetect.\n\n"
 	description += "Example usage:\n$ echo CTCF GATA > TFS.txt\n$ TOBIAS PlotChanges --bindetect <bindetect_results.txt> --TFS TFS.txt\n\n"
 
 	parser.description = format_help_description("PlotChanges", description)
@@ -32,12 +32,12 @@ def add_plotchanges_arguments(parser):
 
 	required_arguments = parser.add_argument_group('Required arguments')
 	required_arguments.add_argument('--bindetect', metavar="", help='Bindetect_results.txt file from BINDetect run')
-	required_arguments.add_argument('--TFS', metavar="", help='Text file containing names of TFs to show in plot (one per line)') 	# whole genome file or regions of interest in FASTA format to be scanned with motifs')
+	required_arguments.add_argument('--TFS', metavar="", help='Text file containing names of TFs to show in plot (one per line)') 
 
 	#All other arguments are optional
 	optional_arguments = parser.add_argument_group('Optional arguments')
 	optional_arguments.add_argument('--output', metavar="", help='Output file for plot (default: bindetect_changes.pdf)', default="bindetect_changes.pdf")
-	optional_arguments.add_argument('--conditions', metavar="", help="Ordered list of conditions to show (default: conditions found in bindetect file)", nargs="*")
+	optional_arguments.add_argument('--conditions', metavar="", help="Ordered list of conditions to show (default: conditions are ordered as within the bindetect file)", nargs="*")
 	
 	return(parser)
 
@@ -46,12 +46,11 @@ def add_plotchanges_arguments(parser):
 def run_plotchanges(args):
 
 	#------------------------------------ Get ready ------------------------------------#
-	logger = create_logger(2, None) 
+	logger = TobiasLogger("PlotChanges", args.verbosity)
 
 	check_required(args, ["bindetect", "TFS"])
 	check_files([args.bindetect, args.TFS], "r")
 	check_files([args.output], "w")
-
 
 	#------------------------------------ Read data ------------------------------------#
 
@@ -78,7 +77,6 @@ def run_plotchanges(args):
 	chosen_TFS = list(flatten_list(matches))
 	logger.info("Chosen TFS to view in plot: {0}".format(chosen_TFS))
 
-
 	# Get order of conditions
 	header = list(table.columns.values)
 	conditions_file = [element.replace("_bound", "") for element in header if "bound" in element]
@@ -98,7 +96,6 @@ def run_plotchanges(args):
 	logger.info("Plotting figure")
 	cmap = matplotlib.cm.get_cmap('rainbow')
 	colors = cmap(np.linspace(0,1,len(chosen_TFS)))
-
 
 	fig, ax1 = plt.subplots(figsize=(10,5))
 

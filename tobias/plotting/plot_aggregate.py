@@ -11,19 +11,25 @@ Plot aggregate signals from TFBS across different bigwigs
 import os
 import sys
 import argparse
-import pyBigWig
 import logging
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
-import pybedtools as pb
+
 import itertools
 from datetime import datetime
+import scipy
+import sklearn
 
+#Bio-stuff
+import pyBigWig
+import pybedtools as pb
+
+#Internal classes
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
-#from footprinting.signals import *
+from tobias.utils.logger import *
 
 
 def add_aggregate_arguments(parser):
@@ -39,29 +45,26 @@ def add_aggregate_arguments(parser):
 	IO.add_argument('--TFBS', metavar="", nargs="*", help="TFBS sites (*required)")
 	IO.add_argument('--signals', metavar="", nargs="*", help="Signals in bigwig format (*required)")
 	IO.add_argument('--regions', metavar="", nargs="*", help="Regions to overlap with TFBS", default=[])
-	IO.add_argument('--whitelist', metavar="", help="Only plot sites within whitelist (.bed)")
-	IO.add_argument('--blacklist', metavar="", help="Exclude sites within blacklist (.bed)")
+	IO.add_argument('--whitelist', metavar="", nargs="*", help="Only plot sites within whitelist (.bed)", default=[])
+	IO.add_argument('--blacklist', metavar="", nargs="*", help="Exclude sites within blacklist (.bed)", default=[])
 	IO.add_argument('--output', metavar="", help="Path to output (default: TOBIAS_aggregate.pdf)", default="TOBIAS_aggregate.pdf")
 
-	OPT = parser.add_argument_group('Plot options')
-	OPT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
-	OPT.add_argument('--title', metavar="", help="Title of plot", default="Aggregated signals")
-	OPT.add_argument('--width', metavar="", help="", type=int, default=150)
-	OPT.add_argument('--region_names', metavar="", nargs="*")
-	OPT.add_argument('--signal_names', metavar="", nargs="*")
-	OPT.add_argument('--share_y', metavar="", help="Share y-axis range across plots (none/rows/cols/both) (default: none)", choices=["none", "rows", "cols", "both"], default="none")
-	#OPT.add_argument('--normalize')
+	PLOT = parser.add_argument_group('Plot arguments')
+	PLOT.add_argument('--title', metavar="", help="Title of plot (default: \"Aggregated signals\")", default="Aggregated signals")
+	PLOT.add_argument('--flank', metavar="", help="Flanking basepairs (+/-) to show in plot (counted from middle of motif) (default: 60)", default="60", type=int)
+	PLOT.add_argument('--TFBS_labels', metavar="", help="Labels used for each TFBS file (default: prefix of each --TFBS)", nargs="*")
+	PLOT.add_argument('--signal_labels', metavar="", help="Labels used for each signal file (default: prefix of each --signals)", nargs="*")
+	PLOT.add_argument('--region_labels', metavar="", help="Labels used for each regions file (default: prefix of each --regions)", nargs="*")
+	PLOT.add_argument('--share_y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable. (default: none)", choices=["none", "signals", "sites", "both"], default="none")
 
-	#OPT.add_argument('--norm_signals')
-	OPT.add_argument('--log_transform', help="", action="store_true")
-	OPT.add_argument('--norm_regions', help="Normalize aggregate across regions", action='store_true')
-	OPT.add_argument('--norm_signals', help="Normalize aggregate across signals", action='store_true')
-	OPT.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
-	#todo:negate regions
-
-	#RUN = parser.add_argument_group("Run options")
-	#RUN.add_argument('-l', '--log', metavar="", help="Full path of logfile (default: logfile is written to stdout)")
-	#RUN.add_argument('--silent', help="Prevents info printing to stdout", action='store_true')
+	#signals / regions
+	PLOT.add_argument('--norm_comparisons', action='store_true', help="Normalize the aggregate signal in comparison column/row to the same range (default: the true range is shown)")
+	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
+	PLOT.add_argument('--log_transform', help="", action="store_true")
+	PLOT.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
+	
+	RUN = parser.add_argument_group("Run arguments")
+	RUN = add_logger_args(RUN)
 
 	return(parser)
 
@@ -69,7 +72,16 @@ def add_aggregate_arguments(parser):
 def run_aggregate(args):
 	""" Function to make aggregate plot given input from args """
 
-	begin_time = datetime.now()
+	#########################################################################################
+	############################## Setup logger/input/output ################################
+	#########################################################################################
+
+	logger = TobiasLogger("PlotAggregate", args.verbosity)
+	logger.begin()
+
+	parser = add_aggregate_arguments(argparse.ArgumentParser())
+	logger.arguments_overview(parser, args)
+	logger.output_files([args.output])
 
 	#Check input parameters
 	check_required(args, ["TFBS", "signals"])
@@ -77,45 +89,31 @@ def run_aggregate(args):
 	check_files([args.output], action="w")
 	
 	#### Test input ####
-	if args.region_names != None and (len(args.regions) != len(args.region_names)):
-		print("ERROR: --regions and --region_names have different lengths")
-		#print(len(args.regions))
+	if args.TFBS_labels != None and (len(args.TFBS) != len(args.TFBS_labels)):
+		logger.error("ERROR --TFBS and --TFBS_labels have different lengths ({0} vs. {1})".format(len(args.TFBS), len(args.TFBS_labels)))
+	if args.region_labels != None and (len(args.regions) != len(args.region_labels)):
+		logger.error("ERROR: --regions and --region_labels have different lengths ({0} vs. {1})".format(len(args.regions), len(args.region_labels)))
 		sys.exit()
-	if args.signal_names != None and (len(args.signals) != len(args.signal_names)):
-		print("ERROR: --signals and --signal_names have different lengths.")
+	if args.signal_labels != None and (len(args.signals) != len(args.signal_labels)):
+		logger.error("ERROR: --signals and --signal_labels have different lengths ({0} vs. {1})".format(len(args.signals), len(args.signal_labels)))
 		sys.exit()
-
 
 	#### Format input ####
-	args.TFBS = [os.path.abspath(f) for f in args.TFBS]
-	args.regions = [os.path.abspath(f) for f in args.regions]
-	args.signals = [os.path.abspath(f) for f in args.signals]
-	args.TFBS_names = [os.path.splitext(os.path.basename(f))[0] for f in args.TFBS]
-	args.region_names = [os.path.splitext(os.path.basename(f))[0] for f in args.regions] if args.region_names == None else args.region_names 
-	args.signal_names = [os.path.splitext(os.path.basename(f))[0] for f in args.signals] if args.signal_names == None else args.signal_names 
-	args.output = os.path.abspath(args.output)
+	#args.TFBS = [os.path.abspath(f) for f in args.TFBS]
+	#args.regions = [os.path.abspath(f) for f in args.regions]
+	#args.signals = [os.path.abspath(f) for f in args.signals]
+	args.TFBS_labels = [os.path.splitext(os.path.basename(f))[0] for f in args.TFBS] if args.TFBS_labels == None else args.TFBS_labels
+	args.region_labels = [os.path.splitext(os.path.basename(f))[0] for f in args.regions] if args.region_labels == None else args.region_labels
+	args.signal_labels = [os.path.splitext(os.path.basename(f))[0] for f in args.signals] if args.signal_labels == None else args.signal_labels 
+	#args.output = os.path.abspath(args.output)
 
-
-	#########################################################################################
-	##################################### Logger info #######################################
-	#########################################################################################
-
-	# Create logger
-	logger = create_logger()
-
-	#Print info on run
-	logger.comment("#TOBIAS PlotAggregate (run started {0})\n".format(begin_time))
-	logger.comment("#Command line call: {0}\n".format(" ".join(sys.argv)))
-
-	parser = add_aggregate_arguments(argparse.ArgumentParser())
-	logger.comment(arguments_overview(parser, args))
-	
 
 	#########################################################################################
 	############################ Get input regions/signals ready ############################
 	#########################################################################################
 
-	logger.info("Reading information from input files")
+	logger.info("---- Processing input ----")
+	logger.info("Reading information from .bed-files")
 
 	#Make combinations of TFBS / regions
 	column_names = []
@@ -124,7 +122,7 @@ def run_aggregate(args):
 		logger.info("Overlapping sites to --regions")
 		regions_dict = {}
 
-		combis = itertools.product(range(len(args.TFBS)),range(len(args.regions)))
+		combis = itertools.product(range(len(args.TFBS)), range(len(args.regions)))
 		for (i,j) in combis:
 			TFBS_f = args.TFBS[i]
 			region_f = args.regions[j]
@@ -132,46 +130,54 @@ def run_aggregate(args):
 			#Make overlap
 			pb_tfbs = pb.BedTool(TFBS_f)
 			pb_region = pb.BedTool(region_f)
-			overlap = pb_tfbs.intersect(pb_region, u=True)
+			#todo: write out lengths
 
-			name = args.TFBS_names[i] + " <OVERLAPPING> " + args.region_names[j]
+			overlap = pb_tfbs.intersect(pb_region, u=True)
+			#todo: length after overlap
+
+			name = args.TFBS_labels[i] + " <OVERLAPPING> " + args.region_labels[j]	#name for column 
 			column_names.append(name)
 			regions_dict[name] = RegionList().from_bed(overlap.fn)
 
 			if args.negate == True:
 				overlap_neg = pb_tfbs.intersect(pb_region, v=True)
 
-				name = args.TFBS_names[i] + " <NOT OVERLAPPING> " + args.region_names[j]
+				name = args.TFBS_labels[i] + " <NOT OVERLAPPING> " + args.region_labels[j]
 				column_names.append(name)
 				regions_dict[name] = RegionList().from_bed(overlap_neg.fn)
 
 	else:
-		column_names = args.TFBS_names
-		regions_dict = {args.TFBS_names[i]: RegionList().from_bed(args.TFBS[i]) for i in range(len(args.TFBS))}
+		column_names = args.TFBS_labels
+		regions_dict = {args.TFBS_labels[i]: RegionList().from_bed(args.TFBS[i]) for i in range(len(args.TFBS))}
+
+		for name in regions_dict:
+			logger.stats("COUNT {0}: {1} sites".format(name, len(regions_dict[name]))) #length of RegionList obj
 
 
 	#-------- Do overlap of regions if whitelist / blacklist -------#
-	if args.whitelist != None or args.blacklist != None:
-		logger.info("Subsetting regions...")
+	if len(args.whitelist) > 0 or len(args.blacklist) > 0:
+		logger.info("Subsetting regions on whitelist/blacklist")
 		for regions_id in regions_dict:
 			sites = pb.BedTool(regions_dict[regions_id].as_bed(), from_string=True)
-			logger.info("Found {0} sites in {1}".format(len(regions_dict[regions_id]), regions_id))
+			logger.stats("Found {0} sites in {1}".format(len(regions_dict[regions_id]), regions_id))
 			
-			if args.whitelist != None:
-				whitelist = pb.BedTool(args.whitelist)
-				sites_tmp = sites.intersect(whitelist, u = True)
-				sites = sites_tmp
-				logger.info("Overlapped to whitelist -> {0}".format(len(sites)))
+			if len(args.whitelist) > 0:
+				for whitelist_f in args.whitelist:
+					whitelist = pb.BedTool(whitelist_f)
+					sites_tmp = sites.intersect(whitelist, u = True)
+					sites = sites_tmp
+					logger.stats("Overlapped to whitelist -> {0}".format(len(sites)))
 
-			if args.blacklist != None:
-				blacklist = pb.BedTool(args.blacklist)
-				sites_tmp = sites.intersect(blacklist, v = True)
-				sites = sites_tmp
-				logger.info("Removed blacklist -> {0}".format(format(len(sites))))
+			if len(args.blacklist) > 0:
+				for blacklist_f in args.blacklist:
+					blacklist = pb.BedTool(blacklist_f)
+					sites_tmp = sites.intersect(blacklist, v = True)
+					sites = sites_tmp
+					logger.stats("Removed blacklist -> {0}".format(format(len(sites))))
 
 			regions_dict[regions_id] = RegionList().from_bed(sites.fn)
 
-	# Estimate motif width
+	# Estimate motif width per region
 	site_list = regions_dict[list(regions_dict.keys())[0]]
 	if len(site_list) > 0:
 		motif_width = site_list[0].get_width()
@@ -179,43 +185,122 @@ def run_aggregate(args):
 		motif_width = 0
 
 	# Set width (centered on mid)
+	args.width = args.flank*2
 	for regions_id in regions_dict:
 		regions_dict[regions_id].apply_method(OneRegion.set_width, args.width)
-
-	# Print number of sites
-	for regions_id in regions_dict:
-		logger.info("{0}: {1} sites".format(regions_id, len(regions_dict[regions_id])))
-
 
 
 	#########################################################################################
 	############################ Read signal for bigwig per site ############################
 	#########################################################################################
 
+	logger.info("Reading signal from bigwigs")
+
 	signal_dict = {} 
 	for i, signal_f in enumerate(args.signals):
 
-		signal_name = args.signal_names[i]
+		signal_name = args.signal_labels[i]
 		signal_dict[signal_name] = {}
 
 		#Open pybw to read signal
 		pybw = pyBigWig.open(signal_f, "rb")
 
-		logger.info("Reading signal from {0}".format(signal_name))
+		logger.info("- Reading signal from {0}".format(signal_name))
 
 		for regions_id in regions_dict:
 			for one_region in regions_dict[regions_id]:
 				tup = one_region.tup()	#(chr, start, end, strand)
-				if tup not in signal_dict[signal_name]:
+				if tup not in signal_dict[signal_name]:	#only get signal if it was not already read previously
 					signal_dict[signal_name][tup] = one_region.get_signal(pybw) 	#returns signal
 
 		pybw.close()
 
 
 	#########################################################################################
+	################################## Calculate aggregates #################################
+	#########################################################################################
+	
+	logger.comment("")
+	logger.info("---- Analysis ----")
+
+	#Calculate aggregate per signal/region comparison
+	logger.info("Calculating aggregate signals")
+	aggregate_dict = {signal_name:{region_name: [] for region_name in regions_dict} for signal_name in args.signal_labels}
+	for row, signal_name in enumerate(args.signal_labels):	
+		for col, region_name in enumerate(column_names):
+			
+			signalmat = np.array([signal_dict[signal_name][reg.tup()] for reg in regions_dict[region_name]])
+
+			#todo: Option to remove rows with lowest/highest signal (--percentiles?)
+			#signal_min, signal_max = np.percentile(signalmat, [1,99])
+			#signalmat[signalmat < signal_min] = signal_min
+			#signalmat[signalmat > signal_max] = signal_max
+			
+			if args.log_transform:
+				signalmat_abs = np.abs(signalmat)
+				signalmat_log = np.log2(signalmat_abs + 1)
+				signalmat_log[signalmat < 0] *= -1	 #original negatives back to <0
+				signalmat = signalmat_log
+
+			aggregate = np.nanmean(signalmat, axis=0)
+			aggregate_dict[signal_name][region_name] = aggregate
+
+	#Measure of footprint depth in comparison to baseline
+	logger.info("Calculating footprint depth measure")
+	logger.info("FPD (signal,regions): footprint_width baseline middle FPD")
+	for row, signal_name in enumerate(args.signal_labels):	
+		for col, region_name in enumerate(column_names):
+
+			agg = aggregate_dict[signal_name][region_name]
+
+			#Estimation of possible footprint width
+			FPD_results = []
+			for fp_flank in range(int(motif_width/2), min([25, args.flank])):	#motif width for this bed
+
+				#Baseline level
+				baseline_indices = list(range(0,args.flank-fp_flank)) + list(range(args.flank+fp_flank, len(agg)))
+				baseline = np.median(agg[baseline_indices])
+
+				#Footprint level
+				middle_indices = list(range(args.flank-fp_flank, args.flank+fp_flank))
+				middle = np.mean(agg[middle_indices]) 	#within the motif
+
+				#Footprint depth
+				depth = middle - baseline
+				FPD_results.append([fp_flank*2, baseline, middle, depth])
+
+			#Estimation of possible footprint width
+			all_fpds = [result[-1] for result in FPD_results]
+			FPD_results_best = FPD_results #[result + ["  "] if result[-1] != min(all_fpds) else result + ["*"] for result in FPD_results]
+
+			for result in FPD_results_best:
+				logger.stats("FPD ({0},{1}): {2} {3:.3f} {4:.3f} {5:.3f}".format(signal_name, region_name, result[0], result[1], result[2], result[3]))
+
+	#Compare pairwise to calculate chance of footprint
+	logger.comment("")
+	logger.info("Calculating pairwise aggregate pearson correlation")
+	logger.info("CORRELATION (signal1,region1) VS (signal2,region2): PEARSONR")
+	plots = itertools.product(args.signal_labels, column_names)
+	combis = itertools.combinations(plots, 2)
+
+	for ax1, ax2 in combis:
+
+		signal1, region1 = ax1
+		signal2, region2 = ax2
+		agg1 = aggregate_dict[signal1][region1]
+		agg2 = aggregate_dict[signal2][region2]
+
+		pearsonr, pval = scipy.stats.pearsonr(agg1, agg2)
+
+		logger.stats("CORRELATION ({0},{1}) VS ({2},{3}): {4:.5f}".format(signal1, region1, signal2, region2, pearsonr))
+
+
+	#########################################################################################
 	################################ Set up plotting grid ###################################
 	#########################################################################################
 
+	logger.comment("")
+	logger.info("---- Plotting aggregates ----")
 	logger.info("Setting up plotting grid")
 
 	no_rows = len(args.signals) + 1 if len(args.signals) > 1 else len(args.signals)
@@ -231,7 +316,7 @@ def run_aggregate(args):
 	#Title of plot and grid
 	plt.suptitle(args.title, fontsize=16)
 
-	row_names = args.signal_names + ["Comparison"] if row_compare else args.signal_names
+	row_names = args.signal_labels + ["Comparison"] if row_compare else args.signal_labels
 	col_names = column_names + ["Comparison"] if col_compare else column_names
 
 	for col in range(no_cols):
@@ -274,11 +359,12 @@ def run_aggregate(args):
 	plt.subplots_adjust(hspace=0.3, top=0.93)
 
 
+
 	#########################################################################################
 	############################## Fill in with bigwig scores ###############################
 	#########################################################################################
 
-	for row, signal_name in enumerate(args.signal_names):
+	for row, signal_name in enumerate(args.signal_labels):
 		for col, region_name in enumerate(column_names):
 
 			logger.info("Plotting regions {0} from signal {1}".format(region_name, signal_name))
@@ -287,29 +373,21 @@ def run_aggregate(args):
 			if len(regions_dict[region_name]) > 0:
 				
 				#Signal in region
-				signalmat = np.array([signal_dict[signal_name][reg.tup()] for reg in regions_dict[region_name]])
-
-				if args.log_transform:
-					signalmat_abs = np.abs(signalmat)
-					signalmat_log = np.log2(signalmat_abs + 1)
-					signalmat_log[signalmat < 0] *= -1	 #original negatives back to <0
-					signalmat = signalmat_log
-
-				aggregate = np.nanmean(signalmat, axis=0)
+				aggregate = aggregate_dict[signal_name][region_name] 
 				axarr[row, col].plot(xvals, aggregate, color=colors[col+row], linewidth=1, label=signal_name)
 
 				aggregate_norm = preprocessing.minmax_scale(aggregate)
 
 				#Compare across rows and cols
 				if col_compare: 	#compare between different regions
-					if args.norm_regions:
+					if args.norm_comparisons:
 						aggregate_compare = aggregate_norm
 					else:
 						aggregate_compare = aggregate		
 					axarr[row, -1].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=region_name)
 
 				if row_compare:	#compare between different bigwigs
-					if args.norm_signals:
+					if args.norm_comparisons:
 						aggregate_compare = aggregate_norm
 					else:
 						aggregate_compare = aggregate
@@ -324,7 +402,6 @@ def run_aggregate(args):
 				axarr[row, col].text(0.98,0.98,str(len(regions_dict[region_name])), transform = axarr[row,col].transAxes, fontsize=12, va="top", ha="right")
 
 
-
 	#------------- Finishing up plots ---------------#
 
 	logger.info("Adjusting final details")
@@ -336,7 +413,8 @@ def run_aggregate(args):
 	if args.share_y == "none":
 		pass 	#Do not set ylim for plots
 
-	elif args.share_y == "cols":
+	#Signals are comparable (for example normalized signal between two conditions)
+	elif args.share_y == "signals":	
 		for col in range(no_cols):
 			lims = np.array([ax.get_ylim() for ax in axarr[:,col] if ax is not None])
 			ymin, ymax = np.min(lims), np.max(lims)
@@ -345,7 +423,8 @@ def run_aggregate(args):
 				if axarr[row, col] is not None:
 					axarr[row, col].set_ylim(ymin, ymax)
 
-	elif args.share_y == "rows":
+	#Regions are comparable (for example bound/unbound)
+	elif args.share_y == "sites":
 		for row in range(no_rows):
 			lims = np.array([ax.get_ylim() for ax in axarr[row,:] if ax is not None])
 			ymin, ymax = np.min(lims), np.max(lims)
@@ -353,6 +432,7 @@ def run_aggregate(args):
 				if axarr[row, col] is not None:
 					axarr[row, col].set_ylim(ymin, ymax)
 
+	#Comparable on both rows/columns
 	elif args.share_y == "both":
 		global_ymin, global_ymax = np.inf, -np.inf
 		for row in range(no_rows):
@@ -371,8 +451,7 @@ def run_aggregate(args):
 	plt.savefig(args.output, bbox_inches='tight')
 	plt.close()
 
-	logger.info("Finished PlotAggregate! Output file is: {0}".format(os.path.abspath(args.output)))
-
+	logger.end()
 
 #--------------------------------------------------------------------------------------------------------#
 if __name__ == '__main__':

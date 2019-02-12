@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# cython: language_level=3
 
 """
 Classes to work with NGS data (reads, readlists, etc.)
@@ -11,7 +11,7 @@ Classes to work with NGS data (reads, readlists, etc.)
 import pysam
 from collections import Counter
 
-from regions import *
+from tobias.utils.regions import *
 import time
 import sys
 

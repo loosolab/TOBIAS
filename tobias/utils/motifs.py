@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Classes for working with motifs and scanning
+Classes for working with motifs and scanning with moods
 
 @author: Mette Bentsen
 @contact: mette.bentsen (at) mpi-bn.mpg.de
@@ -15,6 +15,12 @@ import copy
 import MOODS.scan
 import MOODS.tools
 import MOODS.parsers
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.text import TextPath
+from matplotlib.patches import PathPatch
+from matplotlib.font_manager import FontProperties
 
 #Internal 
 from tobias.utils.regions import * 
@@ -81,20 +87,25 @@ class MotifList(list):
 #Contains info on one motif formatted for use in moods
 class OneMotif:
 
-	def __init__(self, motifid, alt_name, pfm):
+	bases = ["A", "C", "G", "T"]
+
+	def __init__(self, motifid, alt_name, counts):
 		
-		self.id = motifid				#must be unique
+		self.id = motifid			#must be unique
 		self.alt_name = alt_name	#does not have to be unique
 
-		self.name = ""		#name set in set_name
-		self.pfm = pfm
-		self.strand = "+"	#default strand is +
+		self.name = ""			#name set in set_name
+		#self.out_name	
+		self.counts = counts  	#counts
+		self.strand = "+"		#default strand is +
 
 		#Set later
+		self.pfm = None
 		self.bg = np.array([0.25,0.25,0.25,0.25]) 	#background set to equal by default
 		self.pssm = None 							#pssm calculated from get_pssm
 		self.threshold = None 						#threshold calculated from get_threshold
-	
+		self.bits = None
+
 	def __str__(self):
 
 		return("{0}".format(self.__dict__))
@@ -113,8 +124,14 @@ class OneMotif:
 			prefix = "None"
 		self.name = prefix
 
+	def get_pfm(self):
+		self.pfm = self.counts / np.sum(self.counts, axis=0)
 
 	def get_reverse(self):
+
+		if self.pfm is None:
+			self.get_pfm()
+
 		reverse_motif = copy.deepcopy(self)
 		reverse_motif.strand = "-"
 		reverse_motif.pfm = MOODS.tools.reverse_complement(self.pfm,4)
@@ -123,6 +140,8 @@ class OneMotif:
 
 	def get_pssm(self, ps=0.01):
 		""" """
+		if self.pfm is None:
+			self.get_pfm()
 
 		bg_col = self.bg.reshape((-1,1))
 		pseudo_vector = ps * bg_col
@@ -133,10 +152,77 @@ class OneMotif:
 
 
 	def get_threshold(self, pvalue):
+		if self.pssm is None:
+			self.get_pssmm()
 
 		self.threshold = MOODS.tools.threshold_from_p(self.pssm, self.bg, pvalue, 4)
 		return(self)
 
+
+	def calc_bit_score(self):
+
+		if self.pfm is None:
+			self.get_pfm()
+
+		pfm_arr = np.copy(self.pfm)
+		pfm_arr[pfm_arr == 0] = np.nan
+
+		#Info content per pos
+		entro = pfm_arr * np.log2(pfm_arr)
+		entro[np.isnan(entro)] = 0
+		info_content = 2 - (- np.sum(entro, axis=0))		#information content per position in motif
+		self.bits = self.pfm * info_content	
+
+
+	def plot_logo(self):
+
+		LETTERS = { "T" : TextPath((-0.305, 0), "T", size=1, prop=fp),
+		            "G" : TextPath((-0.384, 0), "G", size=1, prop=fp),
+		            "A" : TextPath((-0.35, 0), "A", size=1, prop=fp),
+		            "C" : TextPath((-0.366, 0), "C", size=1, prop=fp) }
+		COLOR_SCHEME = {'G': 'orange', 
+		                'A': "#CC0000", 
+		                'C': 'mediumblue', 
+		                'T': 'darkgreen'}
+
+		def add_letter(base, x, y, scale, ax):
+			""" """
+			
+			text = LETTERS[base]
+
+			t = mpl.transforms.Affine2D().scale(1*globscale, scale*globscale) + \
+				mpl.transforms.Affine2D().translate(x,y) + ax.transData
+			p = PathPatch(text, lw=0, fc=COLOR_SCHEME[base], transform=t)
+			if ax != None:
+				ax.add_artist(p)
+			return p
+
+		self.calc_bit_score()
+		self.length = self.bits.shape[1]
+
+		fp = FontProperties(family='sans-serif', weight="bold") 
+		globscale = 1.35
+	
+		#Plot logo
+		fig, ax = plt.subplots(figsize=(10,3))	
+		max_y = 0
+		for position in range(self.length):	#0-based positions
+
+			base_bit_tups = zip(OneMotif.bases, self.bits[:,position])
+			
+			#Go through bases sorted from lowest to highest bit score
+			y = 0	#position to place letter
+			for (base, score) in sorted(base_bit_tups, key=lambda tup: tup[1]):
+				add_letter(base, position+1, y, score, ax)
+				y += score
+			max_y = max(max_y, y)
+
+		plt.xticks(range(1,self.length+1))
+		plt.xlim((0.2, self.length+0.8)) 
+		plt.ylim((0, max_y)) 
+		plt.tight_layout()  	
+		
+		return(fig, ax)	
 
 
 ###########################################################
@@ -218,7 +304,11 @@ def convert_motif(content, output_format):
 				#Get ready for this motif 
 				if idx < len(lines) - 1:		#Up until the last line, it is possible to save for next	
 					columns = line.strip().split()
-					motif_id, name = columns[1], columns[2]
+					if len(columns) > 2: #MOTIF, ID, NAME
+						motif_id, name = columns[1], columns[2]
+					elif len(columns) == 2: # MOTIF, ID
+						motif_id, name = columns[1], columns[1]
+
 					header = ">{0}\t{1}\n".format(motif_id, name)
 
 					converted_content += header
@@ -271,7 +361,6 @@ def convert_motif(content, output_format):
 				columns = [field for field in m.group(1).rstrip().split()]
 				motif_content.append(columns)
 
-
 	return(converted_content)
 
 
@@ -301,7 +390,7 @@ def pfm_to_motifs(content):
 			if m:
 				pfm_line = m.group(1)
 				pfm_fields = [float(field) for field in pfm_line.rstrip().split()]
-				motif_obj.pfm.append(pfm_fields)
+				motif_obj.counts.append(pfm_fields)
 			else:
 				continue
 

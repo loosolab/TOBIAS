@@ -1,7 +1,12 @@
+#!/usr/bin/env python
 
+"""
+Small utility for mering pdfs
 
-#Small utility for merging pdfs
-
+@author: Mette Bentsen
+@contact: mette.bentsen (at) mpi-bn.mpg.de
+@license: MIT
+"""
 
 from PyPDF2 import PdfFileMerger, PdfFileReader
 import argparse
@@ -16,9 +21,8 @@ from tobias.utils.utilities import *
 def add_mergepdf_arguments(parser):
 
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = ""
+	description = "Merge single PDF-files to one file"
 	parser.description = format_help_description("MergePDF", description)
-
 	parser._action_groups.pop()	#pop -h
 
 	reqargs = parser.add_argument_group('Required arguments')

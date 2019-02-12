@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Format (convert/join/split) motifs
+Utility to format (convert/join/split) motifs between pfm/jaspar/meme formats
 
 @author: Mette Bentsen
 @contact: mette.bentsen (at) mpi-bn.mpg.de
@@ -17,6 +17,7 @@ import textwrap
 #Internal functions/classes
 from tobias.utils.motifs import *
 from tobias.utils.utilities import *
+from tobias.utils.logger import *
 
 #--------------------------------------------------------------------------------------------------------#
 def add_formatmotifs_arguments(parser):
@@ -34,6 +35,9 @@ def add_formatmotifs_arguments(parser):
 	required.add_argument('--format', metavar="", help="Desired motif output format (pfm, jaspar, meme) (default: \"jaspar\")", choices=["pfm", "jaspar", "meme"], default="jaspar")
 	required.add_argument('--task', metavar="", help="Which task to perform on motif files (join/split) (default: join)", choices=["join", "split"], default="join")
 	required.add_argument('--output', metavar="", help="If task == join, output is the joined output file; if task == split, output is a directory")
+	
+	additional = parser.add_argument_group('Additional arguments')
+	additional = add_logger_args(additional)
 
 	return(parser)
 
@@ -44,14 +48,15 @@ def run_formatmotifs(args):
 	check_required(args, ["input", "output"])	#Check input arguments
 	check_files(args.input) 					#Check if files exist
 
-
 	# Create logger and write argument overview
-	logger = create_logger()
-	parser = add_formatmotifs_arguments(argparse.ArgumentParser())
-	logger.comment(arguments_overview(parser, args))	
+	logger = TobiasLogger("FormatMotifs", args.verbosity)
+	logger.begin()
 
-	### Getting ready 
-	logger.comment("")
+	parser = add_formatmotifs_arguments(argparse.ArgumentParser())
+	logger.arguments_overview(parser, args)
+	logger.output_files([args.output])
+
+	####### Getting ready #######
 	if args.task == "split":
 	
 		logger.info("Making directory {0} if not existing".format(args.output))
@@ -81,7 +86,7 @@ def run_formatmotifs(args):
 	meme_header += "Background letter frequencies\nA 0.25 C 0.25 G 0.25 T 0.25\n\n"
 
 	if args.task == "split":
-		logger.info("Writing individual files to directory {0}\n".format(args.output))
+		logger.info("Writing individual files to directory {0}".format(args.output))
 
 		#Split on ">"
 		if args.format == "jaspar" or args.format == "pfm":
@@ -110,17 +115,15 @@ def run_formatmotifs(args):
 
 			f_out.close()
 	
-
 	elif args.task == "join":
-		logger.info("Writing converted motifs to file {0}\n".format(args.output))
+		logger.info("Writing converted motifs to file {0}".format(args.output))
 
 		if args.format == "meme":
 			converted_content = meme_header + converted_content
 
 		out_f.write(converted_content + "\n")
 
-
-	logger.info("FormatMotifs done!")
+	logger.end()
 
 #--------------------------------------------------------------------------------------------------------#
 

@@ -28,6 +28,7 @@ from tobias.utils.regions import *
 from tobias.utils.sequences import *
 from tobias.utils.signals import *
 from tobias.utils.ngs import *
+from tobias.utils.logger import *
 
 #-----------------------------------------------------------------#
 def add_footprint_arguments(parser):
@@ -49,22 +50,19 @@ def add_footprint_arguments(parser):
 	optargs = parser.add_argument_group('Optional arguments')
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend input regions with bp (default: 100)", default=100)
 	optargs.add_argument('--score', metavar="<score>", choices=["tobias", "FOS", "sum"], help="Type of scoring to perform on cutsites (tobias/FOS/sum) (default: tobias)", default="tobias")
-	
-	optargs.add_argument('--fp_min', metavar="<int>", type=int, help="Minimum footprint width (default: 15)", default=15)
+	optargs.add_argument('--window', metavar="<int>", type=int, help="For '--score tobias' this is the backround region for measuring effect of binding. For '--score sum' this is the window for calculation of sum (default: 100)", default=100)
+	optargs.add_argument('--fp_min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
 	optargs.add_argument('--fp_max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
-	optargs.add_argument('--flank_min', metavar="<int>", type=int, help="Minimum range of flanking regions (default: 10)", default=10)
-	optargs.add_argument('--flank_max', metavar="<int>", type=int, help="Maximum range of flanking regions (default: 30)", default=30)
-	optargs.add_argument('--sum_window', metavar="<int>", type=int, help="For --score == sum; Window for calculation of sum (default: 200)", default=200)
+	optargs.add_argument('--flank_min', metavar="<int>", type=int, help="For FOS; Minimum range of flanking regions (default: 10)", default=10)
+	optargs.add_argument('--flank_max', metavar="<int>", type=int, help="For FOS; Maximum range of flanking regions (default: 30)", default=30)
 	optargs.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by mean in <bp> windows (default: 5)", default=5)
-	optargs.add_argument('--min_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no lower limit)") 			#default none
-	optargs.add_argument('--max_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no upper limit)") 	#default none
+	optargs.add_argument('--min_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no lower limit)") 		#default none
+	optargs.add_argument('--max_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no upper limit)") 		#default none
 
 	runargs = parser.add_argument_group('Run arguments')
 	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
 	runargs.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	runargs.add_argument('--verbosity', metavar="<int>", help="Level of output logging (1 (sparse) / 2 (normal) / 3 (debug)) (default: 2)", choices=[1,2,3], default=2, type=int)
-	runargs.add_argument('--log', metavar="<file>", help="Full path of logfile (default: log is printed to stdout)")
-	runargs.add_argument('--debug', help=argparse.SUPPRESS, action='store_true')
+	runargs = add_logger_args(runargs)
 
 	return(parser)
 
@@ -75,12 +73,12 @@ def calculate_scores(regions, args):
 	pybw_header = pybw_signal.chroms()			
 	chrom_lengths = {chrom:int(pybw_header[chrom]) for chrom in pybw_header}
 
-	output_dict = {}
-
 	#Set flank to enable scoring in ends of regions
 	if args.score == "sum":
-		flank = int(args.sum_window/2.0)
-	elif args.score == "tobias" or args.score == "FOS":
+		flank = int(args.window/2.0)
+	elif args.score == "tobias":
+		flank = int((args.window - args.fp_min)/2)
+	elif args.score == "FOS":
 		flank = args.flank_max
 	else:
 		flank = args.flank_max
@@ -105,13 +103,13 @@ def calculate_scores(regions, args):
 		#Calculate scores
 		if args.score == "sum":
 			signal = np.abs(signal)
-			scores = fast_rolling_math(signal, args.sum_window, "sum")
+			scores = fast_rolling_math(signal, args.window, "sum")
 
 		elif args.score == "FOS":
 			scores = calc_FOS(signal, args.fp_min, args.fp_max, args.flank_min, args.flank_max)
 
 		elif args.score == "tobias":
-			scores = tobias_footprint_array(signal, args.fp_min, args.fp_max, args.flank_min, args.flank_max)		#numpy array
+			scores = tobias_footprint_array(signal, args.window, args.fp_min, args.fp_max)		#numpy array
 		
 		else:
 			sys.exit("{0} not found".format(args.score))
@@ -123,15 +121,14 @@ def calculate_scores(regions, args):
 		#Remove ends to prevent overlap with other regions
 		if flank > 0:
 			scores = scores[flank:-flank]
-		output_dict[reg_key] = scores
 
-	return(output_dict)
+		args.writer_qs["scores"].put(("scores", reg_key, scores))
 
-#------------------------------------------------------------------#
+	return(1)
+
+#------------------------------------------------------------------------------------------#
 
 def run_footprinting(args):
-	
-	begin_time = datetime.now()
 	
 	check_required(args, ["signal", "output", "regions"])
 	check_files([args.signal, args.regions], "r")
@@ -141,31 +138,30 @@ def run_footprinting(args):
 	# Create logger and write info to log
 	#---------------------------------------------------------------------------------------#
 
-	logger = create_logger(args.verbosity, args.log)
-	logger.comment("#TOBIAS FootprintScores (run started {0})\n".format(begin_time))
-	logger.comment("#Command line call: {0}\n".format(" ".join(sys.argv)))
+	logger = TobiasLogger("FootprintScores", args.verbosity)
+	logger.begin()
 
 	parser = add_footprint_arguments(argparse.ArgumentParser())
-	logger.comment(arguments_overview(parser, args))
+	logger.arguments_overview(parser, args)
+	logger.output_files([args.output])
 
-	logger.comment("# ----- Output files -----")
-	logger.comment("# - {0}".format(args.output))
-	logger.comment("\n\n")
-
+	logger.debug("Setting up listener for log")
+	logger.start_logger_queue()
+	args.log_q = logger.queue
 
 	#---------------------------------------------------------------------------------------#
 	#----------------------- I/O - get regions/bigwig ready --------------------------------#
 	#---------------------------------------------------------------------------------------#
 
-	logger.critical("Processing input files")
-	logger.info("Opening cutsite bigwig")
+	logger.info("Processing input files")
+
+	logger.info("- Opening input cutsite bigwig")
 	pybw_signal = pyBigWig.open(args.signal)
 	pybw_header = pybw_signal.chroms()
 	chrom_info = {chrom:int(pybw_header[chrom]) for chrom in pybw_header}
-
-	logger.info("Getting output regions ready")
-
+	
 	#Decide regions 
+	logger.info("- Getting output regions ready")
 	if args.regions:
 		regions = RegionList().from_bed(args.regions)
 		regions.apply_method(OneRegion.extend_reg, args.extend)
@@ -174,88 +170,63 @@ def run_footprinting(args):
 	else:
 		regions = RegionList().from_list([OneRegion([chrom, 0, chrom_info[chrom]]) for chrom in chrom_info])	
 
-	#Getting bigwig files ready
-	logger.info("Opening output bigwig")
+	#Todo: check boundaries in relation to flanking regions for calculation
+
+
+	#Information for output bigwig
 	reference_chroms = sorted(list(chrom_info.keys()))
 	header = [(chrom, chrom_info[chrom]) for chrom in reference_chroms]
-	pybw_footprints = pyBigWig.open(args.output, "w")
-	pybw_footprints.addHeader(header)
-
 	regions.loc_sort(reference_chroms)
+
 
 
 	#---------------------------------------------------------------------------------------#
 	#------------------------ Calculating footprints and writing out -----------------------#
 	#---------------------------------------------------------------------------------------#
 
-	logger.critical("Calculating footprints in regions...")
-
-	if args.debug == True:
-		fp = calculate_scores(regions[:100], args)
-
+	logger.info("Calculating footprints in regions...")
 	regions_chunks = regions.chunks(args.split)
 
-	#Start correction
+	#Setup pools
+	writer_cores = 1	
+	worker_cores = max(1, args.cores - writer_cores)
+	logger.debug("Worker cores: {0}".format(worker_cores))
+	logger.debug("Writer cores: {0}".format(writer_cores))
+
+	worker_pool = mp.Pool(processes=worker_cores)
+	writer_pool = mp.Pool(processes=writer_cores)
+	manager = mp.Manager()
+
+	#Start bigwig file writers
+	q = manager.Queue()
+	writer_pool.apply_async(bigwig_writer, args=(q, {"scores":args.output}, header, regions, args))
+	writer_pool.close() #no more jobs applied to writer_pool
+	writer_qs = {"scores": q}
+
+	args.writer_qs = writer_qs
+
+	#Start calculating scores
 	pool = mp.Pool(processes=args.cores)
 	task_list = [pool.apply_async(calculate_scores, args=[chunk, args]) for chunk in regions_chunks]
 	no_tasks = len(task_list)
 	pool.close()
+	monitor_progress(task_list, logger)
+	results = [task.get() for task in task_list]
 
-	chrom_order = {reference_chroms[i]:i for i in range(len(reference_chroms))}	
-
-	#Process results as they come in
-	write_idx = 0		#index in task_list
-	prev_progress = (-1, -1)	#done/write
-	while write_idx < len(task_list):
-	
-		if task_list[write_idx].ready() == True:	#Write result to file
-
-			footprints = task_list[write_idx].get()
-
-			#Write tracks to bigwig file
-			for region in sorted(footprints.keys(), key=lambda tup: (chrom_order[tup[0]], tup[1], tup[2])): #Ensure that positions are written to bigwig in correct order
-				logger.debug("Processing {0}".format(region))
-				signal = footprints[region]
-
-				chrom, reg_start, reg_end = region
-				positions = np.arange(reg_start, reg_end)	#genomic 0-based positions
-
-				zeros = np.logical_or(np.isclose(signal, 0), np.isnan(signal))
-				signal[zeros] = 0						#adjust for weird numpy floating point
-				
-				included = signal.nonzero()[0]
-				pos = positions[included]
-				val = signal[included]
-
-				if len(pos) > 0:
-					try:
-						pybw_footprints.addEntries(chrom, pos, values=val, span=1)
-					except:
-						logger.critical("Error writing region {0}.".format(region))
-						sys.exit()
-				
-				#Clear memory
-				footprints[region] = None
-
-			#Wait for next region to print
-			write_idx += 1 #This is also the same as the number of prints done 
-
-		tasks_done = sum([task.ready() for task in task_list])
-		if tasks_done != prev_progress[0] or write_idx != prev_progress[1]:
-			logger.info("Calculation progress: {0:.0f}% | Writing progress: {1:.0f}%".format(tasks_done/no_tasks*100, write_idx/no_tasks*100))
-		
-		prev_progress = (tasks_done, write_idx)
+	#Stop all queues for writing
+	logger.debug("Stop all queues by inserting None")
+	for q in writer_qs.values():
+		q.put((None, None, None))
 
 	#Done computing
-	pool.join()
+	writer_pool.join() 
+	worker_pool.terminate()
+	worker_pool.join()
+	
+	logger.stop_logger_queue()
 
-	#Done writing to files
-	logger.critical("Closing bigwig file (this can take a while)")
-	pybw_footprints.close()
-
-	end_time = datetime.now()
-	logger.critical("Finished FootprintScores run (total time of {0})".format(end_time-begin_time))
-
+	#Finished scoring
+	logger.end()
 
 #--------------------------------------------------------------------------------------------------------#
 

@@ -1,11 +1,22 @@
+#!/usr/bin/env python
+
+"""
+SubsampleBam: Samples from bam in percentage-steps with replicates per step  
+
+@author: Mette Bentsen
+@contact: mette.bentsen (at) mpi-bn.mpg.de
+@license: MIT
+
+"""
+
 import os
 import sys
 import multiprocessing as mp
-from datetime import datetime
 import subprocess
 import argparse
 
 from tobias.utils.utilities import *
+from tobias.utils.logger import *
 
 #-------------------------------------------------------------------#
 def run_commandline(command):
@@ -36,6 +47,7 @@ def add_subsample_arguments(parser):
 	args.add_argument('--cores', metavar="", type=int, help="Cores for multiprocessing (default: 1)", default=1)
 	args.add_argument('--outdir', metavar="", help="Output directory (default: current working directory)", default=".")
 	args.add_argument('--prefix', metavar="", help="Prefix for output files (default: prefix of .bam)")
+	args = add_logger_args(args)
 
 	return(parser)
 
@@ -48,10 +60,9 @@ def run_subsampling(args):
 	args.outdir = os.path.abspath(args.outdir) if args.outdir != None else os.path.abspath(os.getcwd())
 
 	#---------------------------------------------------#
-	stime = datetime.now()
-	print("-"*70)
-	print("------- Started bam subsampling ({0}) -------".format(stime))
-	print("-"*70 + "\n")
+
+	logger = TobiasLogger("SubsampleBam", args.verbosity)
+	logger.begin()
 
 	#### Getting ready for running 
 	cmd_calls = []
@@ -74,14 +85,7 @@ def run_subsampling(args):
 		pool = mp.Pool(processes=args.cores)
 		task_list = [pool.apply_async(run_commandline, cmd) for cmd in cmd_calls]
 		pool.close()
-
-		#check progress
-		while complete_tasks != all_tasks:
-			complete_tasks = sum([task.ready() for task in task_list])
-			if complete_tasks != prev_complete_tasks:
-				print(complete_tasks / float(all_tasks) * 100.0)
-				prev_complete_tasks = complete_tasks
-
+		monitor_progress(task_list, logger)
 		pool.join()
 
 	else:
@@ -90,8 +94,7 @@ def run_subsampling(args):
 			complete_tasks += 1
 			print(complete_tasks / float(all_tasks) * 100.0)
 
-	print("Completed bam subsampling! Bamfiles are found at:\n{0}".format(args.outdir))
-
+	logger.end()
 
 #--------------------------------------------------------------------------------------------------------#
 if __name__ == '__main__':

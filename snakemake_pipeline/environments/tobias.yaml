@@ -5,6 +5,7 @@ channels:
   - conda-forge
 
 dependencies:
+  - python=3
   - pysam
   - pybigwig
   - moods
@@ -22,6 +23,5 @@ dependencies:
   - openjdk
   - xlsxwriter
   - cloudpickle=0.5.6
-  - seaborn
   - pip: 
     - adjustText

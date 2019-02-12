@@ -43,6 +43,7 @@ from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.sequences import *
 from tobias.utils.ngs import *
+from tobias.utils.logger import *
 
 #np.seterr(divide='raise', invalid='raise')
 
@@ -75,7 +76,7 @@ def add_atacorrect_arguments(parser):
 	optargs.add_argument('--regions_out', metavar="<bed>", help="Output regions (default: peaks.bed)")
 	optargs.add_argument('--blacklist', metavar="<bed>", help="Blacklisted regions in .bed-format (default: None)") #file containing blacklisted regions to be excluded from analysis")
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend output regions with basepairs upstream/downstream (default: 100)", default=100)
-	optargs.add_argument('--split_strands', help="Calculate and correct bias separately per strand", action="store_true")
+	optargs.add_argument('--split_strands', help="Write out tracks per strand", action="store_true")
 	optargs.add_argument('--norm_off', help="Switches off normalization based on number of reads", action='store_true')
 	optargs.add_argument('--track_off', metavar="<track>", help="Switch off writing of individual .bigwig-tracks (uncorrected/bias/expected/corrected)", nargs="*", choices=["uncorrected", "bias", "expected", "corrected"], default=[])
 
@@ -85,18 +86,14 @@ def add_atacorrect_arguments(parser):
 	optargs.add_argument('--bg_shift', metavar="<int>", type=int, help="Read shift for estimation of background frequencies (default: 100)", default=100)
 	optargs.add_argument('--window', metavar="<int>", help="Window size for calculating expected signal (default: 100)", type=int, default=100)
 	optargs.add_argument('--score_mat', metavar="<mat>", help="Type of matrix to use for bias estimation (PWM/DWM) (default: DWM)", choices=["PWM", "DWM"], default="DWM")
-	#optargs.add_argument('-m', '--method', metavar="", help="Method for correcting cutsites (subtract/log2fc) (default: subtract)", choices=["log2fc", "subtract"], default="subtract")
 
 	runargs = parser.add_argument_group('Run arguments')
 	runargs.add_argument('--prefix', metavar="<prefix>", help="Prefix for output files (default: same as .bam file)")
 	runargs.add_argument('--outdir', metavar="<directory>", help="Output directory for files (default: current working directory)", default="")
-	
-	##shared across TOBIAS
 	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
 	runargs.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	runargs.add_argument('--verbosity', metavar="<int>", help="Level of output logging (1 (sparse) / 2 (normal) / 3 (debug)) (default: 2)", choices=[1,2,3], default=2, type=int)
-	runargs.add_argument('--log', metavar="<file>", help="Full path of logfile (default: log is printed to stdout)")
-	runargs.add_argument('--debug', help=argparse.SUPPRESS, action='store_true')
+	
+	runargs = add_logger_args(runargs)
 
 	return(parser)
 
@@ -107,11 +104,9 @@ def add_atacorrect_arguments(parser):
 def run_atacorrect(args):
 
 	"""
-	Function for bias correction
+	Function for bias correction of input .bam files
 	Calls functions in ATACorrect_functions and several internal classes
 	"""
-
-	begin_time = datetime.now()
 
 	#Test if required arguments were given:
 	if args.bam == None:
@@ -122,14 +117,13 @@ def run_atacorrect(args):
 		sys.exit("Error: No .peaks-file given")
 
 	#Adjust input files to full path
-	args.bam = os.path.abspath(args.bam)
-	args.genome = os.path.abspath(args.genome)
-	args.peaks = os.path.abspath(args.peaks) if args.peaks != None else None
+	#args.bam = os.path.abspath(args.bam)
+	#args.genome = os.path.abspath(args.genome)
+	#args.peaks = os.path.abspath(args.peaks) if args.peaks != None else None
 
 	#Adjust some parameters depending on input
 	args.prefix = os.path.splitext(os.path.basename(args.bam))[0] if args.prefix == None else args.prefix
 	args.outdir = os.path.abspath(args.outdir) if args.outdir != None else os.path.abspath(os.getcwd())
-	args.log = os.path.abspath(args.log) if args.log != None else None
 
 	#Set output bigwigs based on input
 	tracks = ["uncorrected", "bias", "expected", "corrected"]
@@ -143,58 +137,52 @@ def run_atacorrect(args):
 	output_bws = {}
 	for track in tracks:
 		output_bws[track] = {}
-		for strand in strands + ["both"]:
+		for strand in strands:
 			elements = [args.prefix, track] if strand == "both" else [args.prefix, track, strand]
 			output_bws[track][strand] = {"fn": os.path.join(args.outdir, "{0}.bw".format("_".join(elements)))}
 
 	#Set all output files
 	bam_out = os.path.join(args.outdir, args.prefix + "_atacorrect.bam") 
-	bigwigs = [output_bws[track][strand]["fn"] for (track, strand) in itertools.product(tracks, strands + ["both"])]
+	bigwigs = [output_bws[track][strand]["fn"] for (track, strand) in itertools.product(tracks, strands)]
 	figures_f = os.path.join(args.outdir, "{0}_atacorrect.pdf".format(args.prefix))
-	log_f = args.log
 	
-	output_files = bigwigs + [figures_f, log_f]
+	output_files = bigwigs + [figures_f]
 	output_files = list(OrderedDict.fromkeys(output_files)) 	#remove duplicates due to "both" option
 
+	strands = ["forward", "reverse"]
 
 	#----------------------------------------------------------------------------------------------------#
 	# Print info on run
 	#----------------------------------------------------------------------------------------------------#
 
-	logger = create_logger(args.verbosity, args.log)
-
-	logger.comment("#TOBIAS ATACorrect (run started {0})\n".format(begin_time))
-	logger.comment("#Command line call: {0}\n".format(" ".join(sys.argv)))
+	logger = TobiasLogger("ATACorrect", args.verbosity)
+	logger.begin()
 
 	parser = add_atacorrect_arguments(argparse.ArgumentParser())
-	logger.comment(arguments_overview(parser, args))
-
-	logger.comment("# ----- Output files -----")
-	for outf in output_files:
-		if outf != None:
-			logger.comment("# {0}".format(outf))
-	logger.comment("\n\n")
-
+	logger.arguments_overview(parser, args)
+	logger.output_files(output_files)
 
 	#----------------------------------------------------------------------------------------------------#
 	# Test input file availability for reading 
 	#----------------------------------------------------------------------------------------------------#
 
-	logger.critical("----- Processing input data -----")
+	logger.info("----- Processing input data -----")
+
+	#Todo: use TOBIAS functions
 
 	#Input test
-	logger.info("Testing input file availability")
+	logger.debug("Testing input file availability")
 	file_list = [args.bam, args.genome, args.peaks]
 	file_list = [file for file in file_list if file != None]				#some files can be None depending on choice
 	for path in file_list:
 		if not os.path.exists(path):
-			logger.info("\nError: {0} does not exist.".format(path))
+			logger.error("\nError: {0} does not exist.".format(path))
 			sys.exit(1)
 
-	logger.info("Testing output directory/file writeability")
+	logger.debug("Testing output directory/file writeability")
 	make_directory(args.outdir)
 	if not os.access(args.outdir, os.W_OK):
-		logger.info("Error: {0} does not exist or is not writeable.".format(args.outdir))
+		logger.error("Error: {0} does not exist or is not writeable.".format(args.outdir))
 		sys.exit(1)
 
 	#Output write test
@@ -203,12 +191,11 @@ def run_atacorrect(args):
 			continue
 		if os.path.exists(path):
 			if not os.access(path, os.W_OK):
-				logger.info("Error: {0} could not be opened for writing.".format(path))
+				logger.error("Error: {0} could not be opened for writing.".format(path))
 				sys.exit(1)
 
 	#Open pdf for figures
 	figure_pdf = PdfPages(figures_f, keep_empty=True)
-
 
 	#----------------------------------------------------------------------------------------------------#
 	# Read information in bam/fasta
@@ -217,8 +204,8 @@ def run_atacorrect(args):
 	logger.info("Reading info from .bam file")
 	bamfile = pysam.AlignmentFile(args.bam, "rb")
 	if bamfile.has_index() == False:
-		logger.info("ERROR: No index found for bamfile")
-		sys.exit()
+		logger.warning("No index found for bamfile - creating one via pysam.")
+		pysam.index(args.bam)
 
 	bam_references = bamfile.references 	#chromosomes in correct order
 	bam_chrom_info = dict(zip(bamfile.references, bamfile.lengths))
@@ -235,8 +222,8 @@ def run_atacorrect(args):
 		bamlen = bam_chrom_info[chrom]
 		fastalen = fasta_chrom_info[chrom]
 		if bamlen != fastalen:
-			logger.critical("(Fastafile)\t{0} has length {1}".format(chrom, fasta_chrom_info[chrom]))
-			logger.critical("(Bamfile)\t{0} has length {1}".format(chrom, bam_chrom_info[chrom]))
+			logger.warning("(Fastafile)\t{0} has length {1}".format(chrom, fasta_chrom_info[chrom]))
+			logger.warning("(Bamfile)\t{0} has length {1}".format(chrom, bam_chrom_info[chrom]))
 			sys.exit("Error: .bam and .fasta have different chromosome lengths. Please make sure the genome file is similar to the one used in mapping.")
 
 
@@ -278,20 +265,14 @@ def run_atacorrect(args):
 
 	#Remove blacklisted regions and chromosomes not in common
 	blacklist_regions = RegionList().from_bed(args.blacklist) if args.blacklist != None else RegionList([])	 #fill in with regions from args.blacklist
-	regions_dict = {"input_regions":input_regions, "output_regions":output_regions, "peak_regions":peak_regions, "nonpeak_regions":nonpeak_regions}
-	for sub in regions_dict:
+	regions_dict = {"genome": genome_regions, "input_regions":input_regions, "output_regions":output_regions, "peak_regions":peak_regions, "nonpeak_regions":nonpeak_regions, "blacklist_regions": blacklist_regions}
+	for sub in ["input_regions", "output_regions", "peak_regions", "nonpeak_regions"]:
 		regions_sub = regions_dict[sub]
 		regions_sub.subtract(blacklist_regions)
 		regions_sub = regions_sub.apply_method(OneRegion.split_region, 50000)
 
 		regions_sub.keep_chroms(chrom_in_common)
 		regions_dict[sub] = regions_sub
-	
-	input_regions = regions_dict["input_regions"]
-	output_regions = regions_dict["output_regions"]
-	peak_regions = regions_dict["peak_regions"]
-	nonpeak_regions = regions_dict["nonpeak_regions"]
-
 	
 	#write beds to look at in igv
 	#input_regions.write_bed(os.path.join(args.outdir, "input_regions.bed"))
@@ -304,19 +285,17 @@ def run_atacorrect(args):
 	chrom_order = {bam_references[i]:i for i in range(len(bam_references))}	 #for use later when sorting output 
 
 	#### Statistics about regions ####
-	genome_bp = sum([region.get_length() for region in genome_regions])
-	blacklist_bp = sum([region.get_length() for region in blacklist_regions])
-	peak_bp = sum([region.get_length() for region in peak_regions])
-	nonpeak_bp = sum([region.get_length() for region in nonpeak_regions])
-	input_bp = sum([region.get_length() for region in input_regions])
-	output_bp = sum([region.get_length() for region in output_regions])
+	genome_bp = sum([region.get_length() for region in regions_dict["genome"]])
+	for key in regions_dict:
 
-	logger.info("INFO\tGENOME\t{0} ({1:.2f}%)".format(genome_bp, genome_bp/genome_bp*100))
-	logger.info("INFO\tBLACKLIST_REGIONS\t{0} ({1:.2f}%)".format(blacklist_bp, blacklist_bp/genome_bp*100))
-	logger.info("INFO\tPEAK_REGIONS\t{0} ({1:.2f}%)".format(peak_bp, peak_bp/genome_bp*100))
-	logger.info("INFO\tNONPEAK_REGIONS\t{0} ({1:.2f}%)".format(nonpeak_bp, nonpeak_bp/genome_bp*100))
-	logger.info("INFO\tINPUT_REGIONS\t{0} ({1:.2f}%)".format(input_bp, input_bp/genome_bp*100))
-	logger.info("INFO\tOUTPUT_REGIONS\t{0} ({1:.2f}%)".format(output_bp, output_bp/genome_bp*100))
+		total_bp = sum([region.get_length() for region in regions_dict[key]])
+		logger.stats("{0}: {1} regions | {2} bp | {3:.2f}% coverage".format(key, len(regions_dict[key]), total_bp, total_bp/genome_bp*100))
+
+	#Estallish variables for regions to be used
+	input_regions = regions_dict["input_regions"]
+	output_regions = regions_dict["output_regions"]
+	peak_regions = regions_dict["peak_regions"]
+	nonpeak_regions = regions_dict["nonpeak_regions"]
 
 	#----------------------------------------------------------------------------------------------------#
 	# Estimate normalization factors
@@ -324,55 +303,51 @@ def run_atacorrect(args):
 
 	#Setup logger queue
 	logger.debug("Setting up listener for log")
-	log_q = mp.Manager().Queue()
-	args.log_q = log_q
-	listener = mp.Process(target=main_logger_process, args=(log_q, logger))
-	listener.start()
+	logger.start_logger_queue()
+	args.log_q = logger.queue
 
 	#----------------------------------------------------------------------------------------------------#
 
 	logger.comment("")
-	logger.critical("----- Estimating normalization factors -----")
+	logger.info("----- Estimating normalization factors -----")
 
 	#If normalization is to be calculated
 	if not args.norm_off:
 
 		#Reads in peaks/nonpeaks
-		logger.info("Counting reads in peak regions...")
+		logger.info("Counting reads in peak regions")
 		peak_region_chunks = peak_regions.chunks(args.split)
 		reads_peaks = sum(run_parallel(count_reads, peak_region_chunks, [args], args.cores, logger))
 		logger.comment("")
 
-		logger.info("Counting reads in nonpeak regions...")
+		logger.info("Counting reads in nonpeak regions")
 		nonpeak_region_chunks = nonpeak_regions.chunks(args.split)
 		reads_nonpeaks = sum(run_parallel(count_reads, nonpeak_region_chunks, [args], args.cores, logger))
 
-		total_reads = reads_peaks + reads_nonpeaks
+		reads_total = reads_peaks + reads_nonpeaks
 
-		logger.comment("")
-		logger.info("INFO\tTOTAL_READS\t{0}".format(total_reads))
-		logger.info("INFO\tPEAK_READS\t{0}".format(reads_peaks))
-		logger.info("INFO\tNONPEAK_READS\t{0}".format(reads_nonpeaks))
+		logger.stats("TOTAL_READS\t{0}".format(reads_total))
+		logger.stats("PEAK_READS\t{0}".format(reads_peaks))
+		logger.stats("NONPEAK_READS\t{0}".format(reads_nonpeaks))
 
-		lib_norm = 10000000/total_reads
-		noise_norm = reads_nonpeaks/reads_peaks
-		correct_factor = lib_norm*noise_norm
+		lib_norm = 10000000/reads_total
+		frip = reads_peaks/reads_total
+		correct_factor = lib_norm*(1/frip)
 
-		logger.info("INFO\tLIB_NORM\t{0:.5f}".format(lib_norm))
-		logger.info("INFO\tNOISE_NORM\t{0:.5f}".format(noise_norm))
-
+		logger.stats("LIB_NORM\t{0:.5f}".format(lib_norm))
+		logger.stats("FRiP\t{0:.5f}".format(frip))
 	else:
 		logger.info("Normalization was switched off")
 		correct_factor = 1.0
 
-	logger.info("INFO\tCORRECTION_FACTOR:\t{0:.5f}".format(correct_factor))
+	logger.stats("CORRECTION_FACTOR:\t{0:.5f}".format(correct_factor))
 
 	#----------------------------------------------------------------------------------------------------#
 	# Estimate sequence bias
 	#----------------------------------------------------------------------------------------------------#
 
 	logger.comment("")
-	logger.critical("Started estimation of sequence bias...")
+	logger.info("Started estimation of sequence bias...")
 
 	input_region_chunks = input_regions.chunks(args.split)										#split to 100 chunks (also decides the step of output)
 	out_lst = run_parallel(bias_estimation, input_region_chunks, [args], args.cores, logger)	#Output is list of AtacBias objects
@@ -402,120 +377,90 @@ def run_atacorrect(args):
 	#----------------------------------------------------------------------------------------------------#
 
 	logger.comment("")
-	logger.critical("Correcting reads from .bam within output regions")
+	logger.info("----- Correcting reads from .bam within output regions -----")
 
-	L = 2 * args.k_flank + 1
+	output_regions.loc_sort(bam_references)		#sort in order of references
+	output_regions_chunks = output_regions.chunks(args.split)
+	no_tasks = float(len(output_regions_chunks))
+	chunk_sizes = [len(chunk) for chunk in output_regions_chunks]
+	logger.debug("All regions chunked: {0} ({1})".format(len(output_regions), chunk_sizes))
 
-	#Getting bigwig files ready
-	header = [(chrom, bam_chrom_info[chrom]) for chrom in bam_references]
-
+	### Create key-file linking for bigwigs 
+	key2file = {}
 	for track in output_bws:
 		for strand in output_bws[track]:
 			filename = output_bws[track][strand]["fn"]
-			output_bws[track][strand]["pybw"] = pyBigWig.open(filename, "w")
-			output_bws[track][strand]["pybw"].addHeader(header)
+			key = "{}:{}".format(track, strand)
+			key2file[key] = filename
 
-	pre_bias = {}
-	post_bias = {}
-	for direction in strands:
-		pre_bias[direction] = SequenceMatrix.create(L, "PWM")
-		post_bias[direction] = SequenceMatrix.create(L, "PWM")
+	#Start correction/write cores
+	n_bigwig = len(key2file.values())
+	writer_cores = min(n_bigwig, max(1,int(args.cores*0.1)))	#at most one core per bigwig or 10% of cores (or 1)
+	worker_cores = max(1, args.cores - writer_cores) 				
+	logger.debug("Worker cores: {0}".format(worker_cores))
+	logger.debug("Writer cores: {0}".format(writer_cores))
 
-	output_regions_chunks = output_regions.chunks(args.split)
-	no_tasks = float(len(output_regions_chunks))
+	worker_pool = mp.Pool(processes=worker_cores)
+	writer_pool = mp.Pool(processes=writer_cores)
+	manager = mp.Manager()
+
+	#Start bigwig file writers
+	header = [(chrom, bam_chrom_info[chrom]) for chrom in bam_references]
+	key_chunks = [list(key2file.keys())[i::writer_cores] for i in range(writer_cores)]
+	qs_list = []
+	qs = {}
+	for chunk in key_chunks:
+		logger.debug("Creating writer queue for {0}".format(chunk))
+
+		q = manager.Queue()
+		qs_list.append(q)
+
+		files = [key2file[key] for key in chunk]
+		writer_pool.apply_async(bigwig_writer, args=(q, dict(zip(chunk, files)), header, output_regions, args))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
+		for key in chunk:
+			qs[key] = q
+
+	args.qs = qs
+	writer_pool.close() #no more jobs applied to writer_pool
 
 	#Start correction
-	pool = mp.Pool(processes=args.cores)
-	task_list = [pool.apply_async(bias_correction, args=[chunk, args, bias_obj]) for chunk in output_regions_chunks]
-	pool.close()
+	logger.debug("Starting correction")
+	task_list = [worker_pool.apply_async(bias_correction, args=[chunk, args, bias_obj]) for chunk in output_regions_chunks]
+	worker_pool.close()
+	monitor_progress(task_list, logger, "Correction progress:")	#does not exit until tasks in task_list finished
+	results = [task.get() for task in task_list]
 
-	#Process results as they come in
-	write_idx = 0		#index in task_list
-	prev_progress = (-1, -1)
-	while write_idx < len(task_list):
+	#Get all results 
+	pre_bias = results[0][0]	#initialize with first result
+	post_bias = results[0][1]	#initialize with first result
+	for result in results[1:]:
+		pre_bias_chunk = result[0]
+		post_bias_chunk = result[1]
+
+		for direction in strands:
+			pre_bias[direction].add_counts(pre_bias_chunk[direction])
+			post_bias[direction].add_counts(post_bias_chunk[direction])
+
+	#Stop all queues for writing
+	logger.debug("Stop all queues by inserting None")
+	for q in qs_list:
+		q.put((None, None, None))
+
+	logger.debug("Joining bigwig_writer queues")
 	
-		if task_list[write_idx].ready() == True:
+	qsum = sum([q.qsize() for q in qs_list])
+	while qsum != 0:
+		qsum = sum([q.qsize() for q in qs_list])
+		logger.spam("- Queue sizes {0}".format([(key, qs[key].qsize()) for key in qs]))
+		time.sleep(0.5)
 
-			result = task_list[write_idx].get()
-			signals = result[0]
-			pre_bias_chunk = result[1][0]
-			post_bias_chunk = result[1][1]
+	#Waits until all queues are closed
+	writer_pool.join() 
+	worker_pool.terminate()
+	worker_pool.join()
 
-			for direction in strands:
-				pre_bias[direction].add_counts(pre_bias_chunk[direction])
-				post_bias[direction].add_counts(post_bias_chunk[direction])
-
-			#Write tracks to bigwig file
-			for region in sorted(signals.keys(), key=lambda tup: (chrom_order[tup[0]], tup[1], tup[2])): #Ensure that positions are written to bigwig in correct order
-				
-				chrom, reg_start, reg_end = region
-				positions = np.arange(reg_start, reg_end)	#genomic 0-based positions
-
-				for track in tracks:	# only prints chosen tracks
-
-					#Join signals if forward/reverse split
-					if args.split_strands:
-						signals[region][track]["both"] = signals[region][track]["forward"] + signals[region][track]["reverse"]	
-
-					strands_found = signals[region][track]
-					for strand in strands_found:
-
-						signal = np.copy(signals[region][track][strand])  #Numpy array of signal
-
-						signal[np.isclose(signal, 0)] = 0	#adjust for weird numpy floating point
-						included = signal.nonzero()[0]
-						pos = positions[included]
-						val = signal[included]
-
-						if len(pos) > 0:
-							try:
-								output_bws[track][strand]["pybw"].addEntries(chrom, pos, values=val, span=1)
-							except:
-
-								logger.info("Error writing region {0}.".format(region))
-								print("TRACK: {0}".format(track))
-								print("STRAND: {0}".format(strand))
-								print("SIGNAL: {0}".format(signals[region][track][strand]))
-								sys.exit()
-
-			#Clear memory
-			del result
-			del signal
-			gc.collect()
-
-			#Wait for next chunk to print
-			write_idx += 1 #This is also the same as the number of prints done 
-
-		tasks_done = sum([task.ready() for task in task_list])
-		if tasks_done != prev_progress[0] or write_idx != prev_progress[1]:
-			logger.info("Correction progress: {0:.0f}% | Writing progress: {1:.0f}%".format(tasks_done/no_tasks*100, write_idx/no_tasks*100))
-		
-		prev_progress = (tasks_done, write_idx)
-
-	#Done computing
-	pool.join()
-	gc.collect()
-
-	#Done writing to files
-	logger.info("Closing bigwig files (this can take a while)")
-	for track in output_bws:
-		for strand in output_bws[track]:
-			output_bws[track][strand]["pybw"].close()
-
-
-
-	#---------------------------------------------------#
-	
-	logger.debug("Waiting for listener to finish")
-	log_q.put(None)
-	while listener.exitcode != 0:
-		logger.debug("Listener exitcode is: {0}".format(listener.exitcode))
-		time.sleep(1)
-
-	logger.debug("Joining listener")
-	listener.join()
-	
-
+	#Stop multiprocessing logger	
+	logger.stop_logger_queue()
 
 	#----------------------------------------------------------------------------------------------------#
 	# Information and verification of corrected read frequencies
@@ -527,9 +472,11 @@ def run_atacorrect(args):
 	#Calculating variance per base
 	for strand in strands:
 
-		#Join negative/positive counts from post-correction bias
+		#Invert negative counts
 		abssum = np.abs(np.sum(post_bias[strand].neg_counts, axis=0))
-		post_bias[strand].neg_counts = abssum + post_bias[strand].neg_counts
+		post_bias[strand].neg_counts = post_bias[strand].neg_counts + abssum
+		
+		#Join negative/positive counts
 		post_bias[strand].counts += post_bias[strand].neg_counts	#now pos
 
 		pre_bias[strand].prepare_mat()
@@ -537,8 +484,8 @@ def run_atacorrect(args):
 
 		pre_var = np.mean(np.var(pre_bias[strand].bias_pwm, axis=1)[:4])   #mean of variance per nucleotide
 		post_var = np.mean(np.var(post_bias[strand].bias_pwm, axis=1)[:4])
-		logger.info("INFO\tpre-bias variance {0}:\t{1:.7f}".format(strand, pre_var))
-		logger.info("INFO\tpost-bias variance {0}:\t{1:.7f}".format(strand, post_var))
+		logger.stats("BIAS\tpre-bias variance {0}:\t{1:.7f}".format(strand, pre_var))
+		logger.stats("BIAS\tpost-bias variance {0}:\t{1:.7f}".format(strand, post_var))
 
 		#Plot figure
 		fig_title = "Nucleotide frequencies in corrected reads\n({0} strand)".format(strand)
@@ -550,10 +497,7 @@ def run_atacorrect(args):
 	#----------------------------------------------------------------------------------------------------#
 
 	figure_pdf.close()
-	end_time = datetime.now()
-	logger.comment("")
-	logger.critical("Finished ATACorrect run (total time of {0})".format(end_time - begin_time))
-
+	logger.end()
 
 #--------------------------------------------------------------------------------------------------------#
 if __name__ == '__main__':

@@ -16,6 +16,11 @@ from copy import deepcopy
 import pyBigWig
 from collections import Counter
 
+#Clustering
+import sklearn.preprocessing as preprocessing
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+from scipy.spatial.distance import squareform
+
 #--------------------------------------------------------------------------------------------------#
 #--------------------------------------------------------------------------------------------------#
 #--------------------------------------------------------------------------------------------------#
@@ -136,6 +141,8 @@ class OneRegion(list):
 
 		return(self)
 
+		
+
 
 	def get_signal(self, pybw, numpy_bool = True):
 		""" Get signal from bigwig in region """
@@ -152,7 +159,6 @@ class OneRegion(list):
 		except:
 			print("Error reading region: {0} from pybigwig object".format(self.tup()))
 			signal = np.zeros(self.end - self.start)
-			signal[:] = np.nan
 
 		return(signal)	
 
@@ -214,16 +220,7 @@ class RegionList(list):
 		bed = ""
 		for region in self:
 
-			#Update info
-						
 			line = "{0}\n".format("\t".join([str(col) for col in region]))
-
-			#columns = [region.chrom, region.start, region.end, region.name, region.score, region.strand]
-
-			#if additional == True:
-			#line = "{0}\n".format("\t".join([str(col) for col in columns]))
-			#else:
-			#line = "{0}\n".format("\t".join([str(col) for col in columns[:3]]))
 			bed += line
 
 		return(bed)
@@ -373,45 +370,6 @@ class RegionList(list):
 			prev_chrom, prev_start, prev_end, prev_strand = region.chrom, region.start, region.end, region.strand
 
 		return(unique)
-
-	"""
-	def intersect(self, b_regions):
-		# Overlap regions with other regions - only return those regions in a with an overlap in b
-
-		#Sort before starting
-		self.loc_sort()
-		b_regions.loc_sort()
-
-		a_len = self.count()
-		b_len = b_regions.count()
-
-		chromlist = sorted(list(set([region.chrom for region in self] + [region.chrom for region in b_regions])))
-		chrom_pos = {chrom:chromlist.index(chrom) for chrom in chromlist}
-
-		a = self
-		b = b_regions
-
-		a_i = 0
-		b_i = 0
-
-		while a_i < a_len and b_i < b_len:
-
-			a_chrom, a_start, a_end = a[a_i].chrom, a[a_i].start, a[a_i].end
-			b_chrom, b_start, b_end = b_regions[b_i].chrom, b_regions[b_i].start, b_regions[b_i].end
-
-			#Do comparison
-			if a_chrom == b_chrom:
-
-
-
-			#a is ahead of b -> check next b
-			elif chrom_pos[a_chrom] > chrom_pos[b_chrom]: 	#if a_chrom is after current b_chrom
-				b_i += 1
-
-			#b is ahead of a -> check next a
-			elif chrom_pos[b_chrom] > chrom_pos[a_chrom]:	#if b_chrom is after current a_chrom
-				a_i += 1
-	"""
 
 
 	def subtract(self, b_regions):
@@ -606,28 +564,129 @@ class RegionList(list):
 #------------------------------ Additional functions related to regions ---------------------------#
 #--------------------------------------------------------------------------------------------------#
 
-def overlap_to_distance(overlap_dict):
-	""" """
+class RegionCluster:
 
-	#Find all TF names
-	names = [key for key in overlap_dict.keys() if isinstance(key, str)]
-	names = sorted(names)
-	no_ids = len(names)
+	def __init__(self, overlap_dict): 
 
-	similarity_mat = np.zeros((no_ids, no_ids))
+		self.overlaps = overlap_dict	#overlap dict is from RegionList.count_overlaps
 
-	for i, id1 in enumerate(names): #rows
-		for j, id2 in enumerate(names): #columns
-			if i != j:
-				tot_overlap = overlap_dict.get((id1,id2), 0)	#Find key-pair otherwise no overlap
+		#Added later
+		self.clusters = {}	# ID:{"member_idx":[], "member_names":[], "cluster_name":""}
 
-				tot_id1 = overlap_dict[id1]
-				tot_id2 = overlap_dict[id2]
+	def cluster(self, threshold=0.5, method="average"):
+		""" Main function to cluster the overlap dictionary into clusters"""
 
-				id1_dist = 1 - tot_overlap / float(tot_id1)
-				id2_dist = 1 - tot_overlap / float(tot_id2)
+		self.overlap_to_distance()
+		self.linkage_mat = linkage(squareform(self.distance_mat), method)
+		self.labels = fcluster(self.linkage_mat, threshold, criterion="distance")		#ordering of the dendrogram
 
-				dist = min([id1_dist, id2_dist])
-				similarity_mat[i,j] = dist
+		#Find clusters below threshold
+		self.linkage_clusters = dict(zip(range(self.n), [[num] for num in range(self.n)]))
+		for i, row in enumerate(self.linkage_mat):
+			ID1 = int(row[0])
+			ID2 = int(row[1])
+			new = self.n + i
+			dist = row[2]
 
-	return((similarity_mat, names))
+			if dist <= threshold:
+				self.linkage_clusters[new] = self.linkage_clusters[ID1] + self.linkage_clusters[ID2] + [new]
+				del self.linkage_clusters[ID1]
+				del self.linkage_clusters[ID2]
+
+		#Add member-names to clusters
+		self.clusters = {}
+		for cluster in self.linkage_clusters:
+
+			self.clusters[cluster] = {"member_idx": [idx for idx in self.linkage_clusters[cluster] if idx < self.n]}
+			self.clusters[cluster]["member_names"] = [self.names[idx] for idx in self.clusters[cluster]["member_idx"]]
+
+		self.get_cluster_names()	#Set names of clusters
+		self.assign_colors()
+
+	def overlap_to_distance(self):
+		""" Convert overlap-dict from count_overlaps to distance matrix """
+		
+		#Find all region names
+		names = [key for key in self.overlaps.keys() if isinstance(key, str)]
+		names = sorted(names)
+		self.n = len(names)
+
+		distance_mat = np.zeros((self.n, self.n))
+
+		for i, id1 in enumerate(names): #rows
+			for j, id2 in enumerate(names): #columns
+				if i != j:
+					tot_overlap = self.overlaps.get((id1,id2), 0)	#Find key-pair otherwise no overlap
+
+					tot_id1 = self.overlaps[id1]
+					tot_id2 = self.overlaps[id2]
+
+					id1_dist = 1 - tot_overlap / float(tot_id1)
+					id2_dist = 1 - tot_overlap / float(tot_id2)
+
+					dist = min([id1_dist, id2_dist])
+					distance_mat[i,j] = dist
+
+		self.distance_mat = distance_mat
+		self.names = names
+
+
+	def get_cluster_names(self):
+		""" Names each cluster based on the members of the cluster """
+
+		self.cluster_names = {}
+		self.name2cluster = {}
+
+		#Sort clusters by distance scores to other motifs in cluster
+		cluster_i = 1
+		for cluster in self.clusters:
+
+			members_idx = self.clusters[cluster]["member_idx"]
+
+			### Code to assign a specific name to clusters
+			"""
+			members_idx = self.clusters[cluster]["member_idx"]
+			members_names = self.clusters[cluster]["member_names"]
+			distances = {}
+			for member in members_idx:
+				distances[member] = np.sum(self.distance_mat[member,:])	#0 if member is one-member cluster
+
+			#Sort cluster by distance; smallest values=most representative first
+			ordered_idx = sorted(distances.keys(), key=lambda member: distances[member])
+
+			self.cluster_names[cluster] =  "C_" + self.names[ordered_idx[0]]		#cluster is the idx for cluster
+			"""
+
+			self.cluster_names[cluster] = "C_{0}".format(cluster_i)
+			cluster_i += 1
+
+			#Assign every member to its cluster
+			for member in members_idx:
+				self.name2cluster[self.names[member]] = self.cluster_names[cluster] 
+
+
+	def write_distance_mat(self, out_f):
+		""" Writes out distance matrix to out_f file """
+		np.savetxt(out_f, self.distance_mat, delimiter="\t", header="\t".join(self.names), fmt="%.4f")
+
+
+	def assign_colors(self):
+		""" Assign colors for plotting the dendrogram """
+
+		clusters = self.linkage_clusters
+		no_IDS = self.n
+
+		colorlist = ["blue", "green", "red", "orange"]
+		node_color = ["black"] * (2*no_IDS-1)
+		i = 0
+		for cluster in sorted(list(clusters.keys())):
+			if len(clusters[cluster]) > 1:
+				color = colorlist[i]
+				for node in clusters[cluster]:
+					node_color[node] = color
+				i += 1 
+
+				if i == len(colorlist):
+					i = 0
+
+		self.node_color = node_color #list corresponding to each possible clustering in tree

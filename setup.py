@@ -10,14 +10,14 @@ ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.pyx"], include_d
                Extension("tobias.utils.signals", ["tobias/utils/signals.pyx"], include_dirs=[np.get_include()])]
 
 setup(name='tobias',
-      version='0.1',
+      version='0.2',
       description='Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal',
       long_description=readme(),
       url='https://github.molgen.mpg.de/loosolab/TOBIAS',
       author='Mette Bentsen',
       author_email='mette.bentsen@mpi-bn.mpg.de',
       license='MIT',
-      packages=['tobias', 'tobias.footprinting', 'tobias.utils', 'tobias.plotting', 'tobias.motifs'],
+      packages=['tobias', 'tobias.footprinting', 'tobias.plotting', 'tobias.motifs', 'tobias.misc', 'tobias.utils'],
       entry_points = {
         'console_scripts': ['TOBIAS=tobias.TOBIAS:main']
       },

@@ -34,7 +34,7 @@ def add_heatmap_arguments(parser):
 
 	#---------------- Parse arguments ---------------#
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = ""
+	description = "PlotHeatmap plots a heatmap of signals from bigwig(s) (each row is one site) as well as the aggregate signal across all sites."
 	parser.description = format_help_description("PlotHeatmap", description)
 	
 	parser._action_groups.pop()	#pop -h
@@ -44,20 +44,20 @@ def add_heatmap_arguments(parser):
 	IO.add_argument('--signals', metavar="", nargs="*", help="Signals in bigwig format (*required)")
 	IO.add_argument('--output',  metavar="", help="Output filename (default: TOBIAS_heatmap.pdf)", default="TOBIAS_heatmap.pdf")
 
-	#IO.add_argument('--log', metavar="", help="",)
-	#IO.add_argument('--silent', help="Prevents printing to stdout", action='store_true')
-
-	plotargs = parser.add_argument_group('Plot parameters')
-	plotargs.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
-	plotargs.add_argument('--share_colorbar', help="Share colorbar across all bigwigs (default: estimate colorbar per bigwig)", action='store_true')
-	plotargs.add_argument('--flank', metavar="", help="", type=int, default=75)
+	PLOT = parser.add_argument_group('Plot arguments')
+	PLOT.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
+	PLOT.add_argument('--share_colorbar', help="Share colorbar across all bigwigs (default: estimate colorbar per bigwig)", action='store_true')
+	PLOT.add_argument('--flank', metavar="", help="", type=int, default=75)
 	
-	plotargs.add_argument('--title', metavar="", default="TOBIAS heatmap")
-	plotargs.add_argument('--TFBS_labels', metavar="", nargs="*", action='append', help="Labels of TFBS (default: basename of --TFBS)")
-	plotargs.add_argument('--signal_labels', metavar="", nargs="*", help="Labels of signals (default: basename of --signals)")
+	PLOT.add_argument('--title', metavar="", default="TOBIAS heatmap")
+	PLOT.add_argument('--TFBS_labels', metavar="", nargs="*", action='append', help="Labels of TFBS (default: basename of --TFBS)")
+	PLOT.add_argument('--signal_labels', metavar="", nargs="*", help="Labels of signals (default: basename of --signals)")
 
-	plotargs.add_argument('--show_columns', nargs="*", metavar="", type=int, help="Show scores from TFBS column besides heatmap. Set to 0-based python coordinates (for example -1 for last column) (default: None)", default=[])
-	plotargs.add_argument('--sort_by', metavar="", help="Columns in .bed to sort heatmap by (default: input .beds are not sorted)", type=int)
+	PLOT.add_argument('--show_columns', nargs="*", metavar="", type=int, help="Show scores from TFBS column besides heatmap. Set to 0-based python coordinates (for example -1 for last column) (default: None)", default=[])
+	PLOT.add_argument('--sort_by', metavar="", help="Columns in .bed to sort heatmap by (default: input .beds are not sorted)", type=int)
+
+	RUN = parser.add_argument_group('Run arguments')
+	RUN = add_logger_args(RUN)
 
 	return(parser)
 
@@ -65,7 +65,13 @@ def add_heatmap_arguments(parser):
 #----------------------------------------------------------------------------------------#
 def run_heatmap(args):
 
-	begin_time = datetime.now()
+	#Start logger
+	logger = TobiasLogger("PlotHeatmap", args.verbosity)
+	logger.begin()
+
+	parser = add_heatmap_arguments(argparse.ArgumentParser())
+	logger.arguments_overview(parser, args)
+	logger.output_files([args.output])
 
 	check_required(args, ["TFBS", "signals"])
 	
@@ -75,19 +81,6 @@ def run_heatmap(args):
 
 	if args.signal_labels == None:
 		args.signal_labels = [os.path.basename(fil) for fil in args.signals]
-
-
-	########################################################
-
-	# Create logger
-	logger = create_logger()
-	
-	#Print info on run
-	logger.comment("#TOBIAS PlotHeatmap (run started {0})\n".format(begin_time))
-	logger.comment("#Command line call: {0}\n".format(" ".join(sys.argv)))
-
-	parser = add_heatmap_arguments(argparse.ArgumentParser())
-	logger.comment(arguments_overview(parser, args))
 
 
 	########################################################
@@ -115,10 +108,8 @@ def run_heatmap(args):
 		for i, signal in enumerate(args.signals):
 			logger.info("Using {0} with signal from {1}".format(args.TFBS[i], signal))
 
-
-	###logger overview of bedfiles per column?
+	#todo: logger overview of bedfiles per column?
 	
-
 	######################################################################################
 	##################################### INPUT DATA #####################################
 	######################################################################################
@@ -144,10 +135,6 @@ def run_heatmap(args):
 		for row in range(len(heatmap_info[col])):
 		
 			heatmap_info[col][row]["regions"] = RegionList().from_bed(heatmap_info[col][row]["bed_f"])
-			
-			#if len(heatmap_info[col][row]["regions"]) == 0:
-				#del heatmap_info[col][row]
-				#continue
 
 			#Estimate region width
 			distri = heatmap_info[col][row]["regions"].get_width_distri()
@@ -358,10 +345,8 @@ def run_heatmap(args):
 				heatmap_info[col][row]["vmin"] = -lim
 				heatmap_info[col][row]["vmax"] = lim
 				heatmap = axdict[col][row].imshow(heatmap_info[col][row]["signal_mat"], aspect="auto", cmap="seismic", norm=mpl.colors.Normalize(vmin=heatmap_info[col][row]["vmin"], vmax=heatmap_info[col][row]["vmax"]))
-				#aspect="auto", extent=[-flank, flank, 0, TFBS["bound"]["no_sites"]]
 
 				#Insert colorbar (inserted multiple times for each bigwig, but since it is shared for the same bigwig, it doesn't matter)
-				#axin = inset_axes(axdict[col]["colorbar"], width="100%", height="100%", loc=8, borderpad=-4)
 				fig.colorbar(heatmap, cax=axdict[col]["colorbar"], orientation="horizontal")
 
 
@@ -425,7 +410,7 @@ def run_heatmap(args):
 		plt.setp(axarr[row].get_xticklabels(), visible=False)  #Hide x-axis ticks
 		axarr[row].tick_params(direction="in")
 	"""
-	#plt.tight_layout()
+
 	plt.subplots_adjust(top=0.95)
 	plt.suptitle(args.title, fontsize=25)
 
@@ -433,8 +418,7 @@ def run_heatmap(args):
 	plt.savefig(args.output, bbox_inches='tight')
 	plt.close()
 
-	logger.info("Finished PlotHeatmap! Output file is: {0}".format(os.path.abspath(args.output)))
-
+	logger.end()
 
 #--------------------------------------------------------------------------------------------------------#
 if __name__ == '__main__':

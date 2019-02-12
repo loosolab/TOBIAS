@@ -130,8 +130,8 @@ if len(CONDITION_IDS) > 1:
 
 output_files.append(expand(os.path.join(OUTPUTDIR, "footprinting", "{condition}_footprints.bw"), condition=CONDITION_IDS))
 
-output_files.append(os.path.join(OUTPUTDIR, "TFBS", "bindetect_results.txt"))
-output_files.append(os.path.join(OUTPUTDIR, "overview", "bindetect_results.txt"))
+#output_files.append(os.path.join(OUTPUTDIR, "TFBS", "bindetect_results.txt"))
+#output_files.append(os.path.join(OUTPUTDIR, "overview", "bindetect_results.txt"))
 
 #Visualization
 output_files.extend(expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_{plotname}.pdf"), TF=TF_IDS, plotname=PLOTNAMES))

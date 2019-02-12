@@ -47,13 +47,15 @@ rule plot_aggregate_within:
 		signals = [os.path.join(OUTPUTDIR, "bias_correction", "{condition}_" + state + ".bw") for state in ["uncorrected", "expected", "corrected"]],
 	output:
 		os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_{condition}_aggregate.pdf")
+	log:
+		os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "logs", "{TF}_{condition}_aggregate.log")
 	message: "Plotting split between bound/unbound around TFBS for TF \"{wildcards.TF}\" in condition \"{wildcards.condition}\""
 	params:
 		"--title 'Bias correction and split for {TF} in condition {condition}'",
-		"--share_y rows",
+		"--share_y sites",
 		"--plot_boundaries",
 	shell:
-		"TOBIAS PlotAggregate --TFBS {input.TFBS} --signals {input.signals} --output {output} {params} >/dev/null "
+		"TOBIAS PlotAggregate --TFBS {input.TFBS} --signals {input.signals} --output {output} {params} > {log} "
 
 
 #Aggregates across conditions for all and for bound subsets
@@ -64,7 +66,9 @@ rule plot_aggregate_across:
 		signals = expand(os.path.join(OUTPUTDIR, "bias_correction", "{condition}_corrected.bw"), condition=CONDITION_IDS),
 	output: 
 		all_compare = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison_all.pdf"),
-		bound_compare = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison_bound.pdf")
+		bound_compare = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "{TF}_aggregate_comparison_bound.pdf"),
+		all_log = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "logs", "{TF}_aggregate_comparison_all.log"),
+		bound_log = os.path.join(OUTPUTDIR, "TFBS", "{TF}", "plots", "logs", "{TF}_aggregate_comparison_bound.log")
 	priority: 2
 	params: 
 		"--title {0}".format("{TF}"),
@@ -72,8 +76,8 @@ rule plot_aggregate_across:
 		"--share_y both",
 	message: "Plotting comparison of cutsite signals for \"{wildcards.TF}\" between conditions"
 	shell:
-		"TOBIAS PlotAggregate --TFBS {input.TFBS_all} --signals {input.signals} --output {output.all_compare} {params} >/dev/null; "
-		"TOBIAS PlotAggregate --TFBS {input.TFBS_bound} --signals {input.signals} --output {output.bound_compare} {params}  >/dev/null;"
+		"TOBIAS PlotAggregate --TFBS {input.TFBS_all} --signals {input.signals} --output {output.all_compare} {params} > {output.all_log}; "
+		"TOBIAS PlotAggregate --TFBS {input.TFBS_bound} --signals {input.signals} --output {output.bound_compare} {params} > {output.bound_log};"
 
 
 #----------------------------------------------------------------#

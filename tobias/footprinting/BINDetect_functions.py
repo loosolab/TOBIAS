@@ -18,8 +18,14 @@ import xlsxwriter
 import random
 
 #Plotting
+import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import NullFormatter
+from cycler import cycler
+from matplotlib.lines import Line2D
+from adjustText import adjust_text
 
 #Bio-specific packages
 import pyBigWig
@@ -36,6 +42,7 @@ from tobias.utils.motifs import *
 from tobias.utils.signals import *
 from tobias.plotting.plot_bindetect import *
 
+#------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------------------#
 
@@ -55,46 +62,6 @@ def get_gc_content(regions, fasta):
 
 	return(gc_content)
 
-def find_nearest_idx(array, value):
-    idx = np.abs(array - value).argmin()
-    return(idx)
-
-"""
-def is_nan(x):
-    return (x is np.nan or x != x)
-"""
-
-### Logger runs in main process
-def main_logger_process(queue, logger):
-
-	logger.debug("Started main logger process")
-	while True:
-		try:
-			record = queue.get()
-			if record is None:
-				break
-			logger.handle(record) 
-
-		except Exception:
-			import sys, traceback
-			print('Problem in main logger process:', file=sys.stderr)
-			traceback.print_exc(file=sys.stderr)
-			break
-
-	return(1)
-
-"""
-def norm_fit(x, loc, scale, size):
-	size scales the height of the pdf-curve 
-	return(scipy.stats.norm.pdf(x, loc, scale) * size)
-	
-
-def lognorm_fit(x, s, loc, scale, size):
-	size scales the height of the pdf-curve 
-
-	y = scipy.stats.lognorm.pdf(x, s, loc=loc, scale=scale) * size
-	return(y) 
-"""
 
 #---------------------------------------------------------------------------------------------------------#
 #------------------------------------------- Main functions ----------------------------------------------#
@@ -103,12 +70,11 @@ def lognorm_fit(x, s, loc, scale, size):
 def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	""" Scanning and scoring runs in parallel for subsets of regions """
 	
-	logger = create_mp_logger(args.verbosity, log_q)	#sending all logger calls to log_q
+	logger = TobiasLogger("", args.verbosity, log_q)	#sending all logger calls to log_q
 
-	logger.debug("Setting scanner")
+	logger.debug("Setting up scanner/bigwigs/fasta")
 	motifs_obj.setup_moods_scanner()	#MotifList object
 
-	logger.debug("Opening bigwigs and fasta")
 	pybw = {condition:pyBigWig.open(args.signals[i], "rb") for i, condition in enumerate(args.cond_names)}
 	fasta_obj = pysam.FastaFile(args.genome)
 	chrom_boundaries = dict(zip(fasta_obj.references, fasta_obj.lengths))
@@ -122,9 +88,10 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	#TODO: Estimate number of background positions sampled to pre-allocate space
 
 	######## Scan for motifs in each region ######
+	logger.debug("Scanning for motif occurrences")
 	all_TFBS = {TF: RegionList() for TF in motifs_obj.names} 	# Dict for saving sites before writing
 	for i, region in enumerate(regions):
-		logger.debug("Processing region: {0}".format(region.tup()))
+		logger.spam("Processing region: {0}".format(region.tup()))
 	
 		extra_columns = region
 
@@ -132,7 +99,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		reglen = region.get_length()
 		random.seed(reglen)		#Each region is processed identifically regardless of order in file
 		rand_positions = random.sample(range(reglen), max(1,int(reglen/rand_window)))		#theoretically one in every 500 bp
-		logger.debug("Random indices: {0} for region length {1}".format(rand_positions, reglen))
+		logger.spam("Random indices: {0} for region length {1}".format(rand_positions, reglen))
 
 		#Read footprints in region
 		footprints = {}
@@ -141,7 +108,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 				footprints[condition] = pybw[condition].values(region.chrom, region.start, region.end, numpy=True)
 				footprints[condition] = np.nan_to_num(footprints[condition])	#nan to 0
 			except:
-				logger.critical("ERROR reading footprints from region: {0}".format(region))
+				logger.error("Error reading footprints from region: {0}".format(region))
 				continue
 
 			#Read random positions for background
@@ -192,10 +159,9 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		all_TFBS[name] = all_TFBS[name].resolve_overlaps()
 		no_sites = len(all_TFBS[name])
 
-		if name in args.new_motifs: 	# Only write if name was in the requested motifs
-			logger.debug("Sending {0} sites from {1} to bed-writer queue".format(no_sites, name))
-			bed_content = all_TFBS[name].as_bed()	#string 
-			qs[name].put((name, bed_content))
+		logger.spam("Sending {0} sites from {1} to bed-writer queue".format(no_sites, name))
+		bed_content = all_TFBS[name].as_bed()	#string 
+		qs[name].put((name, bed_content))
 
 		global_TFBS.extend(all_TFBS[name])
 		all_TFBS[name] = []
@@ -207,7 +173,8 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	for bigwig_f in pybw:
 		pybw[bigwig_f].close()
 			
-	end_time = datetime.now()
+	logger.stop()
+	logger.total_time
 
 	return(background_signal, overlap)
 
@@ -217,15 +184,17 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	""" Processes single TFBS to split into bound/unbound and write out overview file """
 
 	begin_time = datetime.now()
+	logger = TobiasLogger("", args.verbosity, args.log_q) 	#sending all logger calls to log_q
 
+	#pre-scanned sites to read
 	bed_outdir = os.path.join(args.outdir, TF_name, "beds")
 	filename = os.path.join(bed_outdir, TF_name + ".tmp")
 	no_cond = len(args.cond_names)
-	comparisons = list(itertools.combinations(args.cond_names, 2))
+	comparisons = args.comparisons
 
 	#Get info table ready
 	info_columns = ["total_tfbs"]
-	info_columns.extend(["{0}_{1}".format(cond, metric) for (cond, metric) in itertools.product(args.cond_names, ["bound"])])
+	info_columns.extend(["{0}_{1}".format(cond, metric) for (cond, metric) in itertools.product(args.cond_names, ["mean_score", "bound"])])
 	info_columns.extend(["{0}_{1}_{2}".format(comparison[0], comparison[1], metric) for (comparison, metric) in itertools.product(comparisons, ["change", "pvalue"])])
 	rows, cols = 1, len(info_columns)
 	info_table = pd.DataFrame(np.zeros((rows, cols)), columns=info_columns, index=[TF_name])
@@ -257,7 +226,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	for condition in args.cond_names:
 		bed_table[condition + "_score"] = bed_table[condition + "_score"].round(5)
 
-	#### Write all file ####
+	#### Write _all file ####
 	chosen_columns = [col for col in header if col != "GC"]
 	outfile = os.path.join(bed_outdir, TF_name + "_all.bed")
 	bed_table.to_csv(outfile, sep="\t", index=False, header=False, columns=chosen_columns)
@@ -267,6 +236,8 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 		threshold = args.thresholds[condition]
 		bed_table[condition + "_bound"] = np.where(bed_table[condition + "_score"] > threshold, 1, 0).astype(int)
+		
+		info_table.at[TF_name, condition + "_mean_score"] = round(np.mean(bed_table[condition + "_score"]), 5)
 		info_table.at[TF_name, condition + "_bound"] = np.sum(bed_table[condition + "_bound"].values)	#_bound contains bool 0/1
 
 	#Write bound/unbound
@@ -283,6 +254,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		chosen_columns = header[:-no_cond-1] + [condition + "_score"]
 		bed_table_subset.to_csv(outfile, sep="\t", index=False, header=False, columns=chosen_columns)
 
+
 	#### Calculate statistical test in comparison to background ####
 	fig_out = os.path.abspath(os.path.join(args.outdir, TF_name, "plots", TF_name + "_log2fcs.pdf"))
 	log2fc_pdf = PdfPages(fig_out, keep_empty=True)
@@ -297,27 +269,14 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		bed_table[base + "_log2fc"] = bed_table[base + "_log2fc"].round(5)
 		
 		# Compare log2fcs to background log2fcs
-		excluded = np.logical_and(np.isclose(bed_table[cond1 + "_score"].values, 0), np.isclose(bed_table[cond2 + "_score"].values, 0))		#exclude 0's from both conditions
-		subset = bed_table[np.logical_not(excluded)].copy() 		#included subset 
+		included = np.logical_or(bed_table[cond1 + "_score"].values > 0, bed_table[cond2 + "_score"].values > 0)
+		subset = bed_table[included].copy() 		#included subset 
 		subset.loc[:,"peak_id"] = ["_".join([chrom, str(start), str(end)]) for (chrom, start, end) in zip(subset["peak_chr"].values, subset["peak_start"].values, subset["peak_end"].values)]	
+		
 		observed_log2fcs = subset.groupby('peak_id')[base + '_log2fc'].mean().reset_index()[base + "_log2fc"].values		#if more than one TFBS per peak -> take mean value
-		observed_gcs = subset.groupby('peak_id')["GC"].mean().reset_index()["GC"].values									#if more than one TFBS per peak -> take mean value
-
-		#Resample from background
-		log2fc_params[(cond1, cond2)].set_params(random_state=len(observed_log2fcs))
-		sampling, labels = log2fc_params[(cond1, cond2)].sample(int(info_table.at[TF_name, "total_tfbs"]*2))
-		sampled_log2fcs, sampled_gcs = sampling[:,0], sampling[:,1]
-
-		indices = []
-		for val in observed_gcs:
-			idx = find_nearest_idx(sampled_gcs, val)
-			indices.append(idx)
-			sampled_gcs[idx] = np.inf
-
-		bg_log2fcs = sampled_log2fcs[indices]
 
 		#Estimate mean/std
-		bg_params = scipy.stats.norm.fit(bg_log2fcs)
+		bg_params = log2fc_params[(cond1, cond2)]
 		obs_params = scipy.stats.norm.fit(observed_log2fcs)
 
 		obs_mean, obs_std = obs_params
@@ -326,7 +285,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 		#If there was any change found at all (0 can happen if two bigwigs are the same)
 		if obs_mean != bg_mean: 
-			info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / bg_std  #effect size
+			info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / np.mean([obs_std, bg_std])  #effect size
 			info_table.at[TF_name, base + "_change"] = np.round(info_table.at[TF_name, base + "_change"], 5)
 		
 			#pval = scipy.stats.mannwhitneyu(observed_log2fcs, bg_log2fcs, alternative="two-sided")[1]
@@ -338,25 +297,33 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			info_table.at[TF_name, base + "_change"] = 0
 			info_table.at[TF_name, base + "_pvalue"] = 1
 
-		# Plot differences of distributions
-		fig, ax = plt.subplots(1, 1)
-		ax.hist(observed_log2fcs, density=True, bins=50, color="red", label="Observed log2fcs", alpha=0.5)
-		ax.hist(bg_log2fcs, density=True, bins=50, color="black", label="Background log2fcs", alpha=0.6)
-		ax.axvline(obs_mean, color="red", label="Observed mean")
-		ax.axvline(bg_mean, color="black", label="Background mean")
+		#### Plot comparison ###
+		fig, ax = plt.subplots(1,1)
+		ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
+		xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
 		
+		#Observed distribution
+		pdf = scipy.stats.norm.pdf(xvals, *obs_params)
+		ax.plot(xvals, pdf, label="Observed distribution (fit)", color="red", linestyle="--")
+		ax.axvline(obs_mean, color="red", label="Observed mean")
+		
+		#Background distribution
+		pdf = scipy.stats.norm.pdf(xvals, *bg_params)
+		ax.plot(xvals, pdf, label="Background distribution (fit)", color="Black", linestyle="--")
+		ax.axvline(bg_mean, color="black", label="Background mean")
+
+		#Set size
 		x0,x1 = ax.get_xlim()
 		y0,y1 = ax.get_ylim()
-		ax.set_aspect(((x1-x0)/(y1-y0)) / 1.5)		#square volcano plot
+		ax.set_aspect(((x1-x0)/(y1-y0)) / 1.5)
 
-		#Add text showing change
-		ax.text(0.05, 0.95, "Diff. score: {0:.3f}".format(info_table.at[TF_name, base + "_change"]), va="top", transform = ax.transAxes)
-
-		plt.xlabel("Log2(fold change)")
+		#Decorate
+		ax.legend()
+		plt.xlabel("Log2 fold change")
 		plt.ylabel("Density")
 		plt.title("Differential binding for TF \"{0}\"\nbetween ({1} / {2})".format(TF_name, cond1, cond2))
 		ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-
+		
 		plt.tight_layout()
 		log2fc_pdf.savefig(fig, bbox_inches='tight')
 		plt.close(fig)
@@ -388,6 +355,162 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	try:
 		os.remove(filename)
 	except:
-		print("Error removing temporary file {0} - this does not effect the results of BINDetect.".format(filename) )
+		logger.error("Could not remove temporary file {0} - this does not effect the results of BINDetect.".format(filename) )
 
 	return(info_table)
+
+
+
+#------------------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------------------------------#
+
+def plot_bindetect(motifs, clusters, conditions, args):
+	""" Conditions refer to the order of the fold_change divison, meaning condition1/condition2 
+		- Clusters is a RegionCluster object 
+		- conditions is a tup of condition names (cond1, cond2)
+	"""
+	warnings.filterwarnings("ignore")
+
+	cond1, cond2 = conditions
+	no_IDS = clusters.n
+
+	#Link information from motifs / clusters
+	diff_scores = {}
+	for motif in motifs:
+		diff_scores[motif.name] = {"change": motif.change,
+									"pvalue": motif.pvalue,
+									"log10pvalue": -np.log10(motif.pvalue) if  motif.pvalue > 0 else -np.log10(1e-308),	#smallest possible number before python underflows
+									"volcano_label": motif.alt_name,	#shorter name
+									"overview_label": "{0} ({1})".format(motif.alt_name, motif.id) 		#the name which was output used in bindetect output
+									}
+	
+	xvalues = np.array([diff_scores[TF]["change"] for TF in diff_scores])
+	yvalues = np.array([diff_scores[TF]["log10pvalue"] for TF in diff_scores])
+
+	#### Define the TFs to plot IDs for ####
+	y_min = np.percentile(yvalues[yvalues < -np.log10(1e-300)], 95)	
+	x_min, x_max = np.percentile(xvalues, [5,95])
+
+	for TF in diff_scores:
+		if diff_scores[TF]["change"] < x_min or diff_scores[TF]["change"] > x_max or diff_scores[TF]["log10pvalue"] > y_min:
+			diff_scores[TF]["show"] = True
+			if diff_scores[TF]["change"] < 0:
+				diff_scores[TF]["color"] = "blue"
+			elif diff_scores[TF]["change"] > 0:
+				diff_scores[TF]["color"] = "red"
+		else:
+			diff_scores[TF]["show"] = False
+			diff_scores[TF]["color"] = "black"
+
+	node_color = clusters.node_color
+	IDS = np.array(clusters.names)
+	
+	#--------------------------------------- Figure --------------------------------#
+
+	#Make figure
+	no_rows, no_cols = 2,2	
+	h_ratios = [1,max(1,no_IDS/25)]
+	figsize = (8,10+7*(no_IDS/25))
+	
+	fig = plt.figure(figsize = figsize)
+	gs = gridspec.GridSpec(no_rows, no_cols, height_ratios=h_ratios)
+	gs.update(hspace=0.0001, bottom=0.00001, top=0.999999)
+
+	ax1 = fig.add_subplot(gs[0,:])	#volcano
+	ax2 = fig.add_subplot(gs[1,0])	#long scatter overview
+	ax3 = fig.add_subplot(gs[1,1])  #dendrogram
+	
+	######### Volcano plot on top of differential values ########
+	ax1.set_title("BINDetect volcano plot", fontsize=16, pad=20)
+	ax1.scatter(xvalues, yvalues, color="black", s=5)
+
+	#Add +/- 10% to make room for labels
+	ylim = ax1.get_ylim()
+	y_extra = (ylim[1] - ylim[0]) * 0.1
+	ax1.set_ylim(ylim[0], ylim[1] + y_extra)
+
+	xlim = ax1.get_xlim()
+	x_extra = (xlim[1] - xlim[0]) * 0.1
+	lim = np.max([np.abs(xlim[0]-x_extra), np.abs(xlim[1]+x_extra)])
+	ax1.set_xlim(-lim, lim)
+
+	x0,x1 = ax1.get_xlim()
+	y0,y1 = ax1.get_ylim()
+	ax1.set_aspect((x1-x0)/(y1-y0))		#square volcano plot
+
+	#Decorate plot
+	ax1.set_xlabel("Differential binding score")
+	ax1.set_ylabel("-log10(pvalue)")
+
+	########### Dendrogram over similarities of TFs #######
+	dendro_dat = dendrogram(clusters.linkage_mat, labels=IDS, no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: clusters.node_color[k])
+	labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
+	ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
+
+	ax3.set_ylabel("Transcription factor clustering based on TFBS overlap", rotation=270, labelpad=20)
+	ax3.yaxis.set_label_position("right")
+
+	#Set aspect of dendrogram/changes
+	x0,x1 = ax3.get_xlim()
+	y0,y1 = ax3.get_ylim()
+	ax3.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)		
+
+	########## Differential binding scores per TF ##########
+	ax2.set_xlabel("Differential binding score\n" + "(" + cond2 + r' $\leftarrow$' + r'$\rightarrow$ ' + cond1 + ")") #First position in comparison equals numerator in log2fc division
+	ax2.xaxis.set_label_position('bottom') 
+	ax2.xaxis.set_ticks_position('bottom') 
+
+	no_labels = len(labels)
+	ax2.set_ylim(0.5, no_labels+0.5)
+	ax2.set_ylabel("Transcription factors")
+
+	ax2.set_yticks(range(1,no_labels+1))
+	ax2.set_yticklabels([diff_scores[TF]["overview_label"] for TF in labels])
+	ax2.axvline(0, color="grey", linestyle="--") 	#Plot line at middle
+
+	#Plot scores per TF
+	for y, TF in enumerate(labels):	#labels are the output motif names from output
+		
+
+		idx = np.where(IDS == TF)[0][0]
+		score = diff_scores[TF]["change"]
+
+		#Set coloring based on change/pvalue
+		if diff_scores[TF]["show"] == True:
+			fill = "full"
+		else:
+			fill = "none"
+
+		ax2.axhline(y+1, color="grey", linewidth=1)
+		ax2.plot(score, y+1, marker='o', color=node_color[idx], fillstyle=fill)
+		ax2.yaxis.get_ticklabels()[y].set_color(node_color[idx])
+
+	#Set x-axis ranges
+	lim = np.max(np.abs(ax2.get_xlim()))
+	ax2.set_xlim((-lim, lim))	#center on 0
+
+	#set aspect
+	x0,x1 = ax2.get_xlim()
+	y0,y1 = ax2.get_ylim()
+	ax2.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)		#square volcano plot
+
+	plt.tight_layout()    #tight layout before setting ids in volcano plot
+
+	######### Color points and set labels in volcano ########
+	txts = []
+	for TF in diff_scores:
+		coord = [diff_scores[TF]["change"], diff_scores[TF]["log10pvalue"]]
+		ax1.scatter(coord[0], coord[1], color=diff_scores[TF]["color"], s=4.5)
+
+		if diff_scores[TF]["show"] == True:
+			txts.append(ax1.text(coord[0], coord[1], diff_scores[TF]["volcano_label"], fontsize=7))
+
+	adjust_text(txts, ax=ax1, text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
+	
+	#Plot custom legend for colors
+	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="More bound in {0}".format(conditions[0])),
+						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="More bound in {0}".format(conditions[1]))]
+	ax1.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
+
+	return(fig)

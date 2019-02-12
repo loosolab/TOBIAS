@@ -19,17 +19,19 @@ from tobias.footprinting.BINDetect import *
 
 from tobias.plotting.plot_aggregate import *
 from tobias.plotting.plot_heatmap import *
-from tobias.plotting.plot_bindetect import *
 from tobias.plotting.plot_changes import *
 
 from tobias.motifs.tfbscan import * 
 from tobias.motifs.format_motifs import * 
+from tobias.motifs.cluster_tfbs import *
+from tobias.motifs.score_bed import *
 
-from tobias.utils.subsample_bam import *
-from tobias.utils.merge_pdfs import *
-from tobias.utils.score_bed import *
+from tobias.misc.subsample_bam import *
+from tobias.misc.merge_pdfs import *
+from tobias.misc.maxpos import *
 
-TOBIAS_VERSION = "0.1"
+
+TOBIAS_VERSION = "0.2"  #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Change here :-)
 
 def main():
 	parser = argparse.ArgumentParser("TOBIAS", usage=SUPPRESS)
@@ -98,14 +100,14 @@ def main():
 	formatmotifs_parser.set_defaults(func=run_formatmotifs)
 	all_tool_parsers[name.lower()] = formatmotifs_parser
 
-	"""
-	name, hlp = "ClusterTF", "Cluster TFs based on overlap of sites"
+	
+	name, hlp = "ClusterTFBS", "Cluster TFs based on overlap of sites"
 	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
 	clustering_parser = subparsers.add_parser(name, usage=SUPPRESS)
 	clustering_parser = add_clustering_arguments(clustering_parser)
 	clustering_parser.set_defaults(func=run_clustering)
-	all_tool_parsers[name] = clustering_parser
-	"""
+	all_tool_parsers[name.lower()] = clustering_parser
+	
 	
 	name, hlp = "ScoreBed", "Score .bed-file with signal from .bigwig-file(s)"
 	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
@@ -136,15 +138,6 @@ def main():
 	heatmap_parser.set_defaults(func=run_heatmap)
 	all_tool_parsers[name.lower()] = heatmap_parser
 	
-	
-	name, hlp = "PlotBINDetect", "Plotting function from BINDetect (to re-plot output)"
-	parser.description += "   {0}\t{1}\n".format(name, hlp)
-	diffplot_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	diffplot_parser = add_diffplot_arguments(diffplot_parser)
-	diffplot_parser.set_defaults(func=run_diffplot)
-	all_tool_parsers[name.lower()] = diffplot_parser
-	
-	
 	name, hlp = "PlotChanges", "Plot changes in TF binding across multiple conditions (from BINDetect output)"
 	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
 	changeplot_parser = subparsers.add_parser(name, usage=SUPPRESS)
@@ -166,6 +159,13 @@ def main():
 	mergepdf_parser = add_mergepdf_arguments(mergepdf_parser)
 	mergepdf_parser.set_defaults(func=run_mergepdf)
 	all_tool_parsers[name.lower()] = mergepdf_parser
+
+	name, hlp = "MaxPos", "Get .bed-positions of highest bigwig signal within .bed-regions"
+	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
+	maxpos_parser = subparsers.add_parser(name, usage=SUPPRESS)
+	maxpos_parser = add_maxpos_arguments(maxpos_parser)
+	maxpos_parser.set_defaults(func=run_maxpos)
+	all_tool_parsers[name.lower()] = maxpos_parser
 
 	name, hlp = "SubsampleBam", "Subsample a .bam-file using samtools"
 	parser.description += "   {0}\t\t{1}\n".format(name, hlp)

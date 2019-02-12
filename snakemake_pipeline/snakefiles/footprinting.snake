@@ -73,9 +73,8 @@ rule bindetect:
 	output:
 		bedfiles = expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "beds", "{TF}_{suffix}.bed"), TF=TF_IDS, suffix=["all"] + expand("{condition}_{state}", condition=CONDITION_IDS, state=["bound", "unbound"])),
 		overview = expand(os.path.join(OUTPUTDIR, "TFBS", "{TF}", "{TF}_overview.txt"), TF=TF_IDS),
-		figures = os.path.join(OUTPUTDIR, "TFBS", "bindetect_figures.pdf"),
-		local = [os.path.join(OUTPUTDIR, "TFBS", fil) for fil in ["bindetect_results.txt", "bindetect_results.xlsx"]],
-	
+		#figures = os.path.join(OUTPUTDIR, "TFBS", "bindetect_figures.pdf"),
+		#local = [os.path.join(OUTPUTDIR, "TFBS", fil) for fil in ["bindetect_results.txt", "bindetect_results.xlsx"]],
 	threads: 99	
 	priority: 2
 	log:
@@ -88,7 +87,11 @@ rule bindetect:
 		"Running BINDetect"
 	shell:
 		"TOBIAS BINDetect --motifs {input.motifs} --signals {input.footprints} --genome {input.genome} --peaks {input.peaks} --peak_header {input.peak_header} --cores {threads} {params} &> {log}; "
-
+		"mkdir -p " + os.path.join(OUTPUTDIR, "overview") + ";"
+		"mv " + os.path.join(OUTPUTDIR, "TFBS", "*.txt") + " " + os.path.join(OUTPUTDIR, "overview") + ";"	#move files to overview
+		"mv " + os.path.join(OUTPUTDIR, "TFBS", "*.xlsx") + " " + os.path.join(OUTPUTDIR, "overview") + ";"
+		"mv " + os.path.join(OUTPUTDIR, "TFBS", "*.pdf") + " " + os.path.join(OUTPUTDIR, "overview") + ";"
+"""
 rule copy_to_overview:
 	input: 
 		[os.path.join(OUTPUTDIR, "TFBS", fil) for fil in ["bindetect_results.txt", "bindetect_results.xlsx"]],
@@ -96,4 +99,5 @@ rule copy_to_overview:
 		[os.path.join(OUTPUTDIR, "overview", fil) for fil in ["bindetect_results.txt", "bindetect_results.xlsx"]]
 	priority: 2
 	shell:
-		"cp " + os.path.join(OUTPUTDIR, "TFBS", "bindetect_*") + " " + os.path.join(OUTPUTDIR, "overview")
+		"mv " + os.path.join(OUTPUTDIR, "TFBS", "*.*") + " " + os.path.join(OUTPUTDIR, "overview")	#move files to overview
+"""

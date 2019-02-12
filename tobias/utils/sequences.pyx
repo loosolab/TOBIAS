@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-#cython: language_level=3
+# cython: language_level=3
 
 """
 Classes and functions for working with sequences, as well as counting and scoring with PWMs/DWMs

@@ -18,103 +18,64 @@ import time
 import textwrap
 import string
 import numpy as np
+import copy
 from difflib import SequenceMatcher
 
-
-#-------------------------------------------------------------------------------------------#
-#----------------------------------- Logger stuff ------------------------------------------#
-#-------------------------------------------------------------------------------------------#
-
-class TOBIASFormatter(logging.Formatter):
-
-	default_fmt = logging.Formatter("%(asctime)s (%(processName)s)\t%(message)s", "%Y-%m-%d %H:%M:%S")
-	comment_fmt = logging.Formatter("%(message)s")
-
-	#def __init__(self, fmt="(%(processName)s) %(asctime)s\t\t%(message)s"):
-	#	logging.Formatter.__init__(self, fmt)
-
-	def format(self, record):
-		format_orig = self._fmt
-
-		#Comments
-		if record.levelno > logging.CRITICAL:
-			return self.comment_fmt.format(record)
-		else:
-			return self.default_fmt.format(record)	
-
-
-def create_logger(verbosity=2, log_f=None):
-	
-	#verbose_levels = {1:logging.CRITICAL, 2:logging.ERROR, 3:logging.WARNING, 4:logging.INFO, 5:logging.DEBUG}
-	verbose_levels = {1:logging.CRITICAL, 2:logging.INFO, 3:logging.DEBUG}
-	logger = logging.getLogger("TOBIAS")	#Set logger specifically to not get other module logs (which write to root)
-	logger.setLevel(verbose_levels[verbosity])
-
-	formatter = TOBIASFormatter()
-
-	#Log file stream
-	if log_f != None:
-		log = logging.FileHandler(log_f, "w")
-		log.setLevel(verbose_levels[verbosity])
-		log.setFormatter(formatter)
-		logger.addHandler(log)
-
-	#Stdout stream
-	else:
-		con = logging.StreamHandler(sys.stdout)		#console output
-		con.setLevel(verbose_levels[verbosity])
-		con.setFormatter(formatter)
-		logger.addHandler(con)
-
-
-	#Create custom level for comments (always shown)
-	comment_level = logging.CRITICAL+10
-	logging.addLevelName(comment_level, "comment") #log_levels[lvl])
-	setattr(logger, 'comment', lambda *args: logger.log(comment_level, *args))
-
-	return(logger)
-
-
-def create_mp_logger(verbosity, queue):
-
-	verbose_levels = {1:logging.CRITICAL, 2:logging.INFO, 3:logging.DEBUG}
-	
-	h = logging.handlers.QueueHandler(queue)  	# Just the one handler needed
-	logger = logging.getLogger("Worker")
-	logger.handlers = []
-	logger.addHandler(h)
-	logger.setLevel(verbose_levels[verbosity])
-
-	return(logger)
-
-
-def main_logger_process(queue, logger):
-
-	logger.debug("Started main logger process")
-	while True:
-		try:
-			record = queue.get()
-			if record is None:
-				break
-			logger.handle(record) 
-
-		except Exception:
-			import sys, traceback
-			print('Problem in main logger process:', file=sys.stderr)
-			traceback.print_exc(file=sys.stderr)
-			break
-
-	return(1)
+import pyBigWig
+from tobias.utils.logger import *
 
 
 #-------------------------------------------------------------------------------------------#
 #----------------------------------- Multiprocessing ---------------------------------------#
 #-------------------------------------------------------------------------------------------#
 
+def run_parallel(FUNC, input_chunks, arguments, n_cores, logger):
+	"""
+	#FUNC is the function to run
+	#input_chunks is the input to loop over
+	#arguments are arguments to func
+	#logger is a Logging.Logger object
+	"""
+
+	no_chunks = len(input_chunks)
+
+	if n_cores > 1:
+
+		#Send jobs to pool
+		pool = mp.Pool(processes=n_cores)
+		task_list = []
+		for input_chunk in input_chunks:
+			task_list.append(pool.apply_async(FUNC, args=[input_chunk] + arguments))
+		pool.close() 	#done sending jobs to pool
+
+		#Wait for tasks to finish
+		count = -1
+		finished = sum([task.ready() for task in task_list])
+		while finished < no_chunks:
+			finished = sum([task.ready() for task in task_list])
+			if count != finished:
+				logger.info("Progress: {0:.0f}%".format(finished/float(no_chunks)*100))
+				count = finished
+			else:
+				time.sleep(0.5)
+		pool.join()
+
+		#Get results from processes
+		output_list = [task.get() for task in task_list]
+
+	else:
+
+		output_list = []
+		for count, input_chunk in enumerate(input_chunks):
+			logger.info("Progress: {0:.0f}%".format(count/float(no_chunks)*100))
+			output_list.append(FUNC(input_chunk, *arguments))
+	
+	return(output_list)
+
+
 def file_writer(q, key_file_dict, args):
 	""" File-writer per key -> to value file """
 
-	#time_spent_writing = 0
 	#Open handles for all files (but only once per file!)
 	file2handle = {}
 	for fil in set(key_file_dict.values()):
@@ -136,12 +97,7 @@ def file_writer(q, key_file_dict, args):
 			if key == None:
 				break
 
-			#begin_time = time.time()
-			#print("writing content of {0} chars for TF {1}".format(len(content), TF))
 			handles[key].write(content)
-			#end_time = time.time()
-			#time_spent_writing += end_time - begin_time
-			#except Queue.Empty:
 
 		except Exception:
 			import sys, traceback
@@ -156,22 +112,127 @@ def file_writer(q, key_file_dict, args):
 	return(1)	
 
 
-def monitor_progress(task_list, logger):
+def bigwig_writer(q, key_file_dict, header, regions, args):
+	""" Handle queue to write bigwig, args contain extra info such as verbosity and log_q """
+
+	#todo: check if args.log_q exists
+	logger = TobiasLogger("", args.verbosity, args.log_q)	#separate core, needs mp logger through queue
+	logger.debug("Opened bigwig writer process for {0}".format(key_file_dict))
+	
+	logger.debug("Header: {0}".format(header))
+
+	handles = {}
+	for key in key_file_dict:
+		logger.debug("Opening file {0} for writing".format(key_file_dict[key]))	
+		try:
+			handles[key] = pyBigWig.open(key_file_dict[key], "w")
+			handles[key].addHeader(header)
+
+		except Exception:
+			print("Tried opening file {0} in bigwig_writer but something went wrong?".format(fil))
+			traceback.print_exc(file=sys.stderr)
+
+	#Correct order of chromosomes as given in header
+	contig_list = [tup[0] for tup in header]
+	order_dict = dict(zip(contig_list, range(len(contig_list))))
+	
+	#Establish order of regions to be writteninput regions
+	region_tups = [(region.chrom, region.start, region.end) for region in regions]
+	sorted_region_tups = sorted(region_tups, key=lambda tup: (order_dict[tup[0]], tup[1]))			#sort to same order as bigwig header
+	no_regions = len(region_tups)
+
+	#logger.debug("Order of regions: {0}".format(list(set([tup[0] for tup in sorted_region_tups]))))
+
+	#Fetching content from queue
+	logger.debug("Fetching content from queue")
+
+	i_to_write = {key:0 for key in handles}			#index of next region to write
+	ready_to_write = {key:{} for key in handles}	#key:dict; dict is region-tup:signal array 
+	while True:
+
+		try:
+			(key, region, signal) = q.get()	#key is the bigwig key (e.g. bias:forward), region is a tup of (chr, start, end)
+			logger.spam("Received signal {0} for region {1}".format(key, region))
+			
+			if key == None:	#none is only inserted once all regions have been sent
+				for akey in i_to_write:
+					if i_to_write[akey] != no_regions - 1:
+						logger.error("Wrote {0} regions but there are {1} in total".format(i_to_write[akey], len(region_tups)))
+						logger.error("Ready_to_write[{0}]: {1}".format(akey, len(ready_to_write[akey])))
+				break
+
+			#Save key:region:signal to ready_to_write
+			ready_to_write[key][region] = signal
+			
+			#Check if next-to-write region was done
+			for key in handles: 
+
+				#Only deal with writing if there are still regions to write for this handle
+				if i_to_write[key] != no_regions - 1:
+					next_region = sorted_region_tups[i_to_write[key]]	#this is the region to be written next for this key
+				
+					#If results are in; write wanted entry to bigwig
+					while next_region in ready_to_write[key]: 	#When true: Keep writing when the next region is available
+						chrom = next_region[0]
+						signal = ready_to_write[key][next_region]
+						included = signal.nonzero()[0]
+						positions = np.arange(next_region[1],next_region[2])		#start-end	(including end)
+						pos = positions[included]
+						val = signal[included]
+
+						if len(pos) > 0:
+							try:
+								handles[key].addEntries(chrom, pos, values=val, span=1)
+							except:
+								logger.error("Error writing key: {0}, region: {1} to bigwig".format(key, next_region))
+						logger.spam("Wrote signal {0} from region {1}".format(key, next_region))
+
+						#Check whether this was the last region
+						if i_to_write[key] == no_regions - 1: #i_to_write is the last idx in regions; all sites were written
+							logger.info("Closing {0} (this might take some time)".format(key_file_dict[key]))
+							handles[key].close()
+							next_region = None 	#exit the while loop
+						else:
+							i_to_write[key] += 1
+							next_region = sorted_region_tups[i_to_write[key]]	#this is the region to be written next for this key
+
+					#Write out progress (and only once per step)
+
+				#Write out progress
+				#write out progress only after writing something 
+				#check if i_to_write[key] is a certain percentage of len(regions)
+
+		except Exception:
+			import sys, traceback
+			print('Problem in file_writer:', file=sys.stderr)
+			traceback.print_exc(file=sys.stderr)
+			break
+
+	return(1)
+
+
+
+def monitor_progress(task_list, logger, prefix="Progress"):
 
 	prev_done = 0
 	no_tasks = len(task_list)
 	done = sum([task.ready() for task in task_list])
-	logger.info("Progress 0%")
+	logger.info("{0} 0%".format(prefix))
 	while done != no_tasks:
 		done = sum([task.ready() for task in task_list])
 		if done != prev_done:
-			logger.info("Progress {0}%".format(round(done/no_tasks*100.0, max(0,len(str(no_tasks))-1))))
+			#print if done is 
+			
+			logger.info("{1} {0}%".format(round(done/no_tasks*100.0, max(0,len(str(no_tasks))-1)), prefix))
 			prev_done = done
 		else:
 			time.sleep(0.1)
-	logger.info("All tasks completed!")
+	
+	logger.info("{0} done!".format(prefix))
 
 	return() 	#doesn't return until the while loop exits
+
+
 
 #-------------------------------------------------------------------------------------------#
 #------------------------------------- Argparser -------------------------------------------#
@@ -182,6 +243,12 @@ def restricted_float(f, f_min, f_max):
     if f < f_min or f > f_max:
         raise argparse.ArgumentTypeError("{0} not in range [0.0, 1.0]".format(f))
     return f
+
+def restricted_int(integer, i_min, i_max):
+	integer = float(integer)
+	if integer < i_min or integer > i_max:
+		raise
+
 
 def format_help_description(name, description, width=90):
 	""" Format description of command line tool --help description """
@@ -203,24 +270,6 @@ def format_help_description(name, description, width=90):
 		formatted += "\n" + "-"*width + "\n"
 
 	return(formatted)
-
-
-
-def arguments_overview(parser, args):
-	""" Return string of arguments and options to print to stdout/log"""
-
-	content = ""
-	content += "# ----- Input parameters -----\n"
-	for group in parser._action_groups:
-			group_actions = group._group_actions
-			if len(group_actions) > 0:
-				#content += "# ----- {0} -----\n".format(group.title)
-				for option in group_actions:
-					name = option.dest
-					attr = getattr(args, name, None)
-					content += "# {0}:\t{1}\n".format(name, attr)
-				#content += "\n"
-	return(content)
 
 
 #-------------------------------------------------------------------------------------------#
@@ -270,21 +319,30 @@ def make_directory(directory):
 		os.makedirs(directory)
 	
 
+def merge_dicts(dicts):
+	""" Merge recursive keys and values for list of dicts into one dict. Values are added numerically / lists are extended / numpy arrays are added"""
 
-def merge_dicts(dct, merge_dct):
-	""" Merge recursive keys and values of merge_dct into dct. Values are added numerically 
+	def merger(dct, dct_to_add):
+		""" Merge recursive keys and values of dct_to_add into dct. Values are added numerically / lists are extended / numpy arrays are added
 		No return - dct is changed in place """
 
-	for k, v in merge_dct.items():
+		for k, v in dct_to_add.items():
 
-		#If k is a dict, go one level down
-		if (k in dct and isinstance(dct[k], dict)): # and isinstance(merge_dct[k], collections.Mapping)):
-			merge_dicts(dct[k], merge_dct[k])
-		else:
-			if not k in dct:
-				dct[k] = merge_dct[k]
-			else:
-				dct[k] += merge_dct[k]
+				#If k is a dict, go one level down
+				if (k in dct and isinstance(dct[k], dict)):
+					merger(dct[k], dct_to_add[k])
+				else:
+					if not k in dct:
+						dct[k] = dct_to_add[k]
+					else:
+						dct[k] += dct_to_add[k]
+
+	#Initialize with the first dict in list
+	out_dict = copy.deepcopy(dicts[0])
+	for dct in dicts[1:]:
+		merger(out_dict, dct)
+
+	return(out_dict)
 
 
 def filafy(astring): 	#Make name into accepted filename
@@ -306,7 +364,7 @@ def get_closest(value, arr):
 #-------------------------------------------------------------------------------------------#
 
 def common_prefix(strings):
-	""" Find the longest string that is a prefix of all the strings """
+	""" Find the longest string that is a prefix of all the strings. Used in PlotChanges to find TF names from list """
 	if not strings:
 		return ''
 	prefix = strings[0]
@@ -323,7 +381,7 @@ def common_prefix(strings):
 
 
 def match_lists(lofl): # list of lists
-	""" Find matches between list1 and list2 (output will be the length of list1 with one or more matches per element) """
+	""" Find matches between list1 and list2 (output will be the length of list1 with one or more matches per element)."""
 
 	#Remove common prefixes/suffixes per list
 	prefixes = []
