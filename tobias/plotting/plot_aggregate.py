@@ -63,7 +63,7 @@ def add_aggregate_arguments(parser):
 	PLOT.add_argument('--log_transform', help="", action="store_true")
 	PLOT.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
 	#PLOT.add_argument('--outliers', help="")
-	
+
 	RUN = parser.add_argument_group("Run arguments")
 	RUN = add_logger_args(RUN)
 

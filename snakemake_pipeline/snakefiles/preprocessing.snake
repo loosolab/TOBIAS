@@ -29,7 +29,8 @@ rule conditionbam:
 
 # Peak-calling
 gsizes = {"human":"hs",
-          "mouse":"mm"}
+          "mouse":"mm",
+          "zebrafish": 1369631918}  #https://deeptools.readthedocs.io/en/develop/content/feature/effectiveGenomeSize.html
             
 rule macs:
   input:
