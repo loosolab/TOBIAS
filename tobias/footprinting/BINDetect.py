@@ -435,9 +435,8 @@ def run_bindetect(args):
 		leftside_pdf = scipy.stats.lognorm.pdf(leftside_x, *log_params)
 
 		#Flip over
-		mirrored_x = np.concatenate([leftside_x, np.max(leftside_x) + leftside_x])
-		mirrored_pdf = np.concatenate([leftside_pdf, leftside_pdf[::-1]])
-
+		mirrored_x = np.concatenate([leftside_x, np.max(leftside_x) + leftside_x]).flatten()
+		mirrored_pdf = np.concatenate([leftside_pdf, leftside_pdf[::-1]]).flatten()
 		popt, cov = curve_fit(lambda x, std, sc: sc * scipy.stats.norm.pdf(x, mode, std), mirrored_x, mirrored_pdf)
 		norm_params = (mode, popt[0])
 		logger.debug("Theoretical normal parameters: {0}".format(norm_params))

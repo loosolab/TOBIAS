@@ -40,7 +40,8 @@ from tobias.utils.sequences import *
 from tobias.utils.utilities import *
 from tobias.utils.motifs import *
 from tobias.utils.signals import *
-from tobias.plotting.plot_bindetect import *
+
+import warnings
 
 #------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------------------#

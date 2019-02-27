@@ -51,6 +51,7 @@ class OneRead:
 		self.is_reverse = read.is_reverse 
 		self.query_length = read.query_length
 		self.flag = read.flag
+		self.cigartuples = read.cigartuples
 
 		return(self)
 

@@ -29,11 +29,50 @@ from tobias.motifs.score_bed import *
 from tobias.misc.subsample_bam import *
 from tobias.misc.merge_pdfs import *
 from tobias.misc.maxpos import *
+#from tobias.misc.create_network import *
+from tobias.misc.log2table import *
 
 
 TOBIAS_VERSION = "0.2"  #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Change here :-)
 
 def main():
+
+	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
+	all_parser_info = {"Tools for footprinting analysis":
+							{
+							"ATACorrect":{"help":"Correct reads with regards to Tn5 sequence bias", "add_arguments": add_atacorrect_arguments, "function":run_atacorrect},
+							"FootprintScores":{"help":"Calculate footprint scores from cutsites", "add_arguments": add_footprint_arguments, "function":run_footprinting, "space":"\t"},
+							"BINDetect":{"help":"Detect TF binding from footprints", "add_arguments": add_bindetect_arguments, "function":run_bindetect},
+							},
+
+						"Tools for working with motifs/TFBS":
+							{
+							"TFBScan": {"help":"Identify positions of TFBS given sequence and motifs", "add_arguments": add_tfbscan_arguments, "function": run_tfbscan},
+							"FormatMotifs": {"help": "Utility to deal with motif files", "add_arguments": add_formatmotifs_arguments, "function": run_formatmotifs},
+							"ClusterTFBS": {"help": "Cluster TFs based on overlap of sites", "add_arguments": add_clustering_arguments, "function": run_clustering},
+							"ScoreBed": {"help":"Score .bed-file with signal from .bigwig-file(s)", "add_arguments": add_scorebed_arguments, "function": run_scorebed},
+							},
+
+						"Visualization tools":
+							{
+							"PlotAggregate": {"help": "Aggregate of .bigwig-signal across TF binding sites", "add_arguments": add_aggregate_arguments, "function": run_aggregate, "space":"\t"},
+							"PlotHeatmap": {"help": "Heatmap of .bigwig-signal across TF binding sites", "add_arguments": add_heatmap_arguments, "function": run_heatmap},
+							"PlotChanges": {"help": "Plot changes in TF binding across multiple conditions (from BINDetect output)", "add_arguments": add_plotchanges_arguments, "function": run_plotchanges}
+							},
+
+						"Miscellaneous tools":
+							{
+							"MergePDF": {"help": "Merge pdf files to one", "add_arguments":add_mergepdf_arguments, "function":run_mergepdf},
+							"MaxPos": {"help": "Get .bed-positions of highest bigwig signal within .bed-regions", "add_arguments": add_maxpos_arguments, "function": run_maxpos},
+							"SubsampleBam": {"help": "Subsample a .bam-file using samtools", "add_arguments": add_subsample_arguments, "function": run_subsampling},
+							#"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": run_network, "space":"\t"}
+							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": run_log2table}
+							}
+						}
+
+	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#					
+
 	parser = argparse.ArgumentParser("TOBIAS", usage=SUPPRESS)
 	parser._action_groups.pop()
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=25, width=90)
@@ -41,7 +80,7 @@ def main():
 										 ______________________________________________________________________________
 										|                                                                              |
 										|                                ~ T O B I A S ~                               |
-										|                    Transcription factor Occupancy prediction                 |
+										|                   Transcription factor Occupancy prediction                  |
 										|                       By Investigation of ATAC-seq Signal                    |
 										|______________________________________________________________________________|
 									
@@ -50,133 +89,21 @@ def main():
 										''')
 
 	subparsers = parser.add_subparsers(title=None, metavar="")
-	all_tool_parsers = {}
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Tools for footprinting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-
-	parser.description += "Tools for footprinting analysis:\n"
-
-	name, hlp = "ATACorrect", "Correct reads with regards to Tn5 sequence bias"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	atacorrect_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	atacorrect_parser = add_atacorrect_arguments(atacorrect_parser) 	#add atacorrect arguments to the atacorrect subparser
-	atacorrect_parser.set_defaults(func=run_atacorrect)
-	all_tool_parsers[name.lower()] = atacorrect_parser
-
-	name, hlp = "FootprintScores", "Calculate footprint scores from cutsites"
-	parser.description += "   {0}\t{1}\n".format(name, hlp)
-	footprint_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	footprint_parser = add_footprint_arguments(footprint_parser)
-	footprint_parser.set_defaults(func=run_footprinting)
-	all_tool_parsers[name.lower()] = footprint_parser
-
-	name, hlp = "BINDetect", "Detects TF binding from footprints"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	detect_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	detect_parser = add_bindetect_arguments(detect_parser)
-	detect_parser.set_defaults(func=run_bindetect)
-	all_tool_parsers[name.lower()] = detect_parser
-
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~ Tools for working with TFBS ~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-
-	parser.description += "\nTools for working with motifs/TFBS:\n"
 	
-	name, hlp = "TFBScan", "Identify positions of TFBS given sequence and motifs"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	tfbscan_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	tfbscan_parser = add_tfbscan_arguments(tfbscan_parser)
-	tfbscan_parser.set_defaults(func=run_tfbscan)
-	all_tool_parsers[name.lower()] = tfbscan_parser
-	
-	name, hlp = "FormatMotifs", "Utility to deal with motif files"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	formatmotifs_parser = subparsers.add_parser(name, usage=SUPPRESS) 
-	formatmotifs_parser = add_formatmotifs_arguments(formatmotifs_parser)
-	formatmotifs_parser.set_defaults(func=run_formatmotifs)
-	all_tool_parsers[name.lower()] = formatmotifs_parser
+	#Add all tools to parser
+	all_tool_parsers = {}				
+	for group in all_parser_info:
+		parser.description += group + ":\n"
 
-	
-	name, hlp = "ClusterTFBS", "Cluster TFs based on overlap of sites"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	clustering_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	clustering_parser = add_clustering_arguments(clustering_parser)
-	clustering_parser.set_defaults(func=run_clustering)
-	all_tool_parsers[name.lower()] = clustering_parser
-	
-	
-	name, hlp = "ScoreBed", "Score .bed-file with signal from .bigwig-file(s)"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	scorebed_parser = subparsers.add_parser(name, usage=SUPPRESS) 
-	scorebed_parser = add_scorebed_arguments(scorebed_parser)
-	scorebed_parser.set_defaults(func=run_scorebed)
-	all_tool_parsers[name.lower()] = scorebed_parser
-
-
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Tools for plotting ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-
-	parser.description += "\nVisualization tools:\n"
-
-	name, hlp = "PlotAggregate", "Aggregate of .bigwig-signal across TF binding sites"
-	parser.description += "   {0}\t{1}\n".format(name, hlp)
-	aggregate_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	aggregate_parser = add_aggregate_arguments(aggregate_parser)
-	aggregate_parser.set_defaults(func=run_aggregate)
-	all_tool_parsers[name.lower()] = aggregate_parser
-
-	name, hlp = "PlotHeatmap", "Heatmap of .bigwig-signal across TF binding sites"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	heatmap_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	heatmap_parser = add_heatmap_arguments(heatmap_parser)
-	heatmap_parser.set_defaults(func=run_heatmap)
-	all_tool_parsers[name.lower()] = heatmap_parser
-	
-	name, hlp = "PlotChanges", "Plot changes in TF binding across multiple conditions (from BINDetect output)"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	changeplot_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	changeplot_parser = add_plotchanges_arguments(changeplot_parser)
-	changeplot_parser.set_defaults(func=run_plotchanges)
-	all_tool_parsers[name.lower()] = changeplot_parser
-
-
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Misc tools ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-
-	parser.description += "\nMiscellaneous tools:\n"
-
-	name, hlp = "MergePDF", "Merge pdf files to one"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	mergepdf_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	mergepdf_parser = add_mergepdf_arguments(mergepdf_parser)
-	mergepdf_parser.set_defaults(func=run_mergepdf)
-	all_tool_parsers[name.lower()] = mergepdf_parser
-
-	name, hlp = "MaxPos", "Get .bed-positions of highest bigwig signal within .bed-regions"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	maxpos_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	maxpos_parser = add_maxpos_arguments(maxpos_parser)
-	maxpos_parser.set_defaults(func=run_maxpos)
-	all_tool_parsers[name.lower()] = maxpos_parser
-
-	name, hlp = "SubsampleBam", "Subsample a .bam-file using samtools"
-	parser.description += "   {0}\t\t{1}\n".format(name, hlp)
-	subsample_parser = subparsers.add_parser(name, usage=SUPPRESS)
-	subsample_parser = add_subsample_arguments(subsample_parser)
-	subsample_parser.set_defaults(func=run_subsampling)
-	all_tool_parsers[name.lower()] = subsample_parser
-
-	parser.description += "\n"
-
-	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+		info = all_parser_info[group]
+		for tool in info:
+			parser.description += "   {0}{1}{2}\n".format(tool, info[tool].get("space", "\t\t"), info[tool]["help"])
+			subparser = subparsers.add_parser(tool, usage=SUPPRESS)
+			subparser = info[tool]["add_arguments"](subparser)
+			subparser.set_defaults(func=info[tool]["function"])
+			all_tool_parsers[tool.lower()] = subparser
+		
+		parser.description += "\n"
 
 	parser.description += "For help on each tool, please run: TOBIAS <TOOLNAME> --help\n"
 

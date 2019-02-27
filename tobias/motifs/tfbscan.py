@@ -142,8 +142,11 @@ def run_tfbscan(args):
 	logger = TobiasLogger("TFBScan", args.verbosity)
 	logger.begin()
 	parser = add_tfbscan_arguments(argparse.ArgumentParser())
+	
 	logger.arguments_overview(parser, args)
-	logger.output_files([args.outfile])
+	
+	if args.outfile != None:
+		logger.output_files([args.outfile])
 
 
 	######## Read sequences from file and estimate background gc ########

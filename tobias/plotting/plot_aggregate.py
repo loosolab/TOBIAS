@@ -62,6 +62,7 @@ def add_aggregate_arguments(parser):
 	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
 	PLOT.add_argument('--log_transform', help="", action="store_true")
 	PLOT.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
+	#PLOT.add_argument('--outliers', help="")
 	
 	RUN = parser.add_argument_group("Run arguments")
 	RUN = add_logger_args(RUN)
@@ -231,10 +232,13 @@ def run_aggregate(args):
 			
 			signalmat = np.array([signal_dict[signal_name][reg.tup()] for reg in regions_dict[region_name]])
 
-			#todo: Option to remove rows with lowest/highest signal (--percentiles?)
-			#signal_min, signal_max = np.percentile(signalmat, [1,99])
-			#signalmat[signalmat < signal_min] = signal_min
-			#signalmat[signalmat > signal_max] = signal_max
+			#Exclude outliers from each column
+			lower_limit, upper_limit = -np.inf, np.inf 
+			#lower_limit, upper_limit = np.percentile(signalmat[signalmat != 0], [1,99])
+
+			logger.debug("Lower limits: {0}".format(lower_limit))
+			logger.debug("Upper limits: {0}".format(upper_limit))
+			signalmat[np.logical_or(signalmat < lower_limit, signalmat > upper_limit)] = np.nan
 			
 			if args.log_transform:
 				signalmat_abs = np.abs(signalmat)
@@ -259,7 +263,7 @@ def run_aggregate(args):
 
 				#Baseline level
 				baseline_indices = list(range(0,args.flank-fp_flank)) + list(range(args.flank+fp_flank, len(agg)))
-				baseline = np.median(agg[baseline_indices])
+				baseline = np.mean(agg[baseline_indices])
 
 				#Footprint level
 				middle_indices = list(range(args.flank-fp_flank, args.flank+fp_flank))

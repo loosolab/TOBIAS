@@ -133,12 +133,15 @@ def bias_estimation(regions_list, params):
 				#Map reads to positions
 				read_per_pos = {}
 				for read in read_lst_strand[strand]:
-					read_per_pos[read.cutsite] = read_per_pos.get(read.cutsite, []) + [read]
+					if read.cigartuples is not None:
+						first_tuple = read.cigartuples[-1] if read.is_reverse else read.cigartuples[0]
+						if first_tuple[0] == 0 and first_tuple[1] > params.k_flank + max(np.abs(params.read_shift)):
+							read_per_pos[read.cutsite] = read_per_pos.get(read.cutsite, []) + [read]
 
 				for cutsite in read_per_pos:
 					if cutsite > region.start and cutsite < region.end:  	#only reads within borders
 						read = read_per_pos[cutsite][0] 					#use first read in list to establish kmer
-						no_cut = len(read_per_pos[cutsite]) 	
+						no_cut = min(len(read_per_pos[cutsite]), 10)		#put cap on number of cuts to limit influence of outliers
 
 						read.get_kmer(sequence_obj, k_flank)
 
