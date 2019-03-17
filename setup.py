@@ -1,49 +1,84 @@
+import os
+import sys
+import re
 from setuptools import setup, Extension
-import numpy as np
+
+#Test if numpy is installed
+try:
+	import numpy as np
+except:
+	sys.exit("ERROR: Numpy needed for TOBIAS installation. Numpy can be installed using the command \"pip install numpy\"")
+
+cmdclass = {}
+
+#Add cython modules depending on the availability of cython
+try:
+	from Cython.Distutils import build_ext
+except ImportError:
+	use_cython = False
+else:
+	use_cython = True
+
+if use_cython:
+	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.pyx"], include_dirs=[np.get_include()]),
+					Extension("tobias.utils.sequences", ["tobias/utils/sequences.pyx"], include_dirs=[np.get_include()]),
+					Extension("tobias.utils.signals", ["tobias/utils/signals.pyx"], include_dirs=[np.get_include()])]
+	cmdclass.update({'build_ext': build_ext})
+
+else:
+	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.c"], include_dirs=[np.get_include()]),
+						Extension("tobias.utils.sequences", ["tobias/utils/sequences.c"], include_dirs=[np.get_include()]),
+						Extension("tobias.utils.signals", ["tobias/utils/signals.c"], include_dirs=[np.get_include()])]
+
+#Path of setup file to establish version
+setupdir = os.path.abspath(os.path.dirname(__file__))
+
+def find_version(init_file):
+	version_file = open(init_file).read()
+	version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_file, re.M)
+	if version_match:
+		return version_match.group(1)
+	else:
+		raise RuntimeError("Unable to find version string.")
 
 def readme():
-    with open('README.md') as f:
-        return f.read()
-
-ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.pyx"], include_dirs=[np.get_include()]),
-              Extension("tobias.utils.sequences", ["tobias/utils/sequences.pyx"], include_dirs=[np.get_include()]),
-               Extension("tobias.utils.signals", ["tobias/utils/signals.pyx"], include_dirs=[np.get_include()])]
+	with open('README.md') as f:
+		return f.read()
 
 setup(name='tobias',
-      version='0.2',
-      description='Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal',
-      long_description=readme(),
-      url='https://github.molgen.mpg.de/loosolab/TOBIAS',
-      author='Mette Bentsen',
-      author_email='mette.bentsen@mpi-bn.mpg.de',
-      license='MIT',
-      packages=['tobias', 'tobias.footprinting', 'tobias.plotting', 'tobias.motifs', 'tobias.misc', 'tobias.utils'],
-      entry_points = {
-        'console_scripts': ['TOBIAS=tobias.TOBIAS:main']
-      },
-      install_requires=[
-        'setuptools_cython',
-        'numpy',
-        'scipy',
-        'pyBigWig',
-        'pysam',
-        'pybedtools',
-        'matplotlib>=2',
-        'scikit-learn',
-        'pandas',
-        'pypdf2',
-        'xlsxwriter',
-        'adjustText',
-      ],
-      #dependency_links=['https://github.com/jhkorhonen/MOODS/tarball/master'],
-      classifiers = [
-        'License :: OSI Approved :: MIT License',
-        'Intended Audience :: Science/Research',
-        'Topic :: Scientific/Engineering :: Bio-Informatics',
-        'Programming Language :: Python :: 3'
-      ],
-      zip_safe=False,
-      include_package_data=True,
-      ext_modules = ext_modules,
-      scripts=["tobias/utils/peak_annotation.sh"]
-      )
+		version=find_version(os.path.join(setupdir, "tobias", "__init__.py")),	#get version from __init__.py
+		description='Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal',
+		long_description=readme(),
+		url='https://github.molgen.mpg.de/loosolab/TOBIAS',
+		author='Mette Bentsen',
+		author_email='mette.bentsen@mpi-bn.mpg.de',
+		license='MIT',
+		packages=['tobias', 'tobias.footprinting', 'tobias.plotting', 'tobias.motifs', 'tobias.misc', 'tobias.utils'],
+		entry_points={
+			'console_scripts': ['TOBIAS=tobias.TOBIAS:main']
+		},
+		ext_modules=ext_modules,
+		cmdclass = cmdclass,
+		#dependency_links=['https://github.com/jhkorhonen/MOODS/releases/download/v1.9.3/MOODS-python-1.9.3.tar.gz#egg=MOODS-python-1.9.3'],	
+		install_requires=[
+			'numpy',
+			'scipy',
+			'pysam',
+			'pybedtools',
+			'matplotlib>=2',
+			'scikit-learn',
+			'pandas',
+			'pypdf2',
+			'xlsxwriter',
+			'adjustText',
+			'pyBigWig',
+		],
+
+		classifiers=[
+			'License :: OSI Approved :: MIT License',
+			'Intended Audience :: Science/Research',
+			'Topic :: Scientific/Engineering :: Bio-Informatics',
+			'Programming Language :: Python :: 3'
+		],
+		zip_safe=True,
+		)

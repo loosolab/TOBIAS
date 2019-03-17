@@ -80,13 +80,9 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	fasta_obj = pysam.FastaFile(args.genome)
 	chrom_boundaries = dict(zip(fasta_obj.references, fasta_obj.lengths))
 
-	gc_window = 500
-	rand_window = 500
-	extend = int(np.ceil(gc_window / 2.0))
+	rand_window = 200
 
 	background_signal = {"gc":[], "signal":{condition:[] for condition in args.cond_names}}
-
-	#TODO: Estimate number of background positions sampled to pre-allocate space
 
 	######## Scan for motifs in each region ######
 	logger.debug("Scanning for motif occurrences")
@@ -95,6 +91,10 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		logger.spam("Processing region: {0}".format(region.tup()))
 	
 		extra_columns = region
+		
+		#Check whether region is within boundaries
+		if region.end >= chrom_boundaries[region.chrom]:
+			print("ERROR IN REGION: {0}".format(region))
 
 		#Random positions for sampling
 		reglen = region.get_length()
@@ -112,27 +112,16 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 				logger.error("Error reading footprints from region: {0}".format(region))
 				continue
 
+			if len(footprints[condition]) == 0:
+				logger.error("ERROR IN REGION: {0}".format(region))
+
 			#Read random positions for background
 			for pos in rand_positions:
 				background_signal["signal"][condition].append(footprints[condition][pos])
 
 		#Scan for motifs across sequence from fasta
-		extended_region = copy.copy(region).extend_reg(extend)	 #extend to calculate gc
-		extended_region.check_boundary(chrom_boundaries, action="cut")
-
-		seq = fasta_obj.fetch(region.chrom, extended_region.start, extended_region.end)
-
-		#Calculate GC content for regions
-		num_sequence = nuc_to_num(seq) 
-		Ns = num_sequence == 4
-		boolean = 1 * (num_sequence > 1)		# Convert to 0/1 gc
-		boolean[Ns] = 0.5						# replace Ns 0.5 - with neither GC nor AT
-		boolean = boolean.astype(np.float64)	# due to input of fast_rolling_math
-		gc = fast_rolling_math(boolean, gc_window, "mean")
-		gc = gc[extend:-extend]
-		background_signal["gc"].extend([gc[pos] for pos in rand_positions])
-
-		region_TFBS = motifs_obj.scan_sequence(seq[extend:-extend], region)		#RegionList of TFBS
+		seq = fasta_obj.fetch(region.chrom, region.start, region.end)
+		region_TFBS = motifs_obj.scan_sequence(seq, region)		#RegionList of TFBS
 
 		#Extend all TFBS with extra columns from peaks and bigwigs 
 		extra_columns = region
@@ -141,7 +130,6 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 			pos = TFBS.start - region.start + int(motif_length/2.0) #middle of TFBS
 			
 			TFBS.extend(extra_columns)
-			TFBS.append(gc[pos])
 
 			#Assign scores from bigwig
 			for bigwig in args.cond_names:
@@ -219,7 +207,6 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		header[6:6+no_peak_col] = ["peak_chr", "peak_start", "peak_end"] + ["additional_" + str(num + 1) for num in range(no_peak_col-3)]
 
 	header[-no_cond:] = ["{0}_score".format(condition) for condition in args.cond_names] 	#signal scores
-	header[-no_cond-1] = "GC"
 	bed_table.columns = header
 
 	#Sort and format
@@ -228,7 +215,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		bed_table[condition + "_score"] = bed_table[condition + "_score"].round(5)
 
 	#### Write _all file ####
-	chosen_columns = [col for col in header if col != "GC"]
+	chosen_columns = [col for col in header]
 	outfile = os.path.join(bed_outdir, TF_name + "_all.bed")
 	bed_table.to_csv(outfile, sep="\t", index=False, header=False, columns=chosen_columns)
 
@@ -320,9 +307,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 		#Decorate
 		ax.legend()
-		plt.xlabel("Log2 fold change")
-		plt.ylabel("Density")
-		plt.title("Differential binding for TF \"{0}\"\nbetween ({1} / {2})".format(TF_name, cond1, cond2))
+		plt.xlabel("Log2 fold change", fontsize=8)
+		plt.ylabel("Density", fontsize=8)
+		plt.title("Differential binding for TF \"{0}\"\nbetween ({1} / {2})".format(TF_name, cond1, cond2), fontsize=10)
 		ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 		
 		plt.tight_layout()
@@ -366,15 +353,16 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 #------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------------------#
 
-def plot_bindetect(motifs, clusters, conditions, args):
-	""" Conditions refer to the order of the fold_change divison, meaning condition1/condition2 
+def plot_bindetect(motifs, cluster_obj, conditions, args):
+	"""
+		Conditions refer to the order of the fold_change divison, meaning condition1/condition2 
 		- Clusters is a RegionCluster object 
 		- conditions is a tup of condition names (cond1, cond2)
 	"""
 	warnings.filterwarnings("ignore")
 
 	cond1, cond2 = conditions
-	no_IDS = clusters.n
+	no_IDS = cluster_obj.n
 
 	#Link information from motifs / clusters
 	diff_scores = {}
@@ -401,12 +389,25 @@ def plot_bindetect(motifs, clusters, conditions, args):
 			elif diff_scores[TF]["change"] > 0:
 				diff_scores[TF]["color"] = "red"
 		else:
-			diff_scores[TF]["show"] = False
+			diff_scores[TF]["show"] = False 
 			diff_scores[TF]["color"] = "black"
 
-	node_color = clusters.node_color
-	IDS = np.array(clusters.names)
+	node_color = cluster_obj.node_color
+	IDS = np.array(cluster_obj.names)
 	
+	"""
+	#Set cluster names
+	for motif_name in diff_scores:
+		for cluster in cluster_obj.clusters:
+
+			if motif_name in cluster_obj.clusters[cluster]["member_names"]:
+				diff_scores[motif_name]["cluster_name"] = cluster_obj.clusters[cluster]["cluster_name"]
+
+			if motif_name == cluster_obj.clusters[cluster]["representative"]:
+				diff_scores[TF]["show"] = True
+				diff_scores[motif_name]["representative"] = True
+	"""
+
 	#--------------------------------------- Figure --------------------------------#
 
 	#Make figure
@@ -445,7 +446,8 @@ def plot_bindetect(motifs, clusters, conditions, args):
 	ax1.set_ylabel("-log10(pvalue)")
 
 	########### Dendrogram over similarities of TFs #######
-	dendro_dat = dendrogram(clusters.linkage_mat, labels=IDS, no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: clusters.node_color[k])
+	
+	dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=IDS, no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
 	labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
 	ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
 
@@ -509,9 +511,49 @@ def plot_bindetect(motifs, clusters, conditions, args):
 
 	adjust_text(txts, ax=ax1, text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
 	
+	"""
+	#Add arrows to other cluster members
+	print(txts[0].__dict__)
+	label_positions = {text._text:text for text in txts}
+	print(label_positions)
+	for TF in diff_scores:
+		if diff_scores[TF]["show"]:
+			cluster_name = diff_scores[TF]["cluster_name"]
+			
+			if cluster_name in label_positions: 
+				print(cluster_name)
+
+				point_x, point_y = diff_scores[TF]["change"], diff_scores[TF]["log10pvalue"]
+				text_x, text_y = label_positions[cluster_name]._x, label_positions[cluster_name]._y
+				len_x, len_y = text_x - point_x, text_y - point_y
+
+				ax1.arrow(point_x, point_y, len_x, len_y, linestyle="-", color="black", lw=0.5)
+	"""
+	#print(txts)
+
 	#Plot custom legend for colors
 	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="More bound in {0}".format(conditions[0])),
 						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="More bound in {0}".format(conditions[1]))]
 	ax1.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
 
 	return(fig)
+
+"""
+def multi_annotate(ax, s, xy_arr=[], *args, **kwargs):
+	ans = []
+	an = ax.annotate(s, xy_arr[0], *args, **kwargs)
+	ans.append(an)
+	d = {}
+	try:
+		d['xycoords'] = kwargs['xycoords']
+	except KeyError:
+    pass
+	  try:
+    d['arrowprops'] = kwargs['arrowprops']
+  except KeyError:
+    pass
+  for xy in xy_arr[1:]:
+    an = ax.annotate(s, xy, alpha=0.0, xytext=(0,0), textcoords=an, **d)
+    ans.append(an)
+  return ans
+"""

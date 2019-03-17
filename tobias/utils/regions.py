@@ -569,9 +569,9 @@ class RegionCluster:
 	def __init__(self, overlap_dict): 
 
 		self.overlaps = overlap_dict	#overlap dict is from RegionList.count_overlaps
-
+		
 		#Added later
-		self.clusters = {}	# ID:{"member_idx":[], "member_names":[], "cluster_name":""}
+		self.clusters = {}	# ID:{"member_idx":[], "member_names":[], "cluster_name":"", "representative"}
 
 	def cluster(self, threshold=0.5, method="average"):
 		""" Main function to cluster the overlap dictionary into clusters"""
@@ -603,6 +603,8 @@ class RegionCluster:
 		self.get_cluster_names()	#Set names of clusters
 		self.assign_colors()
 
+		#
+		
 	def overlap_to_distance(self):
 		""" Convert overlap-dict from count_overlaps to distance matrix """
 		
@@ -638,31 +640,35 @@ class RegionCluster:
 		self.name2cluster = {}
 
 		#Sort clusters by distance scores to other motifs in cluster
-		cluster_i = 1
+		#cluster_i = 1
 		for cluster in self.clusters:
 
 			members_idx = self.clusters[cluster]["member_idx"]
 
-			### Code to assign a specific name to clusters
-			"""
-			members_idx = self.clusters[cluster]["member_idx"]
-			members_names = self.clusters[cluster]["member_names"]
-			distances = {}
-			for member in members_idx:
-				distances[member] = np.sum(self.distance_mat[member,:])	#0 if member is one-member cluster
+			if len(members_idx) > 1:
 
-			#Sort cluster by distance; smallest values=most representative first
-			ordered_idx = sorted(distances.keys(), key=lambda member: distances[member])
+				### Code to assign a specific name to clusters
+				members_idx = self.clusters[cluster]["member_idx"]
+				members_names = self.clusters[cluster]["member_names"]
+				distances = {}
+				for member in members_idx:
+					distances[member] = np.sum(self.distance_mat[member,:])	#0 if member is one-member cluster
 
-			self.cluster_names[cluster] =  "C_" + self.names[ordered_idx[0]]		#cluster is the idx for cluster
-			"""
+				#Sort cluster by distance; smallest values=most representative first
+				ordered_idx = sorted(distances.keys(), key=lambda member: distances[member])
 
-			self.cluster_names[cluster] = "C_{0}".format(cluster_i)
-			cluster_i += 1
+				self.clusters[cluster]["representative"] = self.names[ordered_idx[0]]
+				self.cluster_names[cluster] =  "C_" + self.names[ordered_idx[0]] + "_" + str(len(members_idx))		#cluster is the idx for cluster
+			else:		
+				self.cluster_names[cluster] = self.clusters[cluster]["member_names"][0]
+				self.clusters[cluster]["representative"] = self.cluster_names[cluster]
+				
+			self.clusters[cluster]["cluster_name"] = self.cluster_names[cluster]
 
 			#Assign every member to its cluster
 			for member in members_idx:
 				self.name2cluster[self.names[member]] = self.cluster_names[cluster] 
+
 
 
 	def write_distance_mat(self, out_f):

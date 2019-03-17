@@ -30,7 +30,6 @@ import textwrap
 from collections import OrderedDict
 import logging
 import itertools
-from scipy.optimize import curve_fit
 from matplotlib.backends.backend_pdf import PdfPages
 
 #Bio-specific packages
@@ -116,11 +115,6 @@ def run_atacorrect(args):
 	if args.peaks == None:
 		sys.exit("Error: No .peaks-file given")
 
-	#Adjust input files to full path
-	#args.bam = os.path.abspath(args.bam)
-	#args.genome = os.path.abspath(args.genome)
-	#args.peaks = os.path.abspath(args.peaks) if args.peaks != None else None
-
 	#Adjust some parameters depending on input
 	args.prefix = os.path.splitext(os.path.basename(args.bam))[0] if args.prefix == None else args.prefix
 	args.outdir = os.path.abspath(args.outdir) if args.outdir != None else os.path.abspath(os.getcwd())
@@ -168,31 +162,12 @@ def run_atacorrect(args):
 
 	logger.info("----- Processing input data -----")
 
-	#Todo: use TOBIAS functions
-
-	#Input test
 	logger.debug("Testing input file availability")
-	file_list = [args.bam, args.genome, args.peaks]
-	file_list = [file for file in file_list if file != None]				#some files can be None depending on choice
-	for path in file_list:
-		if not os.path.exists(path):
-			logger.error("\nError: {0} does not exist.".format(path))
-			sys.exit(1)
+	check_files([args.bam, args.genome, args.peaks], "r")
 
 	logger.debug("Testing output directory/file writeability")
 	make_directory(args.outdir)
-	if not os.access(args.outdir, os.W_OK):
-		logger.error("Error: {0} does not exist or is not writeable.".format(args.outdir))
-		sys.exit(1)
-
-	#Output write test
-	for path in output_files[:-1]:	#Do not include log-file as this is managed by logger
-		if path == None:
-			continue
-		if os.path.exists(path):
-			if not os.access(path, os.W_OK):
-				logger.error("Error: {0} could not be opened for writing.".format(path))
-				sys.exit(1)
+	check_files(output_files, "w")
 
 	#Open pdf for figures
 	figure_pdf = PdfPages(figures_f, keep_empty=True)
@@ -368,9 +343,7 @@ def run_atacorrect(args):
 	logger.info("Finalizing bias motif for scoring")
 	for strand in strands:
 		bias_obj.bias[strand].prepare_mat()
-
 		figure_pdf.savefig(plot_pssm(bias_obj.bias[strand].pssm, "Tn5 insertion bias of reads ({0})".format(strand)))
-	
 	
 	#----------------------------------------------------------------------------------------------------#
 	# Correct read bias and write to bigwig

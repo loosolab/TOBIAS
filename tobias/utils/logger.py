@@ -13,9 +13,9 @@ import sys
 import os
 from datetime import datetime
 import logging
+import logging.handlers
 import multiprocessing as mp
 import time
-
 
 def add_logger_args(args):
 	""" Function for adding TOBIAS-wide verbosity to command-line parsers """
@@ -24,7 +24,7 @@ def add_logger_args(args):
 
 class TobiasLogger(logging.Logger):
 	""" TobiasLogger is an instance of a logging.Logger with special functions for formatting and creating automatic logging """
-	
+
 	logger_levels = {
 						0: 0,
 						1: logging.WARNING,							#also includes errors
@@ -94,9 +94,10 @@ class TobiasLogger(logging.Logger):
 
 	def begin(self):
 		""" Begin logging by writing comments about the current run """
+		from tobias import __version__ as TOBIAS_VERSION
 
 		#Print info on run
-		self.comment("# TOBIAS {0} (run started {1})".format(self.tool_name, self.begin_time))
+		self.comment("# TOBIAS {0} {1} (run started {2})".format(TOBIAS_VERSION, self.tool_name, self.begin_time))
 		self.comment("# Working directory: {0}".format(os.getcwd()))
 		self.comment("# Command line call: {0}\n".format(" ".join(sys.argv)))
 
@@ -186,7 +187,7 @@ class TobiasLogger(logging.Logger):
 
 
 class TOBIASFormatter(logging.Formatter):
-
+	""" Formatter class used in TobiasLogger """
 	default_fmt = logging.Formatter("%(asctime)s (%(process)d) [%(levelname)s]\t%(message)s", "%Y-%m-%d %H:%M:%S")
 	comment_fmt = logging.Formatter("%(message)s")
 

@@ -46,7 +46,7 @@ def add_maxpos_arguments(parser):
 
 	#Optional arguments
 	optional = parser.add_argument_group('Optional arguments')
-	optional.add_argument('--output', metavar="", help="Path to output .bed-file (default: scored sites are written to stdout") 
+	optional.add_argument('--output', metavar="", help="Path to output .bed-file (default: scored sites are written to stdout)") 
 	optional.add_argument('--invert', help="Find minimum position instead of maximum position", action='store_true', default=False)
 
 	return(parser)

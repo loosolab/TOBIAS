@@ -70,6 +70,7 @@ class MotifList(list):
 		#Scan sequence
 		results = self.moods_scanner.scan(seq)
 
+		#Convert results to RegionList
 		sites = RegionList()
 		for (matrix, name, strand, result) in zip(self.matrices, self.names, self.strands, results):
 			motif_length = len(matrix[0])
@@ -95,7 +96,6 @@ class OneMotif:
 		self.alt_name = alt_name	#does not have to be unique
 
 		self.name = ""			#name set in set_name
-		#self.out_name	
 		self.counts = counts  	#counts
 		self.strand = "+"		#default strand is +
 
@@ -112,6 +112,7 @@ class OneMotif:
 
 	def set_name(self, naming="name_id"):
 		""" Set name to be used in 4th column """
+
 		if naming == "name":
 			prefix = self.alt_name
 		elif naming == "id":
@@ -186,10 +187,9 @@ class OneMotif:
 		                'T': 'darkgreen'}
 
 		def add_letter(base, x, y, scale, ax):
-			""" """
+			""" Add letter to axis at positions x/y"""
 			
 			text = LETTERS[base]
-
 			t = mpl.transforms.Affine2D().scale(1*globscale, scale*globscale) + \
 				mpl.transforms.Affine2D().translate(x,y) + ax.transData
 			p = PathPatch(text, lw=0, fc=COLOR_SCHEME[base], transform=t)
@@ -395,6 +395,5 @@ def pfm_to_motifs(content):
 				continue
 
 	#todo: check correct format of pfms
-
 	return(motiflist)
 

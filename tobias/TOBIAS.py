@@ -9,6 +9,18 @@ TOBIAS top-level parser
 """
 
 import sys
+
+#Import extra dependencies
+try:
+	import MOODS
+except:
+	sys.exit("ERROR: Package MOODS is not installed and is needed by TOBIAS. You can install it using:\n" +
+			"$ wget https://github.com/jhkorhonen/MOODS/releases/download/v1.9.3/MOODS-python-1.9.3.tar.gz\n" +
+			"$ tar xzvf MOODS-python-1.9.3.tar.gz\n" + 
+			"$ cd  MOODS-python-1.9.3\n"
+			"$ python setup.py install")
+
+#Import general 
 import argparse
 from argparse import SUPPRESS
 import textwrap
@@ -23,7 +35,7 @@ from tobias.plotting.plot_changes import *
 
 from tobias.motifs.tfbscan import * 
 from tobias.motifs.format_motifs import * 
-from tobias.motifs.cluster_tfbs import *
+#from tobias.motifs.cluster_tfbs import *
 from tobias.motifs.score_bed import *
 
 from tobias.misc.subsample_bam import *
@@ -32,8 +44,7 @@ from tobias.misc.maxpos import *
 #from tobias.misc.create_network import *
 from tobias.misc.log2table import *
 
-
-TOBIAS_VERSION = "0.2"  #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Change here :-)
+from tobias import __version__ as TOBIAS_VERSION
 
 def main():
 
@@ -43,14 +54,14 @@ def main():
 							{
 							"ATACorrect":{"help":"Correct reads with regards to Tn5 sequence bias", "add_arguments": add_atacorrect_arguments, "function":run_atacorrect},
 							"FootprintScores":{"help":"Calculate footprint scores from cutsites", "add_arguments": add_footprint_arguments, "function":run_footprinting, "space":"\t"},
-							"BINDetect":{"help":"Detect TF binding from footprints", "add_arguments": add_bindetect_arguments, "function":run_bindetect},
+							"BINDetect":{"help":"Detect TF binding from footprints and motifs", "add_arguments": add_bindetect_arguments, "function":run_bindetect},
 							},
 
 						"Tools for working with motifs/TFBS":
 							{
 							"TFBScan": {"help":"Identify positions of TFBS given sequence and motifs", "add_arguments": add_tfbscan_arguments, "function": run_tfbscan},
 							"FormatMotifs": {"help": "Utility to deal with motif files", "add_arguments": add_formatmotifs_arguments, "function": run_formatmotifs},
-							"ClusterTFBS": {"help": "Cluster TFs based on overlap of sites", "add_arguments": add_clustering_arguments, "function": run_clustering},
+							#"ClusterTFBS": {"help": "Cluster TFs based on overlap of sites", "add_arguments": add_clustering_arguments, "function": run_clustering},
 							"ScoreBed": {"help":"Score .bed-file with signal from .bigwig-file(s)", "add_arguments": add_scorebed_arguments, "function": run_scorebed},
 							},
 

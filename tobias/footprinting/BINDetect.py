@@ -17,7 +17,6 @@ from datetime import datetime
 import time
 from copy import deepcopy
 import logging
-import logging.handlers
 import itertools
 import pandas as pd
 
@@ -43,7 +42,6 @@ from tobias.utils.regions import *
 from tobias.utils.sequences import *
 from tobias.utils.motifs import *
 from tobias.utils.logger import * 
-#from tobias.plotting.plot_bindetect import *
 
 #np.seterr(divide = 'ignore') 
 
@@ -123,7 +121,6 @@ def run_bindetect(args):
 	outfiles.append(os.path.abspath(os.path.join(args.outdir, "*", "*_overview.xlsx")))
 
 	outfiles.append(os.path.abspath(os.path.join(args.outdir, args.prefix + "_distances.txt")))
-	#outfiles.append(os.path.abspath(os.path.join(args.outdir, "TF_clusters.txt")))
 	outfiles.append(os.path.abspath(os.path.join(args.outdir, args.prefix + "_results.txt")))
 	outfiles.append(os.path.abspath(os.path.join(args.outdir, args.prefix + "_results.xlsx")))
 	outfiles.append(os.path.abspath(os.path.join(args.outdir, args.prefix + "_figures.pdf")))
@@ -180,11 +177,12 @@ def run_bindetect(args):
 
 	#output and order
 	titles = []
-	for cond in args.cond_names:
-		titles.append("Score distribution of {0} scores".format(cond))
+	if args.debug:
+		for cond in args.cond_names:
+			titles.append("Score distribution of {0} scores".format(cond))
 
-	for (cond1, cond2) in comparisons:
-		titles.append("Background log2FCs ({0} / {1})".format(cond1, cond2))	
+		for (cond1, cond2) in comparisons:
+			titles.append("Background log2FCs ({0} / {1})".format(cond1, cond2))	
 
 	for (cond1, cond2) in comparisons:
 		titles.append("BINDetect plot ({0} / {1})".format(cond1, cond2))
@@ -195,18 +193,18 @@ def run_bindetect(args):
 
 
 	################# Peaks / GC in peaks ################
-
 	#Read peak and peak_header
 	peaks = RegionList().from_bed(args.peaks)
 	logger.info("- Found {0} regions in input peaks".format(len(peaks)))
 	peaks = peaks.merge()	#merge overlapping peaks
 	logger.info("- Merged to {0} regions".format(len(peaks)))
+
+	if len(peaks) == 0:
+		logger.error("Input --peaks file is empty!")
+		sys.exit()
+		
 	peak_chroms = peaks.get_chroms()
 	peak_columns = len(peaks[0]) #number of columns
-
-	if args.debug:
-		logger.info("Debug on: Peaks reduced to 1000")
-		peaks = peaks.subset(10000)
 	
 	#Make chunks of regions for multiprocessing
 	peak_chunks = peaks.chunks(args.split)
@@ -254,10 +252,6 @@ def run_bindetect(args):
 			sys.exit("ERROR: Motif {0} has an unexpected format and could not be read - please check that the input --motifs file is in either JASPAR/PFM/MEME format.")
 
 	logger.info("- Found {0} motifs in file".format(no_pfms))
-
-	if args.debug:
-		logger.info("Debug on: motifs reduced to 50")
-		motif_list = MotifList(motif_list[:50])
 
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
@@ -338,7 +332,6 @@ def run_bindetect(args):
 		results = [task.get() for task in task_list]
 	
 	logger.info("Done scanning for TFBS across regions!")
-
 	logger.stop_logger_queue()	#stop the listening process (wait until all was written)
 	
 	#--------------------------------------#
@@ -355,7 +348,6 @@ def run_bindetect(args):
 			
 	#Waits until all queues are closed
 	writer_pool.join() 
-
 
 	#-------------------------------------------------------------------------------------------------------------#
 	#---------------------------- Process information on background scores and overlaps --------------------------#
@@ -411,18 +403,18 @@ def run_bindetect(args):
 		all_log_params[bigwig] = log_params
 
 		#Plot mixture
-		if args.debug:
-			plt.hist(np.log(bg_values), bins='auto', density=True)
-			xlim = plt.xlim()
-			x = np.linspace(xlim[0], xlim[1], 1000)
-			for i in range(2):
-				pdf = scipy.stats.norm.pdf(x, means[i], sds[i])
-				plt.plot(x, pdf)
-			
-			logprob = gmm.score_samples(x.reshape(-1, 1))
-			df = np.exp(logprob)
-			plt.plot(x, df)
-			plt.show()
+		#if args.debug:
+		#	plt.hist(np.log(bg_values), bins='auto', density=True)
+		#	xlim = plt.xlim()
+		#	x = np.linspace(xlim[0], xlim[1], 1000)
+		#	for i in range(2):
+		#		pdf = scipy.stats.norm.pdf(x, means[i], sds[i])
+		#		plt.plot(x, pdf)
+		#	
+		#	logprob = gmm.score_samples(x.reshape(-1, 1))
+		#	df = np.exp(logprob)
+		#	plt.plot(x, df)
+		#	plt.show()
 
 		#Mode of distribution
 		mode = scipy.optimize.fmin(lambda x: -scipy.stats.lognorm.pdf(x, *log_params), 0, disp=False)[0]
@@ -471,12 +463,14 @@ def run_bindetect(args):
 
 		figures.append((ax, fig))
 
-	#Set x-max of all plots equal
-	xlim = np.min([ax.get_xlim()[1] for ax, fig in figures])
-	for (ax, fig) in figures:
-		ax.set_xlim(0,xlim)
-		figure_pdf.savefig(fig)
-		plt.close(fig)
+	#Only plot if args.debug is True
+	if args.debug:
+		#Set x-max of all plots equal
+		xlim = np.min([ax.get_xlim()[1] for ax, fig in figures])
+		for (ax, fig) in figures:
+			ax.set_xlim(0,xlim)
+			figure_pdf.savefig(fig)
+			plt.close(fig)
 
 	#Estimate pseudocount
 	if args.pseudo == None:
@@ -523,7 +517,8 @@ def run_bindetect(args):
 
 			plt.xlabel("Log2 fold change")
 			plt.ylabel("Density")
-			figure_pdf.savefig(fig, bbox_inches='tight')
+			if args.debug:
+				figure_pdf.savefig(fig, bbox_inches='tight')
 			plt.close()			
 			
 	background = None	 #free up space 
@@ -561,13 +556,18 @@ def run_bindetect(args):
 	pool.terminate()
 	pool.join()
 	
-
 	#-------------------------------------------------------------------------------------------------------------#	
 	#------------------------------------------------ Cluster TFBS -----------------------------------------------#	
 	#-------------------------------------------------------------------------------------------------------------#	
 	
 	clustering = RegionCluster(TF_overlaps)
 	clustering.cluster()
+
+	#Convert full ids to alt ids
+	convert = {motif.name:motif.alt_name for motif in motif_list}
+	for cluster in clustering.clusters:
+		for name in convert:
+			clustering.clusters[cluster]["cluster_name"] = clustering.clusters[cluster]["cluster_name"].replace(name, convert[name])
 
 	#Write out distance matrix
 	matrix_out = os.path.join(args.outdir, args.prefix + "_distances.txt")
@@ -586,7 +586,11 @@ def run_bindetect(args):
 		info_table[condition + "_bound"] = info_table[condition + "_bound"].map(int)
 	
 	#Add cluster to info_table
-	cluster_names = [clustering.name2cluster[name] for name in info_table.index]
+	cluster_names = []
+	for name in info_table.index:
+		for cluster in clustering.clusters:
+			if name in clustering.clusters[cluster]["member_names"]:
+				cluster_names.append(clustering.clusters[cluster]["cluster_name"])
 	info_table.insert(0,"cluster", cluster_names)
 	
 	#### Write excel ###
@@ -632,7 +636,7 @@ def run_bindetect(args):
 				motif.change = float(info_table.at[name, base + "_change"])
 				motif.pvalue = float(info_table.at[name, base + "_pvalue"])
 
-			#bindetect plot
+			#Bindetect plot
 			fig = plot_bindetect(comparison_motifs, clustering, [cond1, cond2], args)
 			figure_pdf.savefig(fig, bbox_inches='tight')
 

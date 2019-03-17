@@ -47,7 +47,7 @@ def shuffle_array(np.ndarray[np.float64_t, ndim=1] arr, int no_rand, np.ndarray[
 
 
 
-#------------------------------------------------------------------------------------------------#
+#--------------------------------------------------------------------------------------------------#
 @cython.boundscheck(False)	#dont check boundaries
 @cython.cdivision(True)		#no check for zero division
 @cython.wraparound(False) 	#dont deal with negative indices
@@ -129,7 +129,58 @@ def fast_rolling_math(np.ndarray[np.float64_t, ndim=1] arr, int w, operation):
 	return roll_arr
 
 
-#------------------------------------------------------------------------------------------------#
+#--------------------------------------------------------------------------------------------------#
+@cython.boundscheck(False)	#dont check boundaries
+@cython.cdivision(True)		#no check for zero division
+@cython.wraparound(False) 	#dont deal with negative indices
+def tobias_footprint_array(np.ndarray[np.float64_t, ndim=1] arr, int flank_min, int flank_max, int fp_min, int fp_max):
+
+	cdef int L = arr.shape[0]
+	cdef np.ndarray[np.float64_t, ndim=1] footprint_scores = np.zeros(L)
+	cdef int i, j, footprint_w, flank_w
+
+	cdef float fp_sum, fp_mean, fp_score, flank_mean
+	cdef float left_sum, right_sum
+
+	#Each position in array, starting at i, going until last possible start of region
+	for i in range(L-2*flank_max-fp_max):
+		for flank_w in range(flank_min, flank_max+1):
+			for footprint_w in range(fp_min, fp_max+1):
+
+				#Sum of left flank
+				left_sum = 0
+				for j in range(flank_w):
+					if arr[i+j] > 0:
+						left_sum += arr[i+j]
+
+				#Sum of footprint
+				fp_sum = 0
+				for j in range(footprint_w):
+					if arr[i+j] < 0:
+						fp_sum += arr[i+flank_w+j]	
+
+				#Sum of right flank
+				right_sum = 0
+				for j in range(flank_w):
+					if arr[i+j] > 0:
+						right_sum += arr[i+flank_w+footprint_w+j]
+
+				#Calculate score
+				fp_mean = fp_sum/(1.0*footprint_w)	#will be minus
+				flank_mean = (right_sum + left_sum)/(2.0*flank_w)
+
+				fp_score = flank_mean - fp_mean		#-- = +
+
+				#Save score across footprint
+				for pos in range(i+flank_w, i+flank_w+footprint_w):
+					if fp_score > footprint_scores[pos]:
+						footprint_scores[pos] = fp_score
+
+	return(footprint_scores)
+
+
+"""
+#--------------------------------------------------------------------------------------------------#
 def calc_FOS(np.ndarray[np.float64_t, ndim=1] arr, int fp_min, int fp_max, int flank_min, int flank_max):
 	
 	cdef int L = arr.shape[0]
@@ -175,57 +226,4 @@ def calc_FOS(np.ndarray[np.float64_t, ndim=1] arr, int fp_min, int fp_max, int f
 						footprint_scores[i+flank_w+j] = fos_score
 
 	return(footprint_scores)
-
-
-
-#------------------------------------------------------------------------------------------------#
-@cython.boundscheck(False)	#dont check boundaries
-@cython.cdivision(True)		#no check for zero division
-@cython.wraparound(False) 	#dont deal with negative indices
-def tobias_footprint_array(np.ndarray[np.float64_t, ndim=1] arr, int window, int fp_min, int fp_max):
-	
-	cdef int L = arr.shape[0]
-	cdef np.ndarray[np.float64_t, ndim=1] footprint_scores = np.zeros(L)
-	cdef int i, j, footprint_w, flank_w, flank_left, flank_right
-
-	cdef float fp_sum, fp_mean, fp_score, flank_mean
-	cdef float left_sum, right_sum
-
-	cdef int flank_max = int((window - fp_min)/2)
-
-	#Each position in array, starting at i, going until last possible start of region
-	for i in range(L-2*flank_max-fp_max):
-		for footprint_w in range(fp_min, fp_max+1):
-			flank_left = int((window - footprint_w)/2)
-			flank_right = window - flank_left - footprint_w
-
-			#Sum of left flanking window
-			left_sum = 0
-			for j in range(flank_left):
-				if arr[i+j] > 0:
-					left_sum += arr[i+j]
-
-			#Sum of footprint
-			fp_sum = 0
-			for j in range(footprint_w):
-				if arr[i+j] < 0:
-					fp_sum += arr[i+flank_left+j]	
-
-			#Sum of right flank
-			right_sum = 0
-			for j in range(flank_right):
-				if arr[i+j] > 0:
-					right_sum += arr[i+flank_left+footprint_w+j]
-			
-			#Calculate score
-			fp_mean = fp_sum/(1.0*footprint_w)		#will be minus
-			flank_mean = (right_sum + left_sum)/(flank_right + flank_left)
-
-			fp_score = flank_mean - fp_mean		#-- = +
-			
-			#Save score across footprint
-			for pos in range(i+flank_left, i+flank_left+footprint_w):
-				if fp_score > footprint_scores[pos]:
-					footprint_scores[pos] = fp_score
-
-	return(footprint_scores)
+"""

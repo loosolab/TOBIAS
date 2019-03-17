@@ -118,7 +118,6 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 	#todo: check if args.log_q exists
 	logger = TobiasLogger("", args.verbosity, args.log_q)	#separate core, needs mp logger through queue
 	logger.debug("Opened bigwig writer process for {0}".format(key_file_dict))
-	
 	logger.debug("Header: {0}".format(header))
 
 	handles = {}
@@ -141,8 +140,6 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 	sorted_region_tups = sorted(region_tups, key=lambda tup: (order_dict[tup[0]], tup[1]))			#sort to same order as bigwig header
 	no_regions = len(region_tups)
 
-	#logger.debug("Order of regions: {0}".format(list(set([tup[0] for tup in sorted_region_tups]))))
-
 	#Fetching content from queue
 	logger.debug("Fetching content from queue")
 
@@ -164,6 +161,8 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			#Save key:region:signal to ready_to_write
 			ready_to_write[key][region] = signal
 			
+			writing_progress = Progress(no_regions, logger, prefix="Writing progress", round=0)
+
 			#Check if next-to-write region was done
 			for key in handles: 
 
@@ -196,11 +195,9 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 							i_to_write[key] += 1
 							next_region = sorted_region_tups[i_to_write[key]]	#this is the region to be written next for this key
 
-					#Write out progress (and only once per step)
-
-				#Write out progress
-				#write out progress only after writing something 
-				#check if i_to_write[key] is a certain percentage of len(regions)
+						#Writing progress
+						#progress = sum([i_to_write[key] for key in handles])
+						#writing_progress.write(progress)
 
 		except Exception:
 			import sys, traceback
@@ -209,7 +206,6 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			break
 
 	return(1)
-
 
 
 def monitor_progress(task_list, logger, prefix="Progress"):
@@ -233,10 +229,10 @@ def monitor_progress(task_list, logger, prefix="Progress"):
 	return() 	#doesn't return until the while loop exits
 
 
-
 #-------------------------------------------------------------------------------------------#
 #------------------------------------- Argparser -------------------------------------------#
 #-------------------------------------------------------------------------------------------#
+
 
 def restricted_float(f, f_min, f_max):
     f = float(f)
@@ -248,7 +244,6 @@ def restricted_int(integer, i_min, i_max):
 	integer = float(integer)
 	if integer < i_min or integer > i_max:
 		raise
-
 
 def format_help_description(name, description, width=90):
 	""" Format description of command line tool --help description """
@@ -272,15 +267,41 @@ def format_help_description(name, description, width=90):
 	return(formatted)
 
 
-#-------------------------------------------------------------------------------------------#
-#---------------------------------------- Misc ---------------------------------------------#
-#-------------------------------------------------------------------------------------------#
-
 def check_required(args, required):
+	""" Checks required keys in input args """
 
 	for arg in required:
 		if getattr(args, arg) == None:
 			sys.exit("ERROR: Missing argument --{0}".format(arg))
+
+#-------------------------------------------------------------------------------------------#
+#---------------------------------------- Misc ---------------------------------------------#
+#-------------------------------------------------------------------------------------------#
+
+
+class Progress:
+	""" Class for writing out progress of processes such as multiprocessing """
+	def __init__(self, total_elements, logger, prefix="Progress", round=0):
+		
+		self.total_elements = total_elements
+		self.logger = logger
+		self.prefix = prefix
+		self.round = round
+		self.last_written = -1
+
+	def write(self, progress):
+		""" Write out progress if it was not already written """
+
+		percent_to_write = progress / self.total_elements * 100
+		if self.round == 0:
+			percent_to_write = round(percent_to_write)
+		else:
+			percent_to_write = round(percent_to_write, self.round)
+
+		#Only write if this level has not already been written
+		if percent_to_write != self.last_written:
+			self.logger.info("{0}: {1}%".format(self.prefix, percent_to_write))
+			self.last_written = percent_to_write
 
 
 def flatten_list(lst):
@@ -344,9 +365,9 @@ def merge_dicts(dicts):
 
 	return(out_dict)
 
+def filafy(astring):
+	""" Make string into accepted filename """
 
-def filafy(astring): 	#Make name into accepted filename
-	
 	valid_chars = "-_.%s%s" % (string.ascii_letters, string.digits)
 	filename = ''.join(char for char in astring if char in valid_chars)
 	return(filename)

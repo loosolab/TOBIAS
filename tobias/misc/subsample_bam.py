@@ -40,10 +40,10 @@ def add_subsample_arguments(parser):
 	#Required arguments
 	args = parser.add_argument_group('Input arguments')
 	args.add_argument('--bam', metavar="", help="Path to .bam-file")
-	args.add_argument('--no_rand', metavar="", type=int, help="Number of randomizations (per step)", default=3)
+	args.add_argument('--no_rand', metavar="", type=int, help="Number of randomizations (per step) (default: 3)", default=3)
 	args.add_argument('--start', metavar="", type=int, help="Start of percent subsample (default: 0)", default=0)
 	args.add_argument('--end', metavar="", type=int, help="End of percent subsample (default: 100)", default=100)
-	args.add_argument('--step', metavar="", type=int, help="Step between --start and --end (default: 5)", default=5)
+	args.add_argument('--step', metavar="", type=int, help="Step between --start and --end (default: 10)", default=10)
 	args.add_argument('--cores', metavar="", type=int, help="Cores for multiprocessing (default: 1)", default=1)
 	args.add_argument('--outdir', metavar="", help="Output directory (default: current working directory)", default=".")
 	args.add_argument('--prefix', metavar="", help="Prefix for output files (default: prefix of .bam)")

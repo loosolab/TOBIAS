@@ -45,19 +45,23 @@ def add_footprint_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('-s', '--signal', metavar="<bigwig>", help="A .bw file of ATAC-seq cutsite signal")
 	required.add_argument('-o', '--output', metavar="<bigwig>", help="Full path to output bigwig")			
-	required.add_argument('-r', '--regions', metavar="<bed>", help="Genomic regions to run footprinting in")
+	required.add_argument('-r', '--regions', metavar="<bed>", help="Genomic regions to run footprinting within")
 
 	optargs = parser.add_argument_group('Optional arguments')
+	optargs.add_argument('--score', metavar="<score>", choices=["footprint", "sum"], help="Type of scoring to perform on cutsites (footprint/sum) (default: footprint)", default="footprint")
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend input regions with bp (default: 100)", default=100)
-	optargs.add_argument('--score', metavar="<score>", choices=["tobias", "FOS", "sum"], help="Type of scoring to perform on cutsites (tobias/FOS/sum) (default: tobias)", default="tobias")
-	optargs.add_argument('--window', metavar="<int>", type=int, help="For '--score tobias' this is the backround region for measuring effect of binding. For '--score sum' this is the window for calculation of sum (default: 100)", default=100)
-	optargs.add_argument('--fp_min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
-	optargs.add_argument('--fp_max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
-	optargs.add_argument('--flank_min', metavar="<int>", type=int, help="For FOS; Minimum range of flanking regions (default: 10)", default=10)
-	optargs.add_argument('--flank_max', metavar="<int>", type=int, help="For FOS; Maximum range of flanking regions (default: 30)", default=30)
-	optargs.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by mean in <bp> windows (default: 5)", default=5)
+	optargs.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by mean in <bp> windows (default: no smoothing)", default=1)
 	optargs.add_argument('--min_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no lower limit)") 		#default none
 	optargs.add_argument('--max_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no upper limit)") 		#default none
+
+	footprintargs = parser.add_argument_group('Parameters for score == footprint')
+	optargs.add_argument('--fp_min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
+	optargs.add_argument('--fp_max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
+	optargs.add_argument('--flank_min', metavar="<int>", type=int, help="Minimum range of flanking regions (default: 10)", default=10)
+	optargs.add_argument('--flank_max', metavar="<int>", type=int, help="Maximum range of flanking regions (default: 30)", default=30)
+	
+	sumargs = parser.add_argument_group('Parameters for score == sum')
+	optargs.add_argument('--window', metavar="<int>", type=int, help="The window for calculation of sum (default: 100)", default=100)
 
 	runargs = parser.add_argument_group('Run arguments')
 	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
@@ -74,21 +78,13 @@ def calculate_scores(regions, args):
 	chrom_lengths = {chrom:int(pybw_header[chrom]) for chrom in pybw_header}
 
 	#Set flank to enable scoring in ends of regions
-	if args.score == "sum":
-		flank = int(args.window/2.0)
-	elif args.score == "tobias":
-		flank = int((args.window - args.fp_min)/2)
-	elif args.score == "FOS":
-		flank = args.flank_max
-	else:
-		flank = args.flank_max
+	flank = args.region_flank
 
 	#Go through each region
 	for i, region in enumerate(regions):
 
 		#Extend region with necessary flank
 		region.extend_reg(flank)
-		region.check_boundary(chrom_lengths, "cut")	
 		reg_key = (region.chrom, region.start+flank, region.end-flank)	#output region
 
 		#Get bigwig signal in region
@@ -102,17 +98,14 @@ def calculate_scores(regions, args):
 
 		#Calculate scores
 		if args.score == "sum":
-			signal = np.abs(signal)
+			signal = np.abs(signal)	
 			scores = fast_rolling_math(signal, args.window, "sum")
 
-		elif args.score == "FOS":
-			scores = calc_FOS(signal, args.fp_min, args.fp_max, args.flank_min, args.flank_max)
-
-		elif args.score == "tobias":
-			scores = tobias_footprint_array(signal, args.window, args.fp_min, args.fp_max)		#numpy array
+		elif args.score == "footprint":
+			scores = tobias_footprint_array(signal, args.flank_min, args.flank_max, args.fp_min, args.fp_max)		#numpy array
 		
 		else:
-			sys.exit("{0} not found".format(args.score))
+			sys.exit("Scoring {0} not found".format(args.score))
 		
 		#Smooth signal with args.smooth bp
 		if args.smooth > 1:
@@ -159,7 +152,7 @@ def run_footprinting(args):
 	pybw_signal = pyBigWig.open(args.signal)
 	pybw_header = pybw_signal.chroms()
 	chrom_info = {chrom:int(pybw_header[chrom]) for chrom in pybw_header}
-	
+
 	#Decide regions 
 	logger.info("- Getting output regions ready")
 	if args.regions:
@@ -170,15 +163,23 @@ def run_footprinting(args):
 	else:
 		regions = RegionList().from_list([OneRegion([chrom, 0, chrom_info[chrom]]) for chrom in chrom_info])	
 
-	#Todo: check boundaries in relation to flanking regions for calculation
+	#Set flank to enable scoring in ends of regions
+	if args.score == "sum":
+		args.region_flank = int(args.window/2.0)
+	elif args.score == "footprint":
+		args.region_flank = int(args.flank_max)
 
+	#Go through each region
+	for i, region in enumerate(regions):
+		region.extend_reg(args.region_flank)
+		region.check_boundary(chrom_info, "cut")	
+		region.start = region.start + args.region_flank
+		region.end = region.end - args.region_flank
 
 	#Information for output bigwig
 	reference_chroms = sorted(list(chrom_info.keys()))
 	header = [(chrom, chrom_info[chrom]) for chrom in reference_chroms]
 	regions.loc_sort(reference_chroms)
-
-
 
 	#---------------------------------------------------------------------------------------#
 	#------------------------ Calculating footprints and writing out -----------------------#
