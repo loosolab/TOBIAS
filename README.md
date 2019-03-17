@@ -1,7 +1,7 @@
 TOBIAS - Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal 
 =======================================
 
-[![PyPI version](https://badge.fury.io/py/tobias.png)](https://badge.fury.io/py/tobias)
+[![PyPI Version](https://img.shields.io/pypi/v/tobias.svg?style=plastic)](https://pypi.org/project/tobias/)
 
 Introduction 
 ------------
