@@ -1,6 +1,8 @@
 TOBIAS - Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal 
 =======================================
 
+[![PyPI Version](https://img.shields.io/pypi/v/tobias.svg?style=plastic)](https://pypi.org/project/tobias/)
+
 Introduction 
 ------------
 
@@ -19,7 +21,12 @@ For information on each tool, please see the [wiki](https://github.molgen.mpg.de
 
 Installation
 ------------
-TOBIAS is written as a python package and can be quickly installed within a conda environment using:
+TOBIAS is written as a python package and can be quickly installed via pip:
+```bash
+pip install tobias
+```
+
+or directly from github into a conda environment using:
 ```bash
 $ git clone https://github.molgen.mpg.de/loosolab/TOBIAS
 $ cd TOBIAS
