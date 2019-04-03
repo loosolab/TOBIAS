@@ -26,12 +26,10 @@ TOBIAS is written as a python package and can be quickly installed via pip:
 pip install tobias
 ```
 
-or directly from github into a conda environment using:
+or directly from github using:
 ```bash
 $ git clone https://github.molgen.mpg.de/loosolab/TOBIAS
 $ cd TOBIAS
-$ conda env create -f snakemake_pipeline/environments/tobias.yaml
-$ conda activate TOBIAS_ENV
 $ python setup.py install
 ```
 Please see the [installation](https://github.molgen.mpg.de/loosolab/TOBIAS/wiki/installation) page for more info.
@@ -119,19 +117,7 @@ $ TOBIAS FormatMotifs --input test_data/example_motifs.txt --format pfm --task s
 Snakemake pipeline
 ------------
 
-You can run each TOBIAS tool independently or as part of a pipeline using the included snakemake workflow. To use the snakemake pipeline, make sure the included conda environments are installed:
-```
-$ conda env create -f snakemake_pipeline/environments/tobias.yaml
-$ conda env create -f snakemake_pipeline/environments/macs.yaml
-```
-
-You can use the example config (snakemake_pipeline/TOBIAS_example.config) or adjust to your own data by replacing the values for each key. Run using:
-```bash
-$ cd snakemake_pipeline
-$ conda activate TOBIAS_ENV
-$ snakemake --snakefile TOBIAS.snake --configfile TOBIAS_example.config --cores [number of cores] --keep-going
-```
-For further info on setup, configfile and output, please consult the [wiki](https://github.molgen.mpg.de/loosolab/TOBIAS/wiki/snakemake-pipeline).
+You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
 
 License
 ------------
