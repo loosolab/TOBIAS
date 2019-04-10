@@ -205,9 +205,6 @@ def run_bindetect(args):
 		
 	peak_chroms = peaks.get_chroms()
 	peak_columns = len(peaks[0]) #number of columns
-	
-	#Make chunks of regions for multiprocessing
-	peak_chunks = peaks.chunks(args.split)
 
 	#Header
 	if args.peak_header != None:
@@ -228,8 +225,11 @@ def run_bindetect(args):
 	fasta_chroms = fasta_obj.references
 
 	if not set(peak_chroms).issubset(fasta_chroms):
-		logger.error("Chromosome(s) found in peaks ({0}) are not found in input FASTA file ({1})".format(peak_chroms, fasta_chroms))
-		sys.exit()
+		logger.warning("Chromosome(s) found in peaks ({0}) are not found in input FASTA file ({1}). These peaks are skipped.".format(peak_chroms, fasta_chroms))
+		peaks.keep_chroms(fasta_chroms)	#peaks are changed in place
+	
+	#Make chunks of regions for multiprocessing
+	peak_chunks = peaks.chunks(args.split)
 
 	logger.info("Estimating GC content from peak sequences") 
 	gc_content_pool = pool.starmap(get_gc_content, itertools.product(peak_chunks, [args.genome])) 
