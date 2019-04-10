@@ -367,11 +367,11 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	#Link information from motifs / clusters
 	diff_scores = {}
 	for motif in motifs:
-		diff_scores[motif.name] = {"change": motif.change,
+		diff_scores[motif.prefix] = {"change": motif.change,
 									"pvalue": motif.pvalue,
 									"log10pvalue": -np.log10(motif.pvalue) if  motif.pvalue > 0 else -np.log10(1e-308),	#smallest possible number before python underflows
-									"volcano_label": motif.alt_name,	#shorter name
-									"overview_label": "{0} ({1})".format(motif.alt_name, motif.id) 		#the name which was output used in bindetect output
+									"volcano_label": motif.name,	#shorter name
+									"overview_label": "{0} ({1})".format(motif.name, motif.id) 		#the name which was output used in bindetect output
 									}
 	
 	xvalues = np.array([diff_scores[TF]["change"] for TF in diff_scores])

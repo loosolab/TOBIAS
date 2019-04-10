@@ -48,7 +48,7 @@ def add_footprint_arguments(parser):
 	required.add_argument('-r', '--regions', metavar="<bed>", help="Genomic regions to run footprinting within")
 
 	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--score', metavar="<score>", choices=["footprint", "sum"], help="Type of scoring to perform on cutsites (footprint/sum) (default: footprint)", default="footprint")
+	optargs.add_argument('--score', metavar="<score>", choices=["footprint", "sum", "FOS"], help="Type of scoring to perform on cutsites (footprint/sum/FOS) (default: footprint)", default="footprint")
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend input regions with bp (default: 100)", default=100)
 	optargs.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by mean in <bp> windows (default: no smoothing)", default=1)
 	optargs.add_argument('--min_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no lower limit)") 		#default none
@@ -103,7 +103,11 @@ def calculate_scores(regions, args):
 
 		elif args.score == "footprint":
 			scores = tobias_footprint_array(signal, args.flank_min, args.flank_max, args.fp_min, args.fp_max)		#numpy array
-		
+
+		elif args.score == "FOS":
+			 scores = FOS_score(signal, args.flank_min, args.flank_max, args.fp_min, args.fp_max)
+			 scores = -scores
+
 		else:
 			sys.exit("Scoring {0} not found".format(args.score))
 		
@@ -166,7 +170,7 @@ def run_footprinting(args):
 	#Set flank to enable scoring in ends of regions
 	if args.score == "sum":
 		args.region_flank = int(args.window/2.0)
-	elif args.score == "footprint":
+	elif args.score == "footprint" or args.score == "FOS":
 		args.region_flank = int(args.flank_max)
 
 	#Go through each region

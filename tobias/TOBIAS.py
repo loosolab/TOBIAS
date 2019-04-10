@@ -77,7 +77,7 @@ def main():
 							"MergePDF": {"help": "Merge pdf files to one", "add_arguments":add_mergepdf_arguments, "function":run_mergepdf},
 							"MaxPos": {"help": "Get .bed-positions of highest bigwig signal within .bed-regions", "add_arguments": add_maxpos_arguments, "function": run_maxpos},
 							"SubsampleBam": {"help": "Subsample a .bam-file using samtools", "add_arguments": add_subsample_arguments, "function": run_subsampling},
-							#"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": run_network, "space":"\t"}
+							#"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": run_network, "space":"\t"},
 							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": run_log2table}
 							}
 						}

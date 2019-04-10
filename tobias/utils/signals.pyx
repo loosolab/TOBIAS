@@ -148,19 +148,19 @@ def tobias_footprint_array(np.ndarray[np.float64_t, ndim=1] arr, int flank_min, 
 			for footprint_w in range(fp_min, fp_max+1):
 
 				#Sum of left flank
-				left_sum = 0
+				left_sum = 0.0
 				for j in range(flank_w):
 					if arr[i+j] > 0:
 						left_sum += arr[i+j]
 
 				#Sum of footprint
-				fp_sum = 0
+				fp_sum = 0.0
 				for j in range(footprint_w):
 					if arr[i+j] < 0:
 						fp_sum += arr[i+flank_w+j]	
 
 				#Sum of right flank
-				right_sum = 0
+				right_sum = 0.0
 				for j in range(flank_w):
 					if arr[i+j] > 0:
 						right_sum += arr[i+flank_w+footprint_w+j]
@@ -179,12 +179,15 @@ def tobias_footprint_array(np.ndarray[np.float64_t, ndim=1] arr, int flank_min, 
 	return(footprint_scores)
 
 
-"""
 #--------------------------------------------------------------------------------------------------#
-def calc_FOS(np.ndarray[np.float64_t, ndim=1] arr, int fp_min, int fp_max, int flank_min, int flank_max):
+@cython.cdivision(True)		#no check for zero division
+@cython.boundscheck(False)	#dont check boundaries
+@cython.wraparound(False) 	#dont deal with negative indices
+def FOS_score(np.ndarray[np.float64_t, ndim=1] arr, int flank_min, int flank_max, int fp_min, int fp_max):
 	
 	cdef int L = arr.shape[0]
 	cdef np.ndarray[np.float64_t, ndim=1] footprint_scores = np.zeros(L)
+	footprint_scores[:] = 10000
 	cdef int i, j, footprint_w, flank_w
 
 	cdef float Lm, Cm, Rm, fos_score
@@ -196,17 +199,17 @@ def calc_FOS(np.ndarray[np.float64_t, ndim=1] arr, int fp_min, int fp_max, int f
 			for footprint_w in range(fp_min, fp_max):
 			
 				#Sum of left flank
-				left_sum = 0
+				left_sum = 0.0
 				for j in range(flank_w):
-					left_sum += arr[i+j]	#minval is 0 if all cuts above 0
+					left_sum += arr[i+j]
 
 				#Sum of footprint
-				fp_sum = 0
+				fp_sum = 0.0
 				for j in range(footprint_w):
 					fp_sum += arr[i+flank_w+j]
 
 				#Sum of right flank
-				right_sum = 0
+				right_sum = 0.0
 				for j in range(flank_w):
 					right_sum += arr[i+flank_w+footprint_w+j]
 
@@ -215,10 +218,10 @@ def calc_FOS(np.ndarray[np.float64_t, ndim=1] arr, int fp_min, int fp_max, int f
 				Cm = fp_sum / (footprint_w*1.0)		#center mean
 				Rm = right_sum / (flank_w*1.0)		#right mean
 
-				if Cm > Rm and Cm > Lm:
-					fos_score = (Cm+1)/Lm + (Cm+1)/Rm
+				if Cm < Rm and Cm < Lm and Lm > 0 and Rm > 0:
+					fos_score = (Cm+1.0)/Lm + (Cm+1.0)/Rm
 				else:
-					fos_score = 0
+					fos_score = 10000
 
 				#Save score to arr (smallest are best)
 				for j in range(footprint_w):
@@ -226,4 +229,3 @@ def calc_FOS(np.ndarray[np.float64_t, ndim=1] arr, int fp_min, int fp_max, int f
 						footprint_scores[i+flank_w+j] = fos_score
 
 	return(footprint_scores)
-"""

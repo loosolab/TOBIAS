@@ -217,7 +217,8 @@ def run_bindetect(args):
 
 		#Check whether peak header fits with number of peak columns
 		if len(args.peak_header_list) != peak_columns:
-			sys.exit("ERROR: Length of --peak_header ({0}) does not fit number of columns in --peaks ({1}).".format(len(args.peak_header_list), peak_columns))
+			logger.error("Length of --peak_header ({0}) does not fit number of columns in --peaks ({1}).".format(len(args.peak_header_list), peak_columns))
+			sys.exit()
 
 	else:
 		args.peak_header_list = None
@@ -227,8 +228,8 @@ def run_bindetect(args):
 	fasta_chroms = fasta_obj.references
 
 	if not set(peak_chroms).issubset(fasta_chroms):
-		logger.error()
-		sys.exit("ERROR: Chromosome(s) found in peaks ({0}) are not a subset of input FASTA file ({1})".format(peak_chroms, fasta_chroms))
+		logger.error("Chromosome(s) found in peaks ({0}) are not found in input FASTA file ({1})".format(peak_chroms, fasta_chroms))
+		sys.exit()
 
 	logger.info("Estimating GC content from peak sequences") 
 	gc_content_pool = pool.starmap(get_gc_content, itertools.product(peak_chunks, [args.genome])) 
@@ -237,37 +238,36 @@ def run_bindetect(args):
 	bg = np.array([(1-args.gc)/2.0, args.gc/2.0, args.gc/2.0, (1-args.gc)/2.0])
 	logger.info("- GC content estimated at {0:.2f}%".format(gc_content*100))
 
+
 	################ Get motifs ################
+
 	logger.info("Reading motifs from file") 
 
 	motif_content = open(args.motifs).read()
 	converted_content = convert_motif(motif_content, "pfm")
 	motif_list = pfm_to_motifs(converted_content) 			#List of OneMotif objects
+	
+	#motif_list = [motif.set_prefix(args.naming) for motif in motif_list]
+	#motif_prefix_list = [motif.prefix for motif in motif_list]
 	no_pfms = len(motif_list)
 
-	#Check if format of motif file was right, otherwise write out error
-	for motif in motif_list:
-		rows, cols = np.array(motif.counts).shape	
-		if rows != 4:
-			sys.exit("ERROR: Motif {0} has an unexpected format and could not be read - please check that the input --motifs file is in either JASPAR/PFM/MEME format.")
-
 	logger.info("- Found {0} motifs in file".format(no_pfms))
-
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
-	motif_names = [motif.name for motif in motif_list]
+
 	logger.debug("Getting reverse motifs")
 	motif_list.extend([motif.get_reverse() for motif in motif_list])
 	logger.spam(motif_list)
+
+	#Set prefixes
 	for motif in motif_list:	#now with reverse motifs as well
-		motif.set_name(args.naming)
-		motif.name = filafy(motif.name)		#remove ()/: etc. which will create problems in filenames
+		motif.set_prefix(args.naming)
 		motif.bg = bg
 
 		logger.spam("Getting pssm for motif {0}".format(motif.name))
 		motif.get_pssm()
 	
-	motif_names = list(set([motif.name for motif in motif_list]))
+	motif_names = list(set([motif.prefix for motif in motif_list]))
 
 	#Get threshold for motifs
 	logger.debug("Getting match threshold per motif")
@@ -475,7 +475,7 @@ def run_bindetect(args):
 	#Estimate pseudocount
 	if args.pseudo == None:
 		args.pseudo = np.mean(pseudo)
-		logger.info("Pseudocount estimated at: {0}".format(round(args.pseudo, 5)))
+		logger.debug("Pseudocount estimated at: {0}".format(round(args.pseudo, 5)))
 
 	
 	############ Foldchanges between conditions ################
@@ -564,7 +564,7 @@ def run_bindetect(args):
 	clustering.cluster()
 
 	#Convert full ids to alt ids
-	convert = {motif.name:motif.alt_name for motif in motif_list}
+	convert = {motif.prefix:motif.name for motif in motif_list}
 	for cluster in clustering.clusters:
 		for name in convert:
 			clustering.clusters[cluster]["cluster_name"] = clustering.clusters[cluster]["cluster_name"].replace(name, convert[name])
@@ -580,6 +580,18 @@ def run_bindetect(args):
 	logger.comment("")
 	logger.info("Writing all_bindetect files")
 	
+	#Add columns of name / motif_id / prefix
+	names = []
+	ids = []
+	for prefix in info_table.index:
+		motif = [motif for motif in motif_list if motif.prefix == prefix]
+		names.append(motif[0].name)
+		ids.append(motif[0].id)
+
+	info_table.insert(0, "name", names)
+	info_table.insert(1, "motif_id", ids)
+	info_table.insert(2, "output_prefix", info_table.index)
+
 	#Condition specific
 	info_table["total_tfbs"] = info_table["total_tfbs"].map(int)
 	for condition in args.cond_names:
@@ -591,12 +603,12 @@ def run_bindetect(args):
 		for cluster in clustering.clusters:
 			if name in clustering.clusters[cluster]["member_names"]:
 				cluster_names.append(clustering.clusters[cluster]["cluster_name"])
-	info_table.insert(0,"cluster", cluster_names)
+	info_table.insert(3, "cluster", cluster_names)
 	
 	#### Write excel ###
 	bindetect_excel = os.path.join(args.outdir, args.prefix + "_results.xlsx")
 	writer = pd.ExcelWriter(bindetect_excel, engine='xlsxwriter')
-	info_table.to_excel(writer)
+	info_table.to_excel(writer, index=False)
 		
 	worksheet = writer.sheets['Sheet1']
 	no_rows, no_cols = info_table.shape
@@ -610,8 +622,7 @@ def run_bindetect(args):
 		info_table[base + "_pvalue"] = info_table[base + "_pvalue"].map("{:.5E}".format)
 	
 	#Write bindetect results tables
-	info_table.insert(0, "TF_name", info_table.index)	 #Set index as first column
-
+	#info_table.insert(0, "TF_name", info_table.index)	 #Set index as first column
 	bindetect_out = os.path.join(args.outdir, args.prefix + "_results.txt")
 	info_table.to_csv(bindetect_out, sep="\t", index=False, header=True, na_rep="NA")
 
@@ -632,7 +643,7 @@ def run_bindetect(args):
 			#Make copy of motifs and fill in with metadata
 			comparison_motifs = copy.deepcopy(motif_list)
 			for motif in comparison_motifs:
-				name = motif.name
+				name = motif.prefix
 				motif.change = float(info_table.at[name, base + "_change"])
 				motif.pvalue = float(info_table.at[name, base + "_pvalue"])
 

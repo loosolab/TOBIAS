@@ -50,7 +50,7 @@ class MotifList(list):
 
 	def setup_moods_scanner(self):
 
-		tups = [(motif.name, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
+		tups = [(motif.prefix, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
 		if len(tups) > 0:
 			self.names, self.strands, self.matrices, self.thresholds = list(map(list, zip(*tups))) 	#get "columns"
 		else:
@@ -90,12 +90,12 @@ class OneMotif:
 
 	bases = ["A", "C", "G", "T"]
 
-	def __init__(self, motifid, alt_name, counts):
+	def __init__(self, motifid, name, counts):
 		
 		self.id = motifid			#must be unique
-		self.alt_name = alt_name	#does not have to be unique
+		self.name = name	#does not have to be unique
 
-		self.name = ""			#name set in set_name
+		self.prefix = "" 	#output prefix set in set_prefix
 		self.counts = counts  	#counts
 		self.strand = "+"		#default strand is +
 
@@ -110,26 +110,29 @@ class OneMotif:
 
 		return("{0}".format(self.__dict__))
 
-	def set_name(self, naming="name_id"):
-		""" Set name to be used in 4th column """
+	def set_prefix(self, naming="name_id"):
+		""" Set name to be used in 4th column and as output prefix """
 
 		if naming == "name":
-			prefix = self.alt_name
+			prefix = self.name
 		elif naming == "id":
 			prefix = self.id
 		elif naming == "name_id":
-			prefix = self.alt_name + "_" + self.id
+			prefix = self.name + "_" + self.id
 		elif naming	== "id_name":
-			prefix = self.id + "_" + self.alt_name
+			prefix = self.id + "_" + self.name
 		else:
 			prefix = "None"
-		self.name = prefix
+
+		self.prefix = filafy(prefix)
+		return(self)
+
 
 	def get_pfm(self):
 		self.pfm = self.counts / np.sum(self.counts, axis=0)
 
-	def get_reverse(self):
 
+	def get_reverse(self):
 		if self.pfm is None:
 			self.get_pfm()
 
@@ -394,6 +397,11 @@ def pfm_to_motifs(content):
 			else:
 				continue
 
-	#todo: check correct format of pfms
+	#check correct format of pfms
+	for motif in motiflist:
+		rows, cols = np.array(motif.counts).shape	
+		if rows != 4:
+			sys.exit("ERROR: Motif {0} has an unexpected format and could not be read")
+
 	return(motiflist)
 

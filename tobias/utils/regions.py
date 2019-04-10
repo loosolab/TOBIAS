@@ -658,7 +658,7 @@ class RegionCluster:
 				ordered_idx = sorted(distances.keys(), key=lambda member: distances[member])
 
 				self.clusters[cluster]["representative"] = self.names[ordered_idx[0]]
-				self.cluster_names[cluster] =  "C_" + self.names[ordered_idx[0]] + "_" + str(len(members_idx))		#cluster is the idx for cluster
+				self.cluster_names[cluster] =  "C_" + self.names[ordered_idx[0]] #cluster is the idx for cluster
 			else:		
 				self.cluster_names[cluster] = self.clusters[cluster]["member_names"][0]
 				self.clusters[cluster]["representative"] = self.cluster_names[cluster]

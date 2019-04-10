@@ -67,7 +67,7 @@ def motif_scanning(regions, args, motifs_obj):
 	qs = args.qs
 
 	#Scan motifs_obj against sequences per region
-	all_TFBS = {name:RegionList() for name in [motif.name for motif in motifs_obj]}
+	all_TFBS = {name:RegionList() for name in [motif.prefix for motif in motifs_obj]}
 
 	for region in regions:
 
@@ -200,17 +200,16 @@ def run_tfbscan(args):
 	
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
-	motif_names = [motif.name for motif in motif_list]
+	#motif_names = [motif.prefix for motif in motif_list]
 
 	reverse_motifs = [motif.get_reverse() for motif in motif_list]
 	motif_list.extend(reverse_motifs)
 	for motif in motif_list:	#now with reverse motifs as well
-		motif.set_name(args.naming)
-		motif.name = filafy(motif.name)	#remove ()/: etc. which will create problems in filenames
+		motif.set_prefix(args.naming)
 		motif.bg = bg
 		motif.get_pssm()
 	
-	motif_names = list(set([motif.name for motif in motif_list]))
+	motif_names = list(set([motif.prefix for motif in motif_list]))
 
 	#Calculate scanning-threshold for each motif
 	pool = mp.Pool(processes=args.cores)

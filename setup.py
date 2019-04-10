@@ -11,6 +11,7 @@ try:
 except:
 	pass
 
+"""
 #Test if numpy is installed
 class build_ext(_build_ext):
     def finalize_options(self):
@@ -20,10 +21,13 @@ class build_ext(_build_ext):
         import numpy as np
        	self.include_dirs.append(np.get_include())
        	included_dirs.append(np.get_include())
+"""
 
 #Add cython modules depending on the availability of cython
+cmdclass = {}
 try:
 	from Cython.Distutils import build_ext
+	cmdclass = {'build_ext': build_ext}
 except ImportError:
 	use_cython = False
 else:
@@ -38,8 +42,6 @@ else:
 	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.c"], include_dirs=included_dirs), #, include_dirs=[np.get_include()]),
 					Extension("tobias.utils.sequences", ["tobias/utils/sequences.c"], include_dirs=included_dirs), #, include_dirs=[np.get_include()]),
 					Extension("tobias.utils.signals", ["tobias/utils/signals.c"], include_dirs=included_dirs)] #, include_dirs=[np.get_include()])]
-
-cmdclass = {'build_ext': build_ext}
 
 #Path of setup file to establish version
 setupdir = os.path.abspath(os.path.dirname(__file__))
