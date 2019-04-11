@@ -41,7 +41,7 @@ from tobias.motifs.score_bed import *
 from tobias.misc.subsample_bam import *
 from tobias.misc.merge_pdfs import *
 from tobias.misc.maxpos import *
-#from tobias.misc.create_network import *
+from tobias.misc.create_network import *
 from tobias.misc.log2table import *
 
 from tobias import __version__ as TOBIAS_VERSION
