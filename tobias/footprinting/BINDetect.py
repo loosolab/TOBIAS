@@ -463,6 +463,22 @@ def run_bindetect(args):
 
 		figures.append((ax, fig))
 
+
+
+	#Quantile normalization
+	ref = args.cond_names[0]
+	for cond in args.cond_names[1:]:
+		
+		ref_quantiles = scipy.stats.lognorm(5, *all_log_params[ref])
+		cond_quantiles = scipy.stats.lognorm(5, *all_log_params[cond])
+
+		print(ref_quantiles)
+		print(cond_quantiles)
+
+		plt.plot(ref_quantiles, cond_quantiles)
+		#all_log_params[bigwig]
+
+
 	#Only plot if args.debug is True
 	if args.debug:
 		#Set x-max of all plots equal
