@@ -262,7 +262,6 @@ def run_atacorrect(args):
 	#### Statistics about regions ####
 	genome_bp = sum([region.get_length() for region in regions_dict["genome"]])
 	for key in regions_dict:
-
 		total_bp = sum([region.get_length() for region in regions_dict[key]])
 		logger.stats("{0}: {1} regions | {2} bp | {3:.2f}% coverage".format(key, len(regions_dict[key]), total_bp, total_bp/genome_bp*100))
 
@@ -271,6 +270,11 @@ def run_atacorrect(args):
 	output_regions = regions_dict["output_regions"]
 	peak_regions = regions_dict["peak_regions"]
 	nonpeak_regions = regions_dict["nonpeak_regions"]
+
+	#Exit if no input/output regions were found
+	if len(input_regions) == 0 or len(output_regions) == 0 or len(peak_regions) == 0 or len(nonpeak_regions) == 0:
+		logger.error("No regions found - exiting!")
+		sys.exit()
 
 	#----------------------------------------------------------------------------------------------------#
 	# Estimate normalization factors

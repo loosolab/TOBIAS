@@ -43,12 +43,11 @@ from tobias.utils.sequences import *
 from tobias.utils.motifs import *
 from tobias.utils.logger import * 
 
-#np.seterr(divide = 'ignore') 
-
 #For warnings from curve_fit
 import warnings
 from scipy.optimize import OptimizeWarning
 warnings.simplefilter("ignore", OptimizeWarning)
+warnings.simplefilter("ignore", RuntimeWarning)
 
 
 #--------------------------------------------------------------------------------------------------------------#
@@ -178,9 +177,9 @@ def run_bindetect(args):
 	#output and order
 	titles = []
 	if args.debug:
-		for cond in args.cond_names:
-			titles.append("Score distribution of {0} scores".format(cond))
-
+		
+		titles.append("Raw score distributions")
+		titles.append("Normalized score distributions")
 		for (cond1, cond2) in comparisons:
 			titles.append("Background log2FCs ({0} / {1})".format(cond1, cond2))	
 
@@ -216,10 +215,10 @@ def run_bindetect(args):
 		if len(args.peak_header_list) != peak_columns:
 			logger.error("Length of --peak_header ({0}) does not fit number of columns in --peaks ({1}).".format(len(args.peak_header_list), peak_columns))
 			sys.exit()
-
 	else:
-		args.peak_header_list = None
-	
+		args.peak_header_list = ["peak_chr", "peak_start", "peak_end"] + ["additional_" + str(num + 1) for num in range(peak_columns-3)]
+	logger.debug("Peak header list: {0}".format(args.peak_header_list))
+
 	##### GC content for motif scanning ######
 	fasta_obj = pysam.FastaFile(args.genome)
 	fasta_chroms = fasta_obj.references
@@ -240,15 +239,11 @@ def run_bindetect(args):
 
 
 	################ Get motifs ################
-
 	logger.info("Reading motifs from file") 
 
 	motif_content = open(args.motifs).read()
 	converted_content = convert_motif(motif_content, "pfm")
 	motif_list = pfm_to_motifs(converted_content) 			#List of OneMotif objects
-	
-	#motif_list = [motif.set_prefix(args.naming) for motif in motif_list]
-	#motif_prefix_list = [motif.prefix for motif in motif_list]
 	no_pfms = len(motif_list)
 
 	logger.info("- Found {0} motifs in file".format(no_pfms))
@@ -289,10 +284,8 @@ def run_bindetect(args):
 	#-------------------------------------------------------------------------------------------------------------#
 
 	logger.comment("")
-	
 	logger.start_logger_queue()		#start process for listening and handling through the main logger queue
 	args.log_q = logger.queue 		#queue for multiprocessing logging
-	
 	manager = mp.Manager()
 	logger.info("Scanning for motifs and matching to signals...")
 
@@ -301,7 +294,9 @@ def run_bindetect(args):
 	qs_list = []
 	writer_qs = {}
 
-	#create_writer_queue(key2file, writer_cores)
+	#writer_queue = create_writer_queue(key2file, writer_cores)
+	#writer_queue.stop()	#wait until all are done
+
 	manager = mp.Manager()
 	TF_names_chunks = [motif_names[i::writer_cores] for i in range(writer_cores)]
 	for TF_names_sub in TF_names_chunks:
@@ -361,82 +356,83 @@ def run_bindetect(args):
 	for bigwig in args.cond_names:
 		background["signal"][bigwig] = np.array(background["signal"][bigwig])
 
-
-	###### Estimate score distribution to define bound/unbound threshold per condition ######
 	logger.comment("")
-	logger.info("Estimating score distributions per condition")
-	args.thresholds = {}
-	pseudos = []
-	figures = []	#save figures before saving to file to unify x-ranges
-	gmms = {}
-	all_log_params = {}
+	logger.info("Estimating score distribution per condition")
 
+	if args.debug == True:
+		fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Raw scores per condition")
+		figure_pdf.savefig(fig, bbox_inches='tight')
+		plt.close()
+
+	logger.info("Normalizing scores")
+	list_of_vals = [background["signal"][bigwig] for bigwig in args.cond_names]
+	normed, norm_objects = quantile_normalization(list_of_vals)
+
+	args.norm_objects = dict(zip(args.cond_names, norm_objects))
 	for bigwig in args.cond_names:
+		background["signal"][bigwig] = args.norm_objects[bigwig].normalize(background["signal"][bigwig]) 
+	
+	if args.debug == True:
+		fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
+		figure_pdf.savefig(fig, bbox_inches='tight')
+		plt.close()
 
-		#Prepare scores (remove 0's etc.)
-		bg_values = np.copy(background["signal"][bigwig])
-		logger.debug("{0} scores for bigwig {1}".format(len(bg_values), bigwig))
+	###########################################################
+	logger.info("Estimating bound/unbound threshold")
 
-		bg_values = bg_values[np.logical_not(np.isclose(bg_values, 0.0))]	#only non-zero counts
-		x_max = np.percentile(bg_values, [99]) 
-		bg_values = bg_values[bg_values < x_max]
+	#Prepare scores (remove 0's etc.)
+	bg_values = np.array(normed).flatten()
+	bg_values = bg_values[np.logical_not(np.isclose(bg_values, 0.0))]	#only non-zero counts
+	x_max = np.percentile(bg_values, [99]) 
+	bg_values = bg_values[bg_values < x_max]
 		
-		#Fit mixture of normals
-		lowest_bic = np.inf
-		for n_components in [2]:	#2 components
-			gmm = sklearn.mixture.GaussianMixture(n_components=n_components, random_state=1)
-			gmm.fit(np.log(bg_values).reshape(-1, 1))
-			
-			bic = gmm.bic(np.log(bg_values).reshape(-1,1))
-			logger.debug("n_compontents: {0} | bic: {1}".format(n_components, bic))
-			if bic < lowest_bic:
-				lowest_bic = bic
-				best_gmm = gmm
-		gmm = best_gmm
-		gmms[bigwig] = best_gmm
-
-		#Extract most-right gaussian 
-		means = gmm.means_.flatten()
-		sds = np.sqrt(gmm.covariances_).flatten()	
-		chosen_i = np.argmax(means) 	#Mixture with largest mean
-		log_params = scipy.stats.lognorm.fit(bg_values[bg_values < x_max], f0=sds[chosen_i], fscale=np.exp(means[chosen_i]))
-		all_log_params[bigwig] = log_params
-
-		#Plot mixture
-		#if args.debug:
-		#	plt.hist(np.log(bg_values), bins='auto', density=True)
-		#	xlim = plt.xlim()
-		#	x = np.linspace(xlim[0], xlim[1], 1000)
-		#	for i in range(2):
-		#		pdf = scipy.stats.norm.pdf(x, means[i], sds[i])
-		#		plt.plot(x, pdf)
-		#	
-		#	logprob = gmm.score_samples(x.reshape(-1, 1))
-		#	df = np.exp(logprob)
-		#	plt.plot(x, df)
-		#	plt.show()
-
-		#Mode of distribution
-		mode = scipy.optimize.fmin(lambda x: -scipy.stats.lognorm.pdf(x, *log_params), 0, disp=False)[0]
-		logger.debug("- Mode for condition {0} estimated at: {1}".format(bigwig, mode))
-		pseudo = mode / 2.0		#pseudo is half the mode
-		pseudos.append(pseudo)
+	#Fit mixture of normals
+	lowest_bic = np.inf
+	for n_components in [2]:	#2 components
+		gmm = sklearn.mixture.GaussianMixture(n_components=n_components, random_state=1)
+		gmm.fit(np.log(bg_values).reshape(-1, 1))
 		
-		# Estimate theoretical normal for threshold
-		leftside_x = np.linspace(scipy.stats.lognorm(*log_params).ppf([0.01]), mode, 100)
-		leftside_pdf = scipy.stats.lognorm.pdf(leftside_x, *log_params)
+		bic = gmm.bic(np.log(bg_values).reshape(-1,1))
+		logger.debug("n_compontents: {0} | bic: {1}".format(n_components, bic))
+		if bic < lowest_bic:
+			lowest_bic = bic
+			best_gmm = gmm
+	gmm = best_gmm
+	
+	#Extract most-right gaussian 
+	means = gmm.means_.flatten()
+	sds = np.sqrt(gmm.covariances_).flatten()	
+	chosen_i = np.argmax(means) 	#Mixture with largest mean
 
-		#Flip over
-		mirrored_x = np.concatenate([leftside_x, np.max(leftside_x) + leftside_x]).flatten()
-		mirrored_pdf = np.concatenate([leftside_pdf, leftside_pdf[::-1]]).flatten()
-		popt, cov = curve_fit(lambda x, std, sc: sc * scipy.stats.norm.pdf(x, mode, std), mirrored_x, mirrored_pdf)
-		norm_params = (mode, popt[0])
-		logger.debug("Theoretical normal parameters: {0}".format(norm_params))
+	log_params = scipy.stats.lognorm.fit(bg_values[bg_values < x_max], f0=sds[chosen_i], fscale=np.exp(means[chosen_i]))
+	#all_log_params[bigwig] = log_params
 
-		#Set threshold for bound/unbound
-		threshold = round(scipy.stats.norm.ppf(1-args.bound_pvalue, *norm_params), 5)
-		args.thresholds[bigwig] = threshold
-		logger.stats("- Threshold for condition {0} estimated at: {1}".format(bigwig, threshold))
+	#Mode of distribution
+	mode = scipy.optimize.fmin(lambda x: -scipy.stats.lognorm.pdf(x, *log_params), 0, disp=False)[0]
+	logger.debug("- Mode estimated at: {0}".format(mode))
+	pseudo = mode / 2.0		#pseudo is half the mode
+	args.pseudo = pseudo  #.  append(pseudo)
+	logger.debug("Pseudocount estimated at: {0}".format(round(args.pseudo, 5)))
+	
+	# Estimate theoretical normal for threshold
+	leftside_x = np.linspace(scipy.stats.lognorm(*log_params).ppf([0.01]), mode, 100)
+	leftside_pdf = scipy.stats.lognorm.pdf(leftside_x, *log_params)
+
+	#Flip over
+	mirrored_x = np.concatenate([leftside_x, np.max(leftside_x) + leftside_x]).flatten()
+	mirrored_pdf = np.concatenate([leftside_pdf, leftside_pdf[::-1]]).flatten()
+	popt, cov = curve_fit(lambda x, std, sc: sc * scipy.stats.norm.pdf(x, mode, std), mirrored_x, mirrored_pdf)
+	norm_params = (mode, popt[0])
+	logger.debug("Theoretical normal parameters: {0}".format(norm_params))
+
+	#Set threshold for bound/unbound
+	threshold = round(scipy.stats.norm.ppf(1-args.bound_pvalue, *norm_params), 5)
+
+	args.thresholds = {bigwig: threshold for bigwig in args.cond_names}
+	logger.stats("- Threshold estimated at: {0}".format( threshold))
+
+	#Only plot if args.debug is True
+	if args.debug:
 
 		#Plot fit
 		fig, ax = plt.subplots(1, 1)
@@ -455,50 +451,20 @@ def run_bindetect(args):
 		ax.text(threshold, ymax, "\n {0:.3f}".format(threshold), va="top")
 		
 		#Decorate plot
-		plt.title("Score distribution of \"{0}\" scores".format(bigwig))
+		plt.title("Score distribution")
 		plt.xlabel("Bigwig score")
 		plt.ylabel("Density")
 		plt.legend(fontsize=8)
 		plt.xlim((0,x_max))
 
-		figures.append((ax, fig))
+		figure_pdf.savefig(fig)
+		plt.close(fig)
 
-
-
-	#Quantile normalization
-	ref = args.cond_names[0]
-	for cond in args.cond_names[1:]:
-		
-		ref_quantiles = scipy.stats.lognorm(5, *all_log_params[ref])
-		cond_quantiles = scipy.stats.lognorm(5, *all_log_params[cond])
-
-		print(ref_quantiles)
-		print(cond_quantiles)
-
-		plt.plot(ref_quantiles, cond_quantiles)
-		#all_log_params[bigwig]
-
-
-	#Only plot if args.debug is True
-	if args.debug:
-		#Set x-max of all plots equal
-		xlim = np.min([ax.get_xlim()[1] for ax, fig in figures])
-		for (ax, fig) in figures:
-			ax.set_xlim(0,xlim)
-			figure_pdf.savefig(fig)
-			plt.close(fig)
-
-	#Estimate pseudocount
-	if args.pseudo == None:
-		args.pseudo = np.mean(pseudo)
-		logger.debug("Pseudocount estimated at: {0}".format(round(args.pseudo, 5)))
-
-	
 	############ Foldchanges between conditions ################
 	logger.comment("")
 	log2fc_params = {}
 	if len(args.signals) > 1:
-		logger.info("Calculating log2 fold changes between conditions")
+		logger.info("Calculating background log2 fold-changes between conditions")
 
 		for (bigwig1, bigwig2) in comparisons:	#cond1, cond2
 			logger.info("- {0} / {1}".format(bigwig1, bigwig2))
@@ -529,7 +495,7 @@ def run_bindetect(args):
 			xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
 			pdf = scipy.stats.norm.pdf(xvals, *log2fc_params[(bigwig1, bigwig2)])
 			plt.plot(xvals, pdf, label="Normal distribution fit")
-			plt.title("Background log2FCs ({0} / {1})".format(cond1, cond2))
+			plt.title("Background log2FCs ({0} / {1})".format(bigwig1, bigwig2))
 
 			plt.xlabel("Log2 fold change")
 			plt.ylabel("Density")
@@ -545,7 +511,7 @@ def run_bindetect(args):
 
 	logger.comment("")
 	logger.info("Processing scanned TFBS individually")
-	
+		
 	#Getting bindetect table ready
 	info_columns = ["total_tfbs"]
 	info_columns.extend(["{0}_{1}".format(cond, metric) for (cond, metric) in itertools.product(args.cond_names, ["threshold", "bound"])])
@@ -595,7 +561,7 @@ def run_bindetect(args):
 
 	logger.comment("")
 	logger.info("Writing all_bindetect files")
-	
+
 	#Add columns of name / motif_id / prefix
 	names = []
 	ids = []
@@ -604,14 +570,9 @@ def run_bindetect(args):
 		names.append(motif[0].name)
 		ids.append(motif[0].id)
 
-	info_table.insert(0, "name", names)
-	info_table.insert(1, "motif_id", ids)
-	info_table.insert(2, "output_prefix", info_table.index)
-
-	#Condition specific
-	info_table["total_tfbs"] = info_table["total_tfbs"].map(int)
-	for condition in args.cond_names:
-		info_table[condition + "_bound"] = info_table[condition + "_bound"].map(int)
+	info_table.insert(0, "output_prefix", info_table.index)
+	info_table.insert(1, "name", names)
+	info_table.insert(2, "motif_id", ids)
 	
 	#Add cluster to info_table
 	cluster_names = []
@@ -621,14 +582,29 @@ def run_bindetect(args):
 				cluster_names.append(clustering.clusters[cluster]["cluster_name"])
 	info_table.insert(3, "cluster", cluster_names)
 	
+	#Cluster table on motif clusters
+	info_table_clustered = info_table.groupby("cluster").mean() #mean of each column
+	info_table_clustered.reset_index(inplace=True)
+
+	#Map correct type
+	info_table["total_tfbs"] = info_table["total_tfbs"].map(int)
+	for condition in args.cond_names:
+		info_table[condition + "_bound"] = info_table[condition + "_bound"].map(int)
+
 	#### Write excel ###
 	bindetect_excel = os.path.join(args.outdir, args.prefix + "_results.xlsx")
 	writer = pd.ExcelWriter(bindetect_excel, engine='xlsxwriter')
-	info_table.to_excel(writer, index=False)
-		
-	worksheet = writer.sheets['Sheet1']
-	no_rows, no_cols = info_table.shape
-	worksheet.autofilter(0,0,no_rows,no_cols)
+
+	#Tables
+	info_table.to_excel(writer, index=False, sheet_name="Individual motifs")	
+	info_table_clustered.to_excel(writer, index=False, sheet_name="Motif clusters")
+	
+	for sheet in writer.sheets:
+		worksheet = writer.sheets[sheet]
+		n_rows = worksheet.dim_rowmax
+		n_cols = worksheet.dim_colmax
+		worksheet.autofilter(0,0,n_rows,n_cols)
+
 	writer.save()
 
 	#Format comparisons

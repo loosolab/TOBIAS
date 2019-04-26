@@ -88,7 +88,7 @@ setup(name='tobias',
 			'adjustText',
 			'pyBigWig',
 		],
-
+		scripts = ["tobias/utils/filter_important_factors.py"],
 		classifiers=[
 			'License :: OSI Approved :: MIT License',
 			'Intended Audience :: Science/Research',

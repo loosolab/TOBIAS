@@ -174,7 +174,11 @@ def run_tfbscan(args):
 
 	#Clip regions at chromosome boundaries
 	regions = regions.apply_method(OneRegion.check_boundary, fasta_chrom_info, "cut")
+	if len(regions) == 0:
+		logger.error("No regions found.")
+		sys.exit()
 	logger.info("- Total of {0} regions (after splitting)".format(len(regions)))
+	
 
 	#Background gc
 	if args.gc == None:

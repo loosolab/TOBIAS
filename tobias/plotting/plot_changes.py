@@ -16,6 +16,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
+from matplotlib.backends.backend_pdf import PdfPages
 
 from tobias.utils.utilities import *
 from tobias.utils.logger import *
@@ -33,10 +34,10 @@ def add_plotchanges_arguments(parser):
 
 	required_arguments = parser.add_argument_group('Required arguments')
 	required_arguments.add_argument('--bindetect', metavar="", help='Bindetect_results.txt file from BINDetect run')
-	required_arguments.add_argument('--TFS', metavar="", help='Text file containing names of TFs to show in plot (one per line)') 
-
+	
 	#All other arguments are optional
 	optional_arguments = parser.add_argument_group('Optional arguments')
+	optional_arguments.add_argument('--TFS', metavar="", help='Text file containing names of TFs to show in plot (one per line)') 
 	optional_arguments.add_argument('--output', metavar="", help='Output file for plot (default: bindetect_changes.pdf)', default="bindetect_changes.pdf")
 	optional_arguments.add_argument('--conditions', metavar="", help="Ordered list of conditions to show (default: conditions are ordered as within the bindetect file)", nargs="*")
 	optional_arguments = add_logger_args(optional_arguments)
@@ -51,37 +52,45 @@ def run_plotchanges(args):
 	logger = TobiasLogger("PlotChanges", args.verbosity)
 	logger.begin()
 
-	check_required(args, ["bindetect", "TFS"])
+	check_required(args, ["bindetect"])
 	check_files([args.bindetect, args.TFS], "r")
 	check_files([args.output], "w")
+
 
 	#------------------------------------ Read data ------------------------------------#
 
 	logger.info("Reading data from bindetect file")
 
 	# Read in bindetect file
-	table = pd.read_csv(args.bindetect, sep="\t", index_col=0)
-	all_TFS = list(table.index)
+	bindetect = pd.read_csv(args.bindetect, sep="\t")
+	bindetect.set_index("output_prefix", inplace=True, drop=False)
+	
+	all_TFS = list(bindetect["output_prefix"])
 	logger.info("{0} TFS found in bindetect file".format(len(all_TFS)))
 
 	#Read in TF names from --TFS:
-	given_TFS = open(args.TFS, "r").read().split()
-	logger.info("TFS given in --TFS: {0}".format(given_TFS))
-
-	#Find matches between all and given
-	logger.info("Matching given TFs with bindetect file...")
-	lofl = [given_TFS, all_TFS]
-	matches = match_lists(lofl)
-
-	for i, TF in enumerate(given_TFS):
-		logger.info("- {0} matched with: {1}".format(TF, matches[0][i]))
+	if args.TFS != None:
 	
-	#Get tfs
-	chosen_TFS = list(flatten_list(matches))
-	logger.info("Chosen TFS to view in plot: {0}".format(chosen_TFS))
+		given_TFS = open(args.TFS, "r").read().split()
+		logger.info("TFS given in --TFS: {0}".format(given_TFS))
+
+		#Find matches between all and given
+		logger.info("Matching given TFs with bindetect file...")
+		lofl = [given_TFS, all_TFS]
+		matches = match_lists(lofl)
+
+		for i, TF in enumerate(given_TFS):
+			logger.info("- {0} matched with: {1}".format(TF, matches[0][i]))
+		
+		#Get tfs
+		chosen_TFS = list(set(flatten_list(matches)))
+		logger.info("Chosen TFS to view in plot: {0}".format(chosen_TFS))
+	else:
+		logger.info("Showing all TFS in plot. Please use --TFS to subset output.")
+		chosen_TFS = all_TFS
 
 	# Get order of conditions
-	header = list(table.columns.values)
+	header = list(bindetect.columns.values)
 	conditions_file = [element.replace("_bound", "") for element in header if "bound" in element]
 	if args.conditions == None:	
 		args.conditions = conditions_file
@@ -90,23 +99,68 @@ def run_plotchanges(args):
 			logger.info("ERROR: --conditions {0} is not a subset of bindetect conditions ({1})".format(args.conditions, conditions_file))
 			sys.exit()
 		
-	#condition_comparison = list(itertools.combinations(args.conditions, 2))
 	logger.info("Conditions in order: {0}".format(args.conditions))
 
-
-	#------------------------------------ Make plot --------------------------------#
+	#------------------------------------ Make plots --------------------------------#
 
 	logger.info("Plotting figure")
-	cmap = matplotlib.cm.get_cmap('rainbow')
-	colors = cmap(np.linspace(0,1,len(chosen_TFS)))
 
-	fig, ax1 = plt.subplots(figsize=(10,5))
+	fig_out = os.path.abspath(args.output)
+	figure_pdf = PdfPages(fig_out, keep_empty=True)
 
-	#Make lineplot per TF
-	for i, TF in enumerate(chosen_TFS):
-		no_bound = np.array([table.at[TF, "{0}_bound".format(cond)] for cond in args.conditions])
+	#Changes over time for different measures
+	for cluster_flag in [False, True]:
+		#logger.info("- Use clusters: {0}".format(cluster_flag))
 
-		"""
+		#Choose whether to show individual TFs or clusters
+		if cluster_flag == True:
+			table = bindetect.loc[chosen_TFS,].groupby("cluster").mean() #mean of each column
+		else:
+			table = bindetect.loc[chosen_TFS]
+		
+		#Get colors ready
+		cmap = matplotlib.cm.get_cmap('rainbow')
+		colors = cmap(np.linspace(0,1,len(table)))
+
+		xvals = np.arange(0,len(args.conditions))
+		for measure in ["n_bound", "percent_bound", "mean_score"]:
+			#logger.info("-- {0}".format(measure))
+			fig, ax = plt.subplots(figsize=(10,5))
+			for i, TF in enumerate(table.index):
+
+				if measure == "n_bound":
+					yvals = np.array([table.at[TF, "{0}_bound".format(cond)] for cond in args.conditions])
+				elif measure == "percent_bound":
+					n_bound = np.array([table.at[TF, "{0}_bound".format(cond)] for cond in args.conditions])
+					yvals = n_bound / table.at[TF, "total_tfbs"] * 100.0	#percent bound
+				elif measure == "mean_score":
+					yvals = np.array([table.at[TF, "{0}_mean_score".format(cond)] for cond in args.conditions])
+
+				ax.plot(xvals, yvals, color=colors[i], marker="o", label=TF)
+				ax.annotate(TF, (xvals[0]-0.1, yvals[0]), color=colors[i], horizontalalignment="right", verticalalignment="center", fontsize=6)
+
+			#General
+			plt.title("Changes in TF binding across conditions")
+			plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=3, markerscale=0.5)
+			plt.xticks(xvals, args.conditions)
+			plt.xlabel("Conditions")
+			
+			if measure == "n_bound":
+				plt.ylabel("Number of sites predicted bound", color="black")
+			elif measure == "percent_bound":
+				plt.ylabel("Percent of sites predicted bound", color="black")
+			elif measure == "mean_score":
+				plt.ylabel("Mean binding score", color="black")
+			ax.tick_params('y', colors='black')
+
+			plt.xlim(xvals[0]-2, xvals[-1]+0.5)
+			figure_pdf.savefig(fig, bbox_inches='tight')
+			plt.close()
+
+
+	#Change between conditions
+	#condition_comparison = list(itertools.combinations(args.conditions, 2))
+	"""
 		diffs = []
 		for (cond1, cond2) in condition_comparison:
 			try:
@@ -115,23 +169,7 @@ def run_plotchanges(args):
 				diffs.append(table.at[TF, "{1}_{0}_change".format(cond1, cond2)])
 
 		diffs = np.cumsum(diffs)
-		"""
-		#diffs = [table.at[TF, "{0}_{1}_change".format(cond1, cond2)] for (cond1, cond2) in condition_comparison]
-
-		percent_bound = no_bound / table.at[TF, "total_tfbs"] * 100.0
-
-		#Number of bound sites
-		xvals = np.arange(0,len(args.conditions))
-		ax1.plot(xvals, percent_bound, color=colors[i], marker="o", label=TF)
-
-		#Annotate
-		ax1.annotate(TF, (xvals[0]-0.1, percent_bound[0]), color=colors[i], horizontalalignment="right", verticalalignment="center")
-
-	ax1.set_ylabel("Percent of total sites predicted bound", color="black")
-	ax1.tick_params('y', colors='black')
-
-	#Change between conditions
-	"""
+	
 	ax2 = ax1.twinx()
 
 	xvals_shift = np.arange(0.5,len(condition_comparison),1)
@@ -140,19 +178,7 @@ def run_plotchanges(args):
 	ax2.tick_params('y', colors='r')
 	"""
 
-	#General
-	plt.title("Changes in TF binding across conditions")
-	plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-	plt.xticks(xvals, args.conditions)
-	plt.xlabel("Conditions")
-
-	plt.xlim(xvals[0]-2, xvals[-1]+0.5)
-		
-	#plt.tight_layout()
-	plt.savefig(args.output, format="pdf", bbox_inches='tight')
-	#plt.show()
-
-
+	figure_pdf.close()
 	logger.end()
 	logger.info("Saved figure to {0}".format(args.output))
 

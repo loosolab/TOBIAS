@@ -26,6 +26,7 @@ from matplotlib.ticker import NullFormatter
 from cycler import cycler
 from matplotlib.lines import Line2D
 from adjustText import adjust_text
+from scipy.optimize import curve_fit
 
 #Bio-specific packages
 import pyBigWig
@@ -42,10 +43,107 @@ from tobias.utils.motifs import *
 from tobias.utils.signals import *
 
 import warnings
+#np.seterr(all='raise')
 
 #------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------------------#
+
+def sigmoid(x, a, b, L, shift):
+	""" a is the xvalue at the sigmoid midpoint """
+
+	y = L / (1 + np.exp(-b*(x-a))) + shift
+	return y
+
+class ArrayNorm:
+
+	def __init__(self, popt):
+		self.popt = popt
+
+	def normalize(self, arr):
+		return(arr * sigmoid(arr, *self.popt))
+
+def dict_to_tab(dict_list, fname, chosen_columns, header=False):
+
+	#Establish header
+	if header == True:
+		out_str = "\t".join(chosen_columns) + "\n"
+	else:
+		out_str = ""
+	
+	#Add lines
+	out_str += "\n".join(["\t".join([str(line_dict[column]) for column in chosen_columns]) for line_dict in dict_list]) + "\n"
+	
+	#Write file
+	f = open(fname, "w")
+	f.write(out_str)
+	f.close()
+
+#Quantile normalization 
+def quantile_normalization(list_of_arrays): #lists paired values to normalize
+
+	n = len(list_of_arrays) #number of arrays to normalize
+
+	#Calculate 
+	quantiles = np.linspace(0.2,0.999,500)
+	array_quantiles = [np.quantile(arr[arr > 0], quantiles) for arr in list_of_arrays]
+	mean_array_quantiles = [np.mean([array_quantiles[i][j] for i in range(n)]) for j in range(len(quantiles))]
+
+	norm_objects = []
+	for i in range(n):
+		
+		#Plot q-q
+		#f, ax = plt.subplots()
+		#plt.scatter(array_quantiles[i], mean_array_quantiles)
+		#ax.set_xlim(0,1)
+		#ax.set_ylim(0,1)
+		#ax.plot([0, 1], [0, 1], transform=ax.transAxes)
+		#plt.close()
+		#plt.show()
+		
+		#Plot normalizyation factors
+		#f, ax = plt.subplots()
+		xdata = array_quantiles[i]
+		ydata = mean_array_quantiles/xdata
+		#plt.scatter(xdata, ydata)
+		#plt.close()
+
+		popt, pcov = curve_fit(sigmoid, xdata, ydata, bounds=((0,-np.inf, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+		norm_objects.append(ArrayNorm(popt))
+
+		y_est = sigmoid(xdata, *popt)
+		plt.plot(xdata, y_est)
+
+		plt.close()
+
+	#Normalize each array using means per rank
+	normed = []
+	for i in range(n):	#for each array
+		normed.append(norm_objects[i].normalize(list_of_arrays[i]))
+
+	return((normed, norm_objects))
+
+def plot_score_distribution(list_of_arr, labels=[], title="Score distribution"):
+
+	fig, ax = plt.subplots(1, 1)
+	xlim = []
+	for i in range(len(list_of_arr)):
+
+		values = np.array(list_of_arr[i])
+		x_max = np.percentile(values, [99]) 
+		values = values[values < x_max]
+		xlim.append(x_max)
+
+		plt.hist(values, bins=100, alpha=.4, density=True, label=labels[i])
+
+	ax.set_xlabel("Scores")
+	ax.set_ylabel("Density")
+	ax.set_xlim(0, min(xlim))
+	plt.legend()
+	plt.title(title)
+
+	return(fig)
+
 
 def get_gc_content(regions, fasta):
 	""" Get GC content from regions in fasta """
@@ -67,7 +165,6 @@ def get_gc_content(regions, fasta):
 #---------------------------------------------------------------------------------------------------------#
 #------------------------------------------- Main functions ----------------------------------------------#
 #---------------------------------------------------------------------------------------------------------#
-
 def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	""" Scanning and scoring runs in parallel for subsets of regions """
 	
@@ -172,14 +269,78 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	""" Processes single TFBS to split into bound/unbound and write out overview file """
 
-	begin_time = datetime.now()
+	#begin_time = datetime.now()
 	logger = TobiasLogger("", args.verbosity, args.log_q) 	#sending all logger calls to log_q
 
-	#pre-scanned sites to read
+	#Pre-scanned sites to read
 	bed_outdir = os.path.join(args.outdir, TF_name, "beds")
 	filename = os.path.join(bed_outdir, TF_name + ".tmp")
 	no_cond = len(args.cond_names)
 	comparisons = args.comparisons
+
+	#Read file to list of dicts
+	header = ["TFBS_chr", "TFBS_start", "TFBS_end", "TFBS_name", "TFBS_score", "TFBS_strand"] + args.peak_header_list + ["{0}_score".format(condition) for condition in args.cond_names]
+	with open(filename) as f:
+		bedlines = [dict(zip(header, line.rstrip().split("\t"))) for line in f.readlines()]
+	n_rows = len(bedlines)
+
+	############################## Local effects ###############################
+	
+	#Sort, scale and calculate log2fc
+	bedlines = sorted(bedlines, key=lambda line: (line["TFBS_chr"], int(line["TFBS_start"]), int(line["TFBS_end"])))
+	for line in bedlines:
+	
+		#Condition specific
+		for condition in args.cond_names:
+			threshold = args.thresholds[condition]
+			line[condition + "_score"] = float(line[condition + "_score"])
+			line[condition + "_score"] = np.round(args.norm_objects[condition].normalize(line[condition + "_score"] ), 5)
+			line[condition + "_bound"] = 1 if line[condition + "_score"] > threshold else 0
+
+		#Comparison specific
+		for i, (cond1, cond2) in enumerate(comparisons):
+			base = "{0}_{1}".format(cond1, cond2)
+			line[base + "_log2fc"] = round(np.log2((line[cond1 + "_score"] + args.pseudo) / (line[cond2 + "_score"] + args.pseudo)), 5)
+
+	#### Write _all file ####
+	outfile = os.path.join(bed_outdir, TF_name + "_all.bed")
+	dict_to_tab(bedlines, outfile, header)
+
+	#### Write _bound/_unbound files ####
+	for condition in args.cond_names:
+		chosen_columns = header[:-no_cond-1] + [condition + "_score"]
+
+		#Subset bedlines per state
+		for state in ["bound", "unbound"]:
+			outfile = os.path.join(bed_outdir, "{0}_{1}_{2}.bed".format(TF_name, condition, state))
+			chosen_bool = 1 if state == "bound" else 0
+			bedlines_subset = [bedline for bedline in bedlines if bedline[condition + "_bound"] == chosen_bool]
+			bedlines_subset = sorted(bedlines_subset, key= lambda line: line[condition + "_score"], reverse=True)
+			dict_to_tab(bedlines_subset, outfile, chosen_columns)
+
+	##### Write overview with scores, bound and log2fcs ####
+	overview_columns = header + [condition + "_bound" for condition in args.cond_names] + ["{0}_{1}_log2fc".format(cond1, cond2) for (cond1, cond2) in comparisons]
+	overview_txt = os.path.join(args.outdir, TF_name, TF_name + "_overview.txt")
+	dict_to_tab(bedlines, overview_txt, overview_columns, header=True)
+	
+	#Write xlsx overview
+	bed_table = pd.DataFrame(bedlines)
+	try:
+		overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
+		writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter')
+		bed_table.to_excel(writer, index=False, columns=overview_columns)
+		
+		worksheet = writer.sheets['Sheet1']
+		no_rows, no_cols = bed_table.shape
+		worksheet.autofilter(0,0,no_rows, no_cols-1)
+		writer.save()
+
+	except:
+		print("Error writing excelfile for TF {0}".format(TF_name))
+		sys.exit()
+
+
+	############################## Global effects ##############################
 
 	#Get info table ready
 	info_columns = ["total_tfbs"]
@@ -188,74 +349,20 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	rows, cols = 1, len(info_columns)
 	info_table = pd.DataFrame(np.zeros((rows, cols)), columns=info_columns, index=[TF_name])
 
-	#Read file to pandas
-	arr = np.genfromtxt(filename, dtype=None, delimiter="\t", names=None, encoding="utf8", autostrip=True)	#Read using genfromtxt to get automatic type
-	bed_table = pd.DataFrame(arr, index=None, columns=None)
-	no_rows, no_cols = bed_table.shape
+	#Fill in info table
+	info_table.at[TF_name, "total_tfbs"] = n_rows
 
-	#no_rows, no_cols = overview_table.shape
-	info_table.at[TF_name, "total_tfbs"] = no_rows
-
-	#Set header in overview
-	header = [""]*no_cols
-	header[:6] = ["TFBS_chr", "TFBS_start", "TFBS_end", "TFBS_name", "TFBS_score", "TFBS_strand"]
-	
-	if args.peak_header_list != None:
-		header[6:6+len(args.peak_header_list)] = args.peak_header_list
-	else:
-		no_peak_col = len(header[6:])
-		header[6:6+no_peak_col] = ["peak_chr", "peak_start", "peak_end"] + ["additional_" + str(num + 1) for num in range(no_peak_col-3)]
-
-	header[-no_cond:] = ["{0}_score".format(condition) for condition in args.cond_names] 	#signal scores
-	bed_table.columns = header
-
-	#Sort and format
-	bed_table = bed_table.sort_values(["TFBS_chr", "TFBS_start", "TFBS_end"])
 	for condition in args.cond_names:
-		bed_table[condition + "_score"] = bed_table[condition + "_score"].round(5)
-
-	#### Write _all file ####
-	chosen_columns = [col for col in header]
-	outfile = os.path.join(bed_outdir, TF_name + "_all.bed")
-	bed_table.to_csv(outfile, sep="\t", index=False, header=False, columns=chosen_columns)
-
-	#### Estimate bound/unbound split ####
-	for condition in args.cond_names:
-
-		threshold = args.thresholds[condition]
-		bed_table[condition + "_bound"] = np.where(bed_table[condition + "_score"] > threshold, 1, 0).astype(int)
-		
 		info_table.at[TF_name, condition + "_mean_score"] = round(np.mean(bed_table[condition + "_score"]), 5)
-		info_table.at[TF_name, condition + "_bound"] = np.sum(bed_table[condition + "_bound"].values)	#_bound contains bool 0/1
-
-	#Write bound/unbound
-	for (condition, state) in itertools.product(args.cond_names, ["bound", "unbound"]):
-
-		outfile = os.path.join(bed_outdir, "{0}_{1}_{2}.bed".format(TF_name, condition, state))
-
-		#Subset bed table
-		chosen_bool = 1 if state == "bound" else 0
-		bed_table_subset = bed_table.loc[bed_table[condition + "_bound"] == chosen_bool]
-		bed_table_subset = bed_table_subset.sort_values([condition + "_score"], ascending=False)
-
-		#Write out subset with subset of columns
-		chosen_columns = header[:-no_cond-1] + [condition + "_score"]
-		bed_table_subset.to_csv(outfile, sep="\t", index=False, header=False, columns=chosen_columns)
-
-
-	#### Calculate statistical test in comparison to background ####
+		info_table.at[TF_name, condition + "_bound"] = np.sum(bed_table[condition + "_bound"].values) #_bound contains bool 0/1
+		
+	#### Calculate statistical test for binding in comparison to background ####
 	fig_out = os.path.abspath(os.path.join(args.outdir, TF_name, "plots", TF_name + "_log2fcs.pdf"))
 	log2fc_pdf = PdfPages(fig_out, keep_empty=True)
 
 	for i, (cond1, cond2) in enumerate(comparisons):
 		base = "{0}_{1}".format(cond1, cond2)
 
-		#Calculate log2fcs of TFBS for this TF
-		cond1_values = bed_table[cond1 + "_score"].values
-		cond2_values = bed_table[cond2 + "_score"].values
-		bed_table[base + "_log2fc"] = np.log2(np.true_divide(cond1_values + args.pseudo, cond2_values + args.pseudo))
-		bed_table[base + "_log2fc"] = bed_table[base + "_log2fc"].round(5)
-		
 		# Compare log2fcs to background log2fcs
 		included = np.logical_or(bed_table[cond1 + "_score"].values > 0, bed_table[cond2 + "_score"].values > 0)
 		subset = bed_table[included].copy() 		#included subset 
@@ -317,36 +424,14 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		plt.close(fig)
 
 	log2fc_pdf.close()	
-
-
-	########## Write overview with scores, bound and log2fcs ##############
-	chosen_columns = [col for col in bed_table.columns if col != "GC"]
-	overview_txt = os.path.join(args.outdir, TF_name, TF_name + "_overview.txt")
-	bed_table.to_csv(overview_txt, sep="\t", index=False, header=True, columns=chosen_columns)
-
-	#Write xlsx overview
-	try:
-		overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
-		writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter')
-		bed_table.to_excel(writer, index=False, columns=chosen_columns)
-		
-		worksheet = writer.sheets['Sheet1']
-		no_rows, no_cols = bed_table.shape
-		worksheet.autofilter(0,0,no_rows, no_cols-1)
-		writer.save()
-
-	except:
-		print("Error writing excelfile for TF {0}".format(TF_name))
-		sys.exit() #logger.critical("Error writing excelfile for TF {0}".format(TF_name)
 	
-	#### Remove temporary file ####
+	#################### Remove temporary file ######################
 	try:
 		os.remove(filename)
 	except:
 		logger.error("Could not remove temporary file {0} - this does not effect the results of BINDetect.".format(filename) )
 
 	return(info_table)
-
 
 
 #------------------------------------------------------------------------------------------------------#

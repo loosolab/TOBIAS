@@ -216,6 +216,8 @@ def run_aggregate(args):
 
 		pybw.close()
 
+	
+
 
 	#########################################################################################
 	################################## Calculate aggregates #################################
@@ -234,11 +236,11 @@ def run_aggregate(args):
 
 			#Exclude outliers from each column
 			lower_limit, upper_limit = -np.inf, np.inf 
-			#lower_limit, upper_limit = np.percentile(signalmat[signalmat != 0], [1,99])
-
-			logger.debug("Lower limits: {0}".format(lower_limit))
-			logger.debug("Upper limits: {0}".format(upper_limit))
-			signalmat[np.logical_or(signalmat < lower_limit, signalmat > upper_limit)] = np.nan
+			#lower_limit, upper_limit = np.percentile(signalmat[signalmat != 0], [0.5,99.5])
+			logical = np.logical_and(np.min(signalmat, axis=1) > lower_limit, np.max(signalmat, axis=1) < upper_limit)
+			#logger.debug("Lower limits: {0}".format(lower_limit))
+			#logger.debug("Upper limits: {0}".format(upper_limit))
+			signalmat = signalmat[logical]
 			
 			if args.log_transform:
 				signalmat_abs = np.abs(signalmat)

@@ -379,14 +379,14 @@ class RegionList(list):
 		self.loc_sort()
 		b_regions.loc_sort()
 
-		a_len = self.count()
-		b_len = b_regions.count()
+		#a_len = self.count()
+		#b_len = b_regions.count()
 
 		chromlist = sorted(list(set([region.chrom for region in self] + [region.chrom for region in b_regions])))
 		chrom_pos = {chrom:chromlist.index(chrom) for chrom in chromlist}
 
 		a = self
-		b = b_regions
+		#b = b_regions
 
 		a_i = 0
 		b_i = 0
@@ -577,33 +577,38 @@ class RegionCluster:
 		""" Main function to cluster the overlap dictionary into clusters"""
 
 		self.overlap_to_distance()
-		self.linkage_mat = linkage(squareform(self.distance_mat), method)
-		self.labels = fcluster(self.linkage_mat, threshold, criterion="distance")		#ordering of the dendrogram
 
-		#Find clusters below threshold
-		self.linkage_clusters = dict(zip(range(self.n), [[num] for num in range(self.n)]))
-		for i, row in enumerate(self.linkage_mat):
-			ID1 = int(row[0])
-			ID2 = int(row[1])
-			new = self.n + i
-			dist = row[2]
+		if len(self.names) > 1:
+			self.linkage_mat = linkage(squareform(self.distance_mat), method)
+			self.labels = fcluster(self.linkage_mat, threshold, criterion="distance")		#ordering of the dendrogram
 
-			if dist <= threshold:
-				self.linkage_clusters[new] = self.linkage_clusters[ID1] + self.linkage_clusters[ID2] + [new]
-				del self.linkage_clusters[ID1]
-				del self.linkage_clusters[ID2]
+			#Find clusters below threshold
+			self.linkage_clusters = dict(zip(range(self.n), [[num] for num in range(self.n)]))
+			for i, row in enumerate(self.linkage_mat):
+				ID1 = int(row[0])
+				ID2 = int(row[1])
+				new = self.n + i
+				dist = row[2]
 
-		#Add member-names to clusters
-		self.clusters = {}
-		for cluster in self.linkage_clusters:
+				if dist <= threshold:
+					self.linkage_clusters[new] = self.linkage_clusters[ID1] + self.linkage_clusters[ID2] + [new]
+					del self.linkage_clusters[ID1]
+					del self.linkage_clusters[ID2]
 
-			self.clusters[cluster] = {"member_idx": [idx for idx in self.linkage_clusters[cluster] if idx < self.n]}
-			self.clusters[cluster]["member_names"] = [self.names[idx] for idx in self.clusters[cluster]["member_idx"]]
+			#Add member-names to clusters
+			for cluster in self.linkage_clusters:
+
+				self.clusters[cluster] = {"member_idx": [idx for idx in self.linkage_clusters[cluster] if idx < self.n]}
+				self.clusters[cluster]["member_names"] = [self.names[idx] for idx in self.clusters[cluster]["member_idx"]]
+		
+		else:	#only one TF
+			self.linkage_clusters = {0:[0]}
+			self.linkage_mat = np.array([[0]])
+			self.clusters[0] = {"member_idx":[0]}
+			self.clusters[0]["member_names"] = [self.names[idx] for idx in self.clusters[0]["member_idx"]]
 
 		self.get_cluster_names()	#Set names of clusters
 		self.assign_colors()
-
-		#
 		
 	def overlap_to_distance(self):
 		""" Convert overlap-dict from count_overlaps to distance matrix """
