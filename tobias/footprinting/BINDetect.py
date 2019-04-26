@@ -137,6 +137,7 @@ def run_bindetect(args):
 	logger.output_files(outfiles)
 
 	# Setup pool
+	args.cores = check_cores(args.cores, logger)
 	writer_cores = max(1, int(args.cores*0.1))
 	worker_cores = max(1, args.cores - writer_cores)
 	logger.debug("Worker cores: {0}".format(worker_cores))
@@ -267,6 +268,7 @@ def run_bindetect(args):
 	#Get threshold for motifs
 	logger.debug("Getting match threshold per motif")
 	outlist = pool.starmap(OneMotif.get_threshold, itertools.product(motif_list, [args.motif_pvalue])) 
+
 	motif_list = MotifList(outlist)	
 	for motif in motif_list:
 		logger.debug("Motif {0}: threshold {1}".format(motif.name, motif.threshold))

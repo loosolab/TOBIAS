@@ -17,6 +17,7 @@ import MOODS.tools
 import MOODS.parsers
 
 import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.text import TextPath
 from matplotlib.patches import PathPatch

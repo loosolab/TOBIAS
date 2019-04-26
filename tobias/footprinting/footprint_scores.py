@@ -193,6 +193,7 @@ def run_footprinting(args):
 	regions_chunks = regions.chunks(args.split)
 
 	#Setup pools
+	args.cores = check_cores(args.cores, logger)
 	writer_cores = 1	
 	worker_cores = max(1, args.cores - writer_cores)
 	logger.debug("Worker cores: {0}".format(worker_cores))

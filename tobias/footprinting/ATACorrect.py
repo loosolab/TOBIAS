@@ -372,6 +372,7 @@ def run_atacorrect(args):
 
 	#Start correction/write cores
 	n_bigwig = len(key2file.values())
+	args.cores = check_cores(args.cores, logger)
 	writer_cores = min(n_bigwig, max(1,int(args.cores*0.1)))	#at most one core per bigwig or 10% of cores (or 1)
 	worker_cores = max(1, args.cores - writer_cores) 				
 	logger.debug("Worker cores: {0}".format(worker_cores))

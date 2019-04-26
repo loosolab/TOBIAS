@@ -75,7 +75,7 @@ def motif_scanning(regions, args, motifs_obj):
 		region_TFBS = motifs_obj.scan_sequence(seq, region)		#Scan sequence
 		
 		#Check format of region chromosome and convert sites if needed
-		m = re.match("(.+)\:([0-9]+)\-([0-9]+)\s+.+", region.chrom)
+		m = re.match(r"(.+)\:([0-9]+)\-([0-9]+)\s+.+", region.chrom)
 		if m:
 			reg_chrom, reg_start, reg_end = m.group(1), m.group(2), m.group(3)
 			for TFBS in region_TFBS:

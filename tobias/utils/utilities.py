@@ -28,6 +28,16 @@ from tobias.utils.logger import *
 #-------------------------------------------------------------------------------------------#
 #----------------------------------- Multiprocessing ---------------------------------------#
 #-------------------------------------------------------------------------------------------#
+def check_cores(given_cores, logger):
+	""" Checks number of available cores and sets the used cores to <= available cores """
+
+	available_cores = mp.cpu_count()
+	if given_cores > available_cores:
+		logger.warning("Number of available cores is {0} but \'--cores\' is set to {1}. Setting \'--cores\' to {0}.\n".format(available_cores, given_cores))
+		return(available_cores)
+	else:
+		return(given_cores)
+
 
 def run_parallel(FUNC, input_chunks, arguments, n_cores, logger):
 	"""

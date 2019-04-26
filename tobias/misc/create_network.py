@@ -38,7 +38,7 @@ def add_network_arguments(parser):
 	
 	#Required arguments
 	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--TFBS', metavar="", help="TFBS folder from bindetect") #coordinates in .bed format with TF name in 4th column and a column containing target genes (set using --target)")
+	required.add_argument('--TFBS', metavar="", help="TFBS folder from bindetect")
 	required.add_argument('--origin', metavar="", help="File of origins of TF to genes")
 
 	#Optional arguments
@@ -53,7 +53,6 @@ def add_network_arguments(parser):
 	return(parser)
 
 #--------------------------------------------------------------------------------#
-
 def dfs(adjacency, path, timeline, all_paths = {"paths":[], "timelines":[]}):
 	last_node = path[-1] 
 	if last_node in adjacency:
@@ -65,12 +64,15 @@ def dfs(adjacency, path, timeline, all_paths = {"paths":[], "timelines":[]}):
 					pass  #next target without saving path
 				else:
 					#if any time overlaps with this or next stage
-					allowed = set([timeline[-1], timeline[-1] +1])
+					allowed = set([timeline[-1], timeline[-1]+1])
 					observed = adjacency[last_node]["targets"][target_node]["bound_in"]
-					if len(allowed.intersection(observed)) > 0:
-						new_path = path + [target_node]
-						new_timeline = timeline + [min(observed)]
-						all_paths = dfs(adjacency, new_path, new_timeline, all_paths)
+					observed_in_allowed = allowed.intersection(observed)
+					if len(observed_in_allowed) > 0:
+						current_timepoint = max(observed_in_allowed)
+						if timeline.count(current_timepoint) < 2: #only two binding events in the same timepoint is possible
+							new_path = path + [target_node]
+							new_timeline = timeline + [current_timepoint]
+							all_paths = dfs(adjacency, new_path, new_timeline, all_paths)
 		else:
 			if len(path) > 2:
 				#print("no targets for {0} - ending path".format(last_node))
@@ -123,9 +125,10 @@ def run_network(args):
 		print("Subset to {0} files".format(len(overview_files)))
 
 	#Read all edges to table
+	#todo: read in parallel
 	print("Reading all overview tables")
 	dataframes = []
-	for fil in overview_files[:5]:
+	for fil in overview_files[:40]:
 		print(fil)
 
 		df = pd.read_csv(fil, sep="\t")
@@ -179,8 +182,7 @@ def run_network(args):
 
 	print("Reading expression data")
 	#Read expression values
-	expression_threshold = 5
-	expression_dict = {}
+	expression_threshold = 50
 	if args.expression != None:
 		expression_table = pd.read_csv(args.expression, sep="\t", index_col=0)
 		expression_table.columns = [col.lower() for col in expression_table.columns]
@@ -192,9 +194,19 @@ def run_network(args):
 		sites.fillna(0, inplace=True)
 		sites["recipient_expressed_in"] = sites[expression_table.columns].apply(lambda x: ",".join(x.index[x > expression_threshold]), axis=1)
 		sites.drop(columns=expression_table.columns, inplace=True)
+		expression_dict = expression_table.to_dict()
+	else:
+		#All are expressed in all conditions
+		all_conditions = ",".join(condition_names)
+		sites["recipient_expressed_in"] = all_conditions
 
+	#expression_table = "" 		#rows, cols, values > expression_threshold
+	expression_dict = expression_table.to_dict()
 
 	#--------------------------------------------#
+
+	print(condition_names)
+	conditions = condition_names
 
 	#Subset edges on those where donor_bound in is part of recipient_expressed_in
 	sites["donor_bound_in"] = sites["donor_bound_in"].apply(lambda x: x.split(","))
@@ -207,7 +219,7 @@ def run_network(args):
 	print(sites.shape[0])
 	sites = sites[sites.apply(lambda x: x["donor_bound_in"] in x["recipient_expressed_in"], axis=1)]
 	print(sites.shape[0])
-	print(sites)
+	#print(sites)
 	
 	##### Write out edges
 	edges_f = os.path.join(args.output, "edges.txt")
@@ -218,18 +230,20 @@ def run_network(args):
 	all_donor_ids = set(list(sites["donor_id"]))
 
 	adjacency = {donor: {"targets":{}} for donor in all_donor_ids}
-	
 	for index, row in sites.iterrows():
-
 		donor, recipient, bound_in = row["donor_id"], row["recipient_id"], row["donor_bound_in"]
 		if recipient not in adjacency[donor]["targets"]:
 			adjacency[donor]["targets"][recipient] = {"bound_in": []}
 
-		#adjacency[donor]["targets"]adjacency[donor]["targets"].get(recipient, {recipient: {"bound_in":[]}})
-		#if "bound_in" not in adjacency[donor]["targets"][recipient]:
-		#	adjacency[donor]["targets"][recipient]["bound_in"] = []
-		
-		adjacency[donor]["targets"][recipient]["bound_in"].append(bound_in)
+		if bound_in not in adjacency[donor]["targets"][recipient]["bound_in"]:
+			adjacency[donor]["targets"][recipient]["bound_in"].append(bound_in)
+
+	#Convert donor_bound_in to integer timeline
+	#print(adjacency)
+	for donor in adjacency:
+		for recipient in adjacency[donor]["targets"]:
+			adjacency[donor]["targets"][recipient]["bound_in"] = [condition_names.index(cond) for cond in adjacency[donor]["targets"][recipient]["bound_in"]]
+	#print(adjacency)
 
 	#Create possible paths through graph
 	paths_f = os.path.join(args.output, "paths.txt")
@@ -248,7 +262,8 @@ def run_network(args):
 			#String formatting of path
 			str_paths = ""
 			for i, node in enumerate(path[:-1]):
-				str_paths += "{0} --({1})--> ".format(id2name[node][0], conditions[timeline[i+1]])
+				in_condition = conditions[timeline[i+1]]
+				str_paths += "{0} --(Bound: {1}, target_expr: {2})--> ".format(id2name[node][0], expression_dict[node], conditions[in_condition])
 			str_paths += id2name[path[-1]][0]
 
 			#Number of nodes
