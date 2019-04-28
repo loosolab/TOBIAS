@@ -14,11 +14,14 @@ import sys
 try:
 	import MOODS
 except:
-	sys.exit("ERROR: Package MOODS is not installed and is needed by TOBIAS. You can install it using:\n" +
-			"$ wget https://github.com/jhkorhonen/MOODS/releases/download/v1.9.3/MOODS-python-1.9.3.tar.gz\n" +
-			"$ tar xzvf MOODS-python-1.9.3.tar.gz\n" + 
+	sys.exit("ERROR: Package MOODS is not installed and is needed by TOBIAS. You can install it via conds using:\n"
+			"$ conda install moods -c bioconda\n\n"
+			"Or directly from source:\n"
+			"$ wget https://github.com/jhkorhonen/MOODS/releases/download/v1.9.3/MOODS-python-1.9.3.tar.gz\n"
+			"$ tar xzvf MOODS-python-1.9.3.tar.gz\n"
 			"$ cd  MOODS-python-1.9.3\n"
-			"$ python setup.py install")
+			"$ python setup.py install"
+			)
 
 #Import general 
 import argparse

@@ -1,2 +1,5 @@
+## 0.3.2 (2019-04-26)
+- Added --add_region_columns to TFBScan
+
 ## 0.3.1 (2019-04-10)
 - Split motif ids between name/motif_id/output_prefix

@@ -49,7 +49,8 @@ def add_tfbscan_arguments(parser):
 	optional_arguments.add_argument('--gc', metavar="", type=lambda x: restricted_float(x,0,1), help='Set the gc content for background regions (default: will be estimated from fasta)')
 	optional_arguments.add_argument('--pvalue', metavar="", type=lambda x: restricted_float(x,0,1), help='Set p-value for motif matches (default: 0.0001)', default=0.0001)
 	optional_arguments.add_argument('--keep-overlaps', action='store_true', help='Keep overlaps of same motifs (default: overlaps are resolved by keeping best-scoring site)')
-	
+	optional_arguments.add_argument('--add-region-columns', action='store_true', help="Add extra information columns (from 4th column) from --regions to the output .bed-file(s) (default: off)")
+
 	RUN = parser.add_argument_group('Run arguments')
 	RUN.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
 	RUN.add_argument('--cores', metavar="", type=int, help='Number of cores to use (default: 1)', default=1)
@@ -72,8 +73,13 @@ def motif_scanning(regions, args, motifs_obj):
 	for region in regions:
 
 		seq = fasta_obj.fetch(region.chrom, region.start, region.end)
-		region_TFBS = motifs_obj.scan_sequence(seq, region)		#Scan sequence
+		region_TFBS = motifs_obj.scan_sequence(seq, region)		#Scan sequence, returns list of OneRegion TFBS
 		
+		#Add region columns if chosen
+		if args.add_region_columns:
+			for TFBS in region_TFBS:
+				TFBS.extend(region[3:])
+
 		#Check format of region chromosome and convert sites if needed
 		m = re.match(r"(.+)\:([0-9]+)\-([0-9]+)\s+.+", region.chrom)
 		if m:
