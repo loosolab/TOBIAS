@@ -1,26 +1,27 @@
 import os
 import sys
 import re
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools import setup, Extension, dist
 
-included_dirs = []
+#Test if numpy is installed
 try:
 	import numpy as np
-	included_dirs.append(np.get_include())
 except:
-	pass
+	#Else, fetch numpy if needed
+	dist.Distribution().fetch_build_eggs(['numpy'])
+	import numpy as np
 
 """
 #Test if numpy is installed
 class build_ext(_build_ext):
     def finalize_options(self):
         _build_ext.finalize_options(self)
+
         # Prevent numpy from thinking it is still in its setup process:
         __builtins__.__NUMPY_SETUP__ = False
         import numpy as np
        	self.include_dirs.append(np.get_include())
-       	included_dirs.append(np.get_include())
+       	#included_dirs.append(np.get_include())
 """
 
 #Add cython modules depending on the availability of cython
@@ -33,15 +34,16 @@ except ImportError:
 else:
 	use_cython = True
 
+#To compile or not to compile
 if use_cython:
-	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.pyx"], include_dirs=included_dirs), #,sinclude[np.get_include()]),
-					Extension("tobias.utils.sequences", ["tobias/utils/sequences.pyx"], include_dirs=included_dirs), #include_dirs=[np.get_include()]),
-					Extension("tobias.utils.signals", ["tobias/utils/signals.pyx"], include_dirs=included_dirs)] #, include_dirs=[np.get_include()])]
+	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.pyx"], include_dirs=[np.get_include()]),
+				Extension("tobias.utils.sequences", ["tobias/utils/sequences.pyx"], include_dirs=[np.get_include()]),
+				Extension("tobias.utils.signals", ["tobias/utils/signals.pyx"], include_dirs=[np.get_include()])]
 
 else:
-	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.c"], include_dirs=included_dirs), #, include_dirs=[np.get_include()]),
-					Extension("tobias.utils.sequences", ["tobias/utils/sequences.c"], include_dirs=included_dirs), #, include_dirs=[np.get_include()]),
-					Extension("tobias.utils.signals", ["tobias/utils/signals.c"], include_dirs=included_dirs)] #, include_dirs=[np.get_include()])]
+	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.c"], include_dirs=[np.get_include()]),
+					Extension("tobias.utils.sequences", ["tobias/utils/sequences.c"], include_dirs=[np.get_include()]),
+					Extension("tobias.utils.signals", ["tobias/utils/signals.c"], include_dirs=[np.get_include()])] 
 
 #Path of setup file to establish version
 setupdir = os.path.abspath(os.path.dirname(__file__))
@@ -54,6 +56,7 @@ def find_version(init_file):
 	else:
 		raise RuntimeError("Unable to find version string.")
 
+#Readme from git
 def readme():
 	with open('README.md') as f:
 		return f.read()
@@ -73,8 +76,7 @@ setup(name='tobias',
 		ext_modules=ext_modules,
 		cmdclass=cmdclass,
 		setup_requires=["numpy"],
-		include_dirs=included_dirs,
-		#dependency_links=['https://github.com/jhkorhonen/MOODS/releases/download/v1.9.3/MOODS-python-1.9.3.tar.gz#egg=MOODS-python-1.9.3'],	
+		#include_dirs=included_dirs,
 		install_requires=[
 			'numpy',
 			'scipy',
@@ -87,13 +89,13 @@ setup(name='tobias',
 			'xlsxwriter',
 			'adjustText',
 			'pyBigWig',
+			'MOODS-python',
 		],
-
 		classifiers=[
 			'License :: OSI Approved :: MIT License',
 			'Intended Audience :: Science/Research',
 			'Topic :: Scientific/Engineering :: Bio-Informatics',
 			'Programming Language :: Python :: 3'
 		],
-		zip_safe=True,
+		zip_safe=True
 		)
