@@ -31,12 +31,12 @@ from tobias.utils.ngs import *
 from tobias.utils.logger import *
 
 #-----------------------------------------------------------------#
-def add_footprint_arguments(parser):
+def add_scorebigwig_arguments(parser):
 
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = "FootprintScores calculates footprint scores from ATAC-seq cutsites (.bigwig format) calculated using the ATACorrect tool.\n\n"
-	description += "Usage: FootprintScores --signal <cutsites.bw> --output <output.bw>\n\n"
-	description += "Output:\n- <footprint_scores.bigwig>"
+	description = "ScoreBigwig calculates scores (such as footprint-scores) from bigwig files (such as ATAC-seq cutsites calculated using the ATACorrect tool).\n\n"
+	description += "Usage: ScoreBigwig --signal <cutsites.bw> --regions <regions.bed> --output <output.bw>\n\n"
+	description += "Output:\n- <output.bw>"
 	parser.description = format_help_description("FootprintScores", description)
 	
 	parser._action_groups.pop()	#pop -h
@@ -48,20 +48,22 @@ def add_footprint_arguments(parser):
 	required.add_argument('-r', '--regions', metavar="<bed>", help="Genomic regions to run footprinting within")
 
 	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--score', metavar="<score>", choices=["footprint", "sum", "FOS"], help="Type of scoring to perform on cutsites (footprint/sum/FOS) (default: footprint)", default="footprint")
+	optargs.add_argument('--score', metavar="<score>", choices=["footprint", "sum"], help="Type of scoring to perform on cutsites (footprint/sum) (default: footprint)", default="footprint")
+	#mean
+	#abs convert bigwig signal to absolute scores before calculating score
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend input regions with bp (default: 100)", default=100)
 	optargs.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by mean in <bp> windows (default: no smoothing)", default=1)
-	optargs.add_argument('--min_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no lower limit)") 		#default none
-	optargs.add_argument('--max_limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no upper limit)") 		#default none
+	optargs.add_argument('--min-limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no lower limit)") 		#default none
+	optargs.add_argument('--max-limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no upper limit)") 		#default none
 
 	footprintargs = parser.add_argument_group('Parameters for score == footprint')
-	optargs.add_argument('--fp_min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
-	optargs.add_argument('--fp_max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
-	optargs.add_argument('--flank_min', metavar="<int>", type=int, help="Minimum range of flanking regions (default: 10)", default=10)
-	optargs.add_argument('--flank_max', metavar="<int>", type=int, help="Maximum range of flanking regions (default: 30)", default=30)
+	optargs.add_argument('--fp-min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
+	optargs.add_argument('--fp-max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
+	optargs.add_argument('--flank-min', metavar="<int>", type=int, help="Minimum range of flanking regions (default: 10)", default=10)
+	optargs.add_argument('--flank-max', metavar="<int>", type=int, help="Maximum range of flanking regions (default: 30)", default=30)
 	
 	sumargs = parser.add_argument_group('Parameters for score == sum')
-	optargs.add_argument('--window', metavar="<int>", type=int, help="The window for calculation of sum (default: 100)", default=100)
+	sumargs.add_argument('--window', metavar="<int>", type=int, help="The window for calculation of sum (default: 100)", default=100)
 
 	runargs = parser.add_argument_group('Run arguments')
 	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
@@ -91,6 +93,7 @@ def calculate_scores(regions, args):
 		signal = region.get_signal(pybw_signal)
 		signal = np.nan_to_num(signal).astype("float64")
 
+		#
 		if args.min_limit != None:
 			signal[signal < args.min_limit] = args.min_limit
 		if args.max_limit != None:
@@ -125,7 +128,7 @@ def calculate_scores(regions, args):
 
 #------------------------------------------------------------------------------------------#
 
-def run_footprinting(args):
+def run_scorebigwig(args):
 	
 	check_required(args, ["signal", "output", "regions"])
 	check_files([args.signal, args.regions], "r")
@@ -135,7 +138,7 @@ def run_footprinting(args):
 	# Create logger and write info to log
 	#---------------------------------------------------------------------------------------#
 
-	logger = TobiasLogger("FootprintScores", args.verbosity)
+	logger = TobiasLogger("ScoreBigwig", args.verbosity)
 	logger.begin()
 
 	parser = add_footprint_arguments(argparse.ArgumentParser())

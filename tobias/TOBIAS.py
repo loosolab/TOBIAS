@@ -28,9 +28,9 @@ import argparse
 from argparse import SUPPRESS
 import textwrap
 
-from tobias.footprinting.ATACorrect import *
-from tobias.footprinting.footprint_scores import *
-from tobias.footprinting.BINDetect import *
+from tobias.footprinting.atacorrect import *
+from tobias.footprinting.scorebigwig import *
+from tobias.footprinting.bindetect import *
 
 from tobias.plotting.plot_aggregate import *
 from tobias.plotting.plot_heatmap import *
@@ -44,7 +44,7 @@ from tobias.motifs.score_bed import *
 from tobias.misc.subsample_bam import *
 from tobias.misc.merge_pdfs import *
 from tobias.misc.maxpos import *
-from tobias.misc.create_network import *
+#from tobias.misc.create_network import *
 from tobias.misc.log2table import *
 
 from tobias import __version__ as TOBIAS_VERSION
@@ -56,7 +56,7 @@ def main():
 	all_parser_info = {"Tools for footprinting analysis":
 							{
 							"ATACorrect":{"help":"Correct reads with regards to Tn5 sequence bias", "add_arguments": add_atacorrect_arguments, "function":run_atacorrect},
-							"FootprintScores":{"help":"Calculate footprint scores from cutsites", "add_arguments": add_footprint_arguments, "function":run_footprinting, "space":"\t"},
+							"ScoreBigwig":{"help":"Calculate scores such as footprints from cutsites", "add_arguments": add_scorebigwig_arguments, "function":run_scorebigwig, "replaces":"FootprintScores"},
 							"BINDetect":{"help":"Detect TF binding from footprints and motifs", "add_arguments": add_bindetect_arguments, "function":run_bindetect},
 							},
 
@@ -80,7 +80,7 @@ def main():
 							"MergePDF": {"help": "Merge pdf files to one", "add_arguments":add_mergepdf_arguments, "function":run_mergepdf},
 							"MaxPos": {"help": "Get .bed-positions of highest bigwig signal within .bed-regions", "add_arguments": add_maxpos_arguments, "function": run_maxpos},
 							"SubsampleBam": {"help": "Subsample a .bam-file using samtools", "add_arguments": add_subsample_arguments, "function": run_subsampling},
-							"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": run_network, "space":"\t"},
+							#"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": run_network, "space":"\t"},
 							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": run_log2table}
 							}
 						}
@@ -116,16 +116,21 @@ def main():
 			subparser = info[tool]["add_arguments"](subparser)
 			subparser.set_defaults(func=info[tool]["function"])
 			all_tool_parsers[tool.lower()] = subparser
-		
+
+			#Add version to subparser
+			subparser.add_argument("--version", action='version', version=TOBIAS_VERSION)
+
+			#Add parser for old tool names
+			if "replaces" in info[tool]:
+				all_tool_parsers[info[tool]["replaces"].lower()] = subparser
+
 		parser.description += "\n"
 
 	parser.description += "For help on each tool, please run: TOBIAS <TOOLNAME> --help\n"
-
-	#Add version number to upper TOBIAS parser and all subparsers
+	
+	#Add version number to upper TOBIAS parser 
 	parser.description += "For version number: TOBIAS --version"
 	parser.add_argument("--version", action='version', version=TOBIAS_VERSION)
-	for name in all_tool_parsers:
-		all_tool_parsers[name].add_argument("--version", action='version', version=TOBIAS_VERSION)
 
 	#If no args, print help for top-level TOBIAS
 	if len(sys.argv[1:]) == 0:

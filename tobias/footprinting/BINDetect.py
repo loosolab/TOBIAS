@@ -36,7 +36,7 @@ import pyBigWig
 import pysam
 
 #Internal functions and classes
-from tobias.footprinting.BINDetect_functions import *
+from tobias.footprinting.bindetect_functions import *
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.sequences import *
@@ -177,10 +177,9 @@ def run_bindetect(args):
 
 	#output and order
 	titles = []
+	titles.append("Raw score distributions")
+	titles.append("Normalized score distributions")
 	if args.debug:
-		
-		titles.append("Raw score distributions")
-		titles.append("Normalized score distributions")
 		for (cond1, cond2) in comparisons:
 			titles.append("Background log2FCs ({0} / {1})".format(cond1, cond2))	
 
@@ -361,10 +360,9 @@ def run_bindetect(args):
 	logger.comment("")
 	logger.info("Estimating score distribution per condition")
 
-	if args.debug == True:
-		fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Raw scores per condition")
-		figure_pdf.savefig(fig, bbox_inches='tight')
-		plt.close()
+	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Raw scores per condition")
+	figure_pdf.savefig(fig, bbox_inches='tight')
+	plt.close()
 
 	logger.info("Normalizing scores")
 	list_of_vals = [background["signal"][bigwig] for bigwig in args.cond_names]
@@ -374,10 +372,9 @@ def run_bindetect(args):
 	for bigwig in args.cond_names:
 		background["signal"][bigwig] = args.norm_objects[bigwig].normalize(background["signal"][bigwig]) 
 	
-	if args.debug == True:
-		fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
-		figure_pdf.savefig(fig, bbox_inches='tight')
-		plt.close()
+	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
+	figure_pdf.savefig(fig, bbox_inches='tight')
+	plt.close()
 
 	###########################################################
 	logger.info("Estimating bound/unbound threshold")
@@ -413,7 +410,7 @@ def run_bindetect(args):
 	mode = scipy.optimize.fmin(lambda x: -scipy.stats.lognorm.pdf(x, *log_params), 0, disp=False)[0]
 	logger.debug("- Mode estimated at: {0}".format(mode))
 	pseudo = mode / 2.0		#pseudo is half the mode
-	args.pseudo = pseudo  #.  append(pseudo)
+	args.pseudo = pseudo
 	logger.debug("Pseudocount estimated at: {0}".format(round(args.pseudo, 5)))
 	
 	# Estimate theoretical normal for threshold

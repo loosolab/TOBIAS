@@ -1,5 +1,10 @@
-## 0.3.2 (2019-04-26)
+## 0.4.0 (2019-04-26)
 - Added --add_region_columns to TFBScan
+- Renamed FootprintScores to ScoreBigwig
+- Added normalization of input score distributions in BINDetect
+- Added general warning for --cores > max number of processors when running multiprocessing
+- Updated PlotChanges to also plot mean_score and percent_bound as well as overview per motif cluster
+- Added MOODS-python as dependency through pip
 
 ## 0.3.1 (2019-04-10)
 - Split motif ids between name/motif_id/output_prefix

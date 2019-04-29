@@ -1,7 +1,7 @@
 import os
 import sys
 import re
-from setuptools import setup, Extension, dist
+from setuptools import setup, Extension, dist, find_packages
 
 #Test if numpy is installed
 try:
@@ -56,7 +56,7 @@ setup(name='tobias',
 		author='Mette Bentsen',
 		author_email='mette.bentsen@mpi-bn.mpg.de',
 		license='MIT',
-		packages=['tobias', 'tobias.footprinting', 'tobias.plotting', 'tobias.motifs', 'tobias.misc', 'tobias.utils'],
+		packages=find_packages(), #"tobias"), #['tobias', 'tobias.footprinting', 'tobias.plotting', 'tobias.motifs', 'tobias.misc', 'tobias.utils'],
 		entry_points={
 			'console_scripts': ['TOBIAS=tobias.TOBIAS:main']
 		},
@@ -77,7 +77,6 @@ setup(name='tobias',
 			'pyBigWig',
 			'MOODS-python',
 		],
-		scripts = ["tobias/utils/filter_important_factors.py"],
 		classifiers=[
 			'License :: OSI Approved :: MIT License',
 			'Intended Audience :: Science/Research',

@@ -617,8 +617,8 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	#print(txts)
 
 	#Plot custom legend for colors
-	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="More bound in {0}".format(conditions[0])),
-						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="More bound in {0}".format(conditions[1]))]
+	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="Higher scores in {0}".format(conditions[0])),
+						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="Higher scores in {0}".format(conditions[1]))]
 	ax1.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
 
 	return(fig)

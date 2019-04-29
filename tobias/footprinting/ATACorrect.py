@@ -37,7 +37,7 @@ import pyBigWig
 import pysam
 
 #Internal functions and classes
-from tobias.footprinting.ATACorrect_functions import *
+from tobias.footprinting.atacorrect_functions import *
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.sequences import *
