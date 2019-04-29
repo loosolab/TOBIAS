@@ -190,7 +190,6 @@ def run_bindetect(args):
 	figure_pdf.savefig(bbox_inches='tight')
 	plt.close()
 
-
 	################# Peaks / GC in peaks ################
 	#Read peak and peak_header
 	peaks = RegionList().from_bed(args.peaks)
@@ -632,7 +631,7 @@ def run_bindetect(args):
 			base = cond1 + "_" + cond2
 
 			#Make copy of motifs and fill in with metadata
-			comparison_motifs = copy.deepcopy(motif_list)
+			comparison_motifs = motif_list 	#copy.deepcopy(motif_list) - swig pickle error, just overwrite motif_list
 			for motif in comparison_motifs:
 				name = motif.prefix
 				motif.change = float(info_table.at[name, base + "_change"])

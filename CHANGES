@@ -1,4 +1,7 @@
-## 0.4.0 (2019-04-26)
+## 0.4.1 (2019-04-29)
+- Fixed weird "can't pickle SwigPyObject objects"-error in bindetect
+
+## 0.4.0 (2019-04-29)
 - Added --add_region_columns to TFBScan
 - Renamed FootprintScores to ScoreBigwig
 - Added normalization of input score distributions in BINDetect
