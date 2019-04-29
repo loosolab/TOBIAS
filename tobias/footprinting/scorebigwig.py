@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-FootprintScores: Calculate footprint tracks from cutsite bigwig
+ScoreBigwig: Calculate footprint tracks from cutsite bigwig
 
 @author: Mette Bentsen
 @contact: mette.bentsen (at) mpi-bn.mpg.de
@@ -37,7 +37,7 @@ def add_scorebigwig_arguments(parser):
 	description = "ScoreBigwig calculates scores (such as footprint-scores) from bigwig files (such as ATAC-seq cutsites calculated using the ATACorrect tool).\n\n"
 	description += "Usage: ScoreBigwig --signal <cutsites.bw> --regions <regions.bed> --output <output.bw>\n\n"
 	description += "Output:\n- <output.bw>"
-	parser.description = format_help_description("FootprintScores", description)
+	parser.description = format_help_description("ScoreBigwig", description)
 	
 	parser._action_groups.pop()	#pop -h
 
@@ -57,10 +57,10 @@ def add_scorebigwig_arguments(parser):
 	optargs.add_argument('--max-limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no upper limit)") 		#default none
 
 	footprintargs = parser.add_argument_group('Parameters for score == footprint')
-	optargs.add_argument('--fp-min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
-	optargs.add_argument('--fp-max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
-	optargs.add_argument('--flank-min', metavar="<int>", type=int, help="Minimum range of flanking regions (default: 10)", default=10)
-	optargs.add_argument('--flank-max', metavar="<int>", type=int, help="Maximum range of flanking regions (default: 30)", default=30)
+	footprintargs.add_argument('--fp-min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
+	footprintargs.add_argument('--fp-max', metavar="<int>", type=int, help="Maximum footprint width (default: 50)", default=50)
+	footprintargs.add_argument('--flank-min', metavar="<int>", type=int, help="Minimum range of flanking regions (default: 10)", default=10)
+	footprintargs.add_argument('--flank-max', metavar="<int>", type=int, help="Maximum range of flanking regions (default: 30)", default=30)
 	
 	sumargs = parser.add_argument_group('Parameters for score == sum')
 	sumargs.add_argument('--window', metavar="<int>", type=int, help="The window for calculation of sum (default: 100)", default=100)
@@ -141,7 +141,7 @@ def run_scorebigwig(args):
 	logger = TobiasLogger("ScoreBigwig", args.verbosity)
 	logger.begin()
 
-	parser = add_footprint_arguments(argparse.ArgumentParser())
+	parser = add_scorebigwig_arguments(argparse.ArgumentParser())
 	logger.arguments_overview(parser, args)
 	logger.output_files([args.output])
 
