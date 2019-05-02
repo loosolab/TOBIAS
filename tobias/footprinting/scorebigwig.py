@@ -48,13 +48,12 @@ def add_scorebigwig_arguments(parser):
 	required.add_argument('-r', '--regions', metavar="<bed>", help="Genomic regions to run footprinting within")
 
 	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--score', metavar="<score>", choices=["footprint", "sum"], help="Type of scoring to perform on cutsites (footprint/sum) (default: footprint)", default="footprint")
-	#mean
-	#abs convert bigwig signal to absolute scores before calculating score
+	optargs.add_argument('--score', metavar="<score>", choices=["footprint", "sum", "mean", "none"], help="Type of scoring to perform on cutsites (footprint/sum/mean/none) (default: footprint)", default="footprint")
+	optargs.add_argument('--absolute', action='store_true', help="Convert bigwig signal to absolute values before calculating score")
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend input regions with bp (default: 100)", default=100)
 	optargs.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by mean in <bp> windows (default: no smoothing)", default=1)
-	optargs.add_argument('--min-limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no lower limit)") 		#default none
-	optargs.add_argument('--max-limit', metavar="<float>", type=float, help="Limit input bigwig score range (default: no upper limit)") 		#default none
+	optargs.add_argument('--min-limit', metavar="<float>", type=float, help="Limit input bigwig value range (default: no lower limit)") 		#default none
+	optargs.add_argument('--max-limit', metavar="<float>", type=float, help="Limit input bigwig value range (default: no upper limit)") 		#default none
 
 	footprintargs = parser.add_argument_group('Parameters for score == footprint')
 	footprintargs.add_argument('--fp-min', metavar="<int>", type=int, help="Minimum footprint width (default: 20)", default=20)
@@ -93,26 +92,36 @@ def calculate_scores(regions, args):
 		signal = region.get_signal(pybw_signal)
 		signal = np.nan_to_num(signal).astype("float64")
 
-		#
+		#-------- Prepare signal for score calculation -------#
+		if args.absolute:
+			signal = np.abs(signal)
+
 		if args.min_limit != None:
 			signal[signal < args.min_limit] = args.min_limit
 		if args.max_limit != None:
 			signal[signal > args.max_limit] = args.max_limit
 
-		#Calculate scores
+		#------------------ Calculate scores ----------------#
 		if args.score == "sum":
-			signal = np.abs(signal)	
 			scores = fast_rolling_math(signal, args.window, "sum")
+
+		elif args.score == "mean":
+			scores = fast_rolling_math(signal, args.window, "mean")
 
 		elif args.score == "footprint":
 			scores = tobias_footprint_array(signal, args.flank_min, args.flank_max, args.fp_min, args.fp_max)		#numpy array
 
 		elif args.score == "FOS":
-			 scores = FOS_score(signal, args.flank_min, args.flank_max, args.fp_min, args.fp_max)
-			 scores = -scores
+			scores = FOS_score(signal, args.flank_min, args.flank_max, args.fp_min, args.fp_max)
+			scores = -scores
 
+		elif args.score == "none":
+			scores = signal
+		
 		else:
 			sys.exit("Scoring {0} not found".format(args.score))
+		
+		#----------------- Post-process scores --------------#
 		
 		#Smooth signal with args.smooth bp
 		if args.smooth > 1:
@@ -175,6 +184,8 @@ def run_scorebigwig(args):
 		args.region_flank = int(args.window/2.0)
 	elif args.score == "footprint" or args.score == "FOS":
 		args.region_flank = int(args.flank_max)
+	else:
+		args.region_flank = 0
 
 	#Go through each region
 	for i, region in enumerate(regions):

@@ -666,7 +666,7 @@ class RegionCluster:
 				self.cluster_names[cluster] =  "C_" + self.names[ordered_idx[0]] #cluster is the idx for cluster
 			else:		
 				self.cluster_names[cluster] = self.clusters[cluster]["member_names"][0]
-				self.clusters[cluster]["representative"] = self.cluster_names[cluster]
+				self.clusters[cluster]["representative"] = "C_" + self.cluster_names[cluster]
 				
 			self.clusters[cluster]["cluster_name"] = self.cluster_names[cluster]
 

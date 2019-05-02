@@ -1,3 +1,6 @@
+## 0.5.0 (2019-05-02)
+- Added sum/mean/none scoring to ScoreBigwig as well as the option to get --absolute of input signal
+
 ## 0.4.1 (2019-04-29)
 - Fixed weird "can't pickle SwigPyObject objects"-error in bindetect
 
