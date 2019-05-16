@@ -18,7 +18,6 @@ try:
 	cmdclass = {'build_ext': build_ext}
 except ImportError:
 	use_cython = False
-
 else:
 	use_cython = True
 
@@ -53,6 +52,7 @@ setup(name='tobias',
 		version=find_version(os.path.join(setupdir, "tobias", "__init__.py")),	#get version from __init__.py
 		description='Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal',
 		long_description=readme(),
+		long_description_content_type='text/markdown',
 		url='https://github.molgen.mpg.de/loosolab/TOBIAS',
 		author='Mette Bentsen',
 		author_email='mette.bentsen@mpi-bn.mpg.de',

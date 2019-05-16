@@ -69,7 +69,7 @@ def add_bindetect_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('--signals', metavar="<bigwig>", help="Signal per condition (.bigwig format)", nargs="*")
 	required.add_argument('--peaks', metavar="<bed>", help="Peaks.bed containing open chromatin regions across all conditions")
-	required.add_argument('--motifs', metavar="<motifs>", help="Motifs in pfm/jaspar format")
+	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar format", nargs="*")
 	required.add_argument('--genome', metavar="<fasta>", help="Genome .fasta file")
 
 	optargs = parser.add_argument_group('Optional arguments')
@@ -239,13 +239,13 @@ def run_bindetect(args):
 
 	################ Get motifs ################
 	logger.info("Reading motifs from file") 
-
-	motif_content = open(args.motifs).read()
-	converted_content = convert_motif(motif_content, "pfm")
-	motif_list = pfm_to_motifs(converted_content) 			#List of OneMotif objects
+	motif_list = MotifList()
+	args.motifs = expand_dirs(args.motifs)
+	for f in args.motifs:
+		motif_list += MotifList().from_file(f)  #List of OneMotif objects
 	no_pfms = len(motif_list)
+	logger.info("- Read {0} motifs".format(no_pfms))
 
-	logger.info("- Found {0} motifs in file".format(no_pfms))
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
 

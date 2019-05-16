@@ -25,7 +25,7 @@ from matplotlib.font_manager import FontProperties
 
 #Internal 
 from tobias.utils.regions import * 
-from tobias.utils.utilities import filafy 	#filafy for filenames
+from tobias.utils.utilities import filafy, num 	#filafy for filenames
 
 #----------------------------------------------------------------------------------------#
 #List of OneMotif objects
@@ -48,6 +48,114 @@ class MotifList(list):
 
 	def __str__(self):
 		return("\n".join([str(onemotif) for onemotif in self]))
+
+	def from_file(self, path):
+		
+		content = open(path).read()
+
+		#Establish format of motif
+		file_format = get_motif_format(content)
+
+		lines = content.split("\n")
+
+		#Read motifs
+		if file_format == "meme":
+			for idx, line in enumerate(lines):
+				columns = line.strip().split()
+
+				if line.startswith("MOTIF"):
+					self.append(OneMotif()) #create new motif
+					self[-1].input_format = file_format
+
+					#Get id/name of motif
+					if len(columns) > 2: #MOTIF, ID, NAME
+						motif_id, name = columns[1], columns[2]
+					elif len(columns) == 2: # MOTIF, ID
+						motif_id, name = columns[1], ""	#name not given
+
+					self[-1].id = motif_id
+					self[-1].name = name
+				
+				else:
+					if len(self) > 0: #if there was already one motif header found
+					
+						#If line contains counts
+						if re.match("^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
+							for i, col in enumerate(columns):
+								self[-1][i].append(num(col))
+
+		elif file_format in ["pfm", "jaspar"]:
+																				
+			for line in lines:
+				m = re.match(".*?([\d]+[\d\.\s]+).*?", line)
+				
+				if line.startswith(">"):
+					self.append(OneMotif(counts=[])) #create new motif
+					self[-1].input_format = file_format
+
+					columns = line[1:].strip().split()		#[1:] to remove > from header
+					if len(columns) > 1: #ID, NAME
+						motif_id, name = columns[0], columns[1]
+					elif len(columns) == 1: #>ID
+						motif_id, name = columns[0], ""	#name not given
+
+					self[-1].id = motif_id
+					self[-1].name = name	
+						
+				elif m:
+					columns = [num(field) for field in m.group(1).rstrip().split()]
+					self[-1].counts.append(columns)
+
+		#Check correct format of pfms
+		for motif in self:
+			nuc, pos = np.array(motif.counts).shape
+			motif.w = pos
+			if nuc != 4:
+				sys.exit("ERROR: Motif {0} has an unexpected format and could not be read".format(motif))
+
+		#Estimate widths and n_sites
+		for motif in self:
+			motif.n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
+				
+		return(self)
+
+	def as_string(self, output_format="pfm"):
+
+		bases = ["A", "C", "G", "T"]
+		out_string = ""
+
+		#Establish which output format
+		if output_format in ["pfm", "jaspar"]:
+			for motif in self:
+				out_string += ">{0}\t{1}\n".format(motif.id, motif.name)
+				for i, base_counts in enumerate(motif.counts):
+					base_counts_string = ["{0:.5f}".format(element) for element in base_counts]
+					out_string += "{0} [ {1} ] \n".format(bases[i], "\t".join(base_counts_string)) if output_format == "jaspar" else "\t".join(base_counts_string) + "\n"
+				out_string += "\n"
+
+		elif output_format == "meme":
+			
+			meme_header = "MEME version 4\n\n"
+			meme_header += "ALPHABET=ACGT\n\n"
+			meme_header += "strands: + -\n\n"
+			meme_header += "Background letter frequencies\nA 0.25 C 0.25 G 0.25 T 0.25\n\n"
+			out_string += meme_header
+
+			for motif in self:
+				out_string += "MOTIF\t{0}\t{1}\n".format(motif.id, motif.name)
+				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.w, motif.n)
+
+				for i in range(motif.w):
+					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
+					n_sites = round(sum(row), 0)
+					row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
+					out_string += "  ".join(row_freq) + "\n"
+				
+				out_string += "\n"	
+
+		return(out_string)			
+
+	#---------------- Functions for moods scanning ------------------------#
 
 	def setup_moods_scanner(self):
 
@@ -91,13 +199,13 @@ class OneMotif:
 
 	bases = ["A", "C", "G", "T"]
 
-	def __init__(self, motifid, name, counts):
+	def __init__(self, motifid="", name="", counts=[[] for _ in range(4)]):
 		
 		self.id = motifid			#must be unique
 		self.name = name	#does not have to be unique
 
 		self.prefix = "" 	#output prefix set in set_prefix
-		self.counts = counts  	#counts
+		self.counts = counts  	#counts, list of 4 lists (each as long as motif)
 		self.strand = "+"		#default strand is +
 
 		#Set later
@@ -182,13 +290,13 @@ class OneMotif:
 	def plot_logo(self):
 
 		LETTERS = { "T" : TextPath((-0.305, 0), "T", size=1, prop=fp),
-		            "G" : TextPath((-0.384, 0), "G", size=1, prop=fp),
-		            "A" : TextPath((-0.35, 0), "A", size=1, prop=fp),
-		            "C" : TextPath((-0.366, 0), "C", size=1, prop=fp) }
+						"G" : TextPath((-0.384, 0), "G", size=1, prop=fp),
+						"A" : TextPath((-0.35, 0), "A", size=1, prop=fp),
+						"C" : TextPath((-0.366, 0), "C", size=1, prop=fp) }
 		COLOR_SCHEME = {'G': 'orange', 
-		                'A': "#CC0000", 
-		                'C': 'mediumblue', 
-		                'T': 'darkgreen'}
+							 'A': "#CC0000", 
+							 'C': 'mediumblue', 
+							 'T': 'darkgreen'}
 
 		def add_letter(base, x, y, scale, ax):
 			""" Add letter to axis at positions x/y"""

@@ -288,6 +288,11 @@ def check_required(args, required):
 #---------------------------------------- Misc ---------------------------------------------#
 #-------------------------------------------------------------------------------------------#
 
+def num(s):
+	try:
+		return int(s)
+	except ValueError:
+		return float(s)
 
 class Progress:
 	""" Class for writing out progress of processes such as multiprocessing """
@@ -316,11 +321,24 @@ class Progress:
 
 def flatten_list(lst):
 
-    for element in lst:
-        if isinstance(element, collections.Iterable) and not isinstance(element, (str, bytes)):
-            yield from flatten_list(element)
-        else:
-            yield element
+	for element in lst:
+		if isinstance(element, collections.Iterable) and not isinstance(element, (str, bytes)):
+			yield from flatten_list(element)
+		else:
+			yield element
+
+def expand_dirs(list_of_paths):
+	""" Expands a list of files and dirs to a list of all files within dirs """
+
+	all_files = []
+	for path in list_of_paths:
+		if os.path.isdir(path):
+			files = os.listdir(path)
+			all_files.extend([os.path.join(path, f) for f in files])
+		else:
+			all_files.append(path)
+
+	return(all_files)
 
 def check_files(lst_of_files, action="r"):
 

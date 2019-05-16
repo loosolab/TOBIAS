@@ -154,7 +154,6 @@ def run_tfbscan(args):
 	if args.outfile != None:
 		logger.output_files([args.outfile])
 
-
 	######## Read sequences from file and estimate background gc ########
 	
 	logger.info("Handling input files")
@@ -185,7 +184,6 @@ def run_tfbscan(args):
 		sys.exit()
 	logger.info("- Total of {0} regions (after splitting)".format(len(regions)))
 	
-
 	#Background gc
 	if args.gc == None:
 		logger.info("Estimating GC content from fasta (set --gc to skip this step)")
@@ -210,7 +208,6 @@ def run_tfbscan(args):
 	
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
-	#motif_names = [motif.prefix for motif in motif_list]
 
 	reverse_motifs = [motif.get_reverse() for motif in motif_list]
 	motif_list.extend(reverse_motifs)

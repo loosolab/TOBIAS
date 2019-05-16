@@ -34,6 +34,7 @@ def add_formatmotifs_arguments(parser):
 	required.add_argument('--input', metavar="", nargs="*", help="One or more input motif files")			
 	required.add_argument('--format', metavar="", help="Desired motif output format (pfm, jaspar, meme) (default: \"jaspar\")", choices=["pfm", "jaspar", "meme"], default="jaspar")
 	required.add_argument('--task', metavar="", help="Which task to perform on motif files (join/split) (default: join)", choices=["join", "split"], default="join")
+	required.add_argument('--filter', metavar="", help="File containing list of motif names/ids to filter on. Only motifs fitting entries in filter will be output.")
 	required.add_argument('--output', metavar="", help="If task == join, output is the joined output file; if task == split, output is a directory")
 	
 	additional = parser.add_argument_group('Additional arguments')
@@ -46,7 +47,8 @@ def add_formatmotifs_arguments(parser):
 def run_formatmotifs(args):
 
 	check_required(args, ["input", "output"])	#Check input arguments
-	check_files(args.input) 					#Check if files exist
+	motif_files = expand_dirs(args.input)		#Expand any dirs in input
+	check_files(motif_files) 					#Check if files exist
 
 	# Create logger and write argument overview
 	logger = TobiasLogger("FormatMotifs", args.verbosity)
@@ -58,70 +60,47 @@ def run_formatmotifs(args):
 
 	####### Getting ready #######
 	if args.task == "split":
-	
 		logger.info("Making directory {0} if not existing".format(args.output))
 		make_directory(args.output)		#Check and create output directory
-	else:
-		logger.info("Opening file {0} for writing".format(args.output))
-		out_f = open(args.output, "w")	#open file
 
-	### Estimate format of input files
+	### Read motifs from files ###
 	logger.info("Reading input files...")
+	motif_list = MotifList()
 	converted_content = ""
-	for f in args.input:
-		content = open(f).read()
-		motif_format = get_motif_format(content)
-		logger.info("- {0}: {1}".format(f, motif_format))
+	for f in motif_files:
+		logger.info("- {0}".format(f))
+		motif_list.extend(MotifList().from_file(f))
 
-		#Convert to output format
-		converted_content += convert_motif(content, args.format)
+	logger.info("Read {} motifs\n".format(len(motif_list)))
 
-	logger.comment("")
+	### Filter motif list ###
+	if args.filter != None:
+
+		#Read filter
+		pass
+
 
 	#### Write out results ####
-	#todo: if meme is input, estimate meme header from input file; else set it to standard
-	meme_header = "MEME version 4\n\n"
-	meme_header += "ALPHABET=ACGT\n\n"
-	meme_header += "strands: + -\n\n"
-	meme_header += "Background letter frequencies\nA 0.25 C 0.25 G 0.25 T 0.25\n\n"
-
 	if args.task == "split":
 		logger.info("Writing individual files to directory {0}".format(args.output))
 
-		#Split on ">"
-		if args.format == "jaspar" or args.format == "pfm":
-			splitted_content = [ ">" + content for content in converted_content.split(">") if content != ""]
-		elif args.format == "meme":
-			splitted_content = [content for content in converted_content.split("MOTIF") if content != ""]
-			splitted_content = [content if content.startswith("MOTIF") else "MOTIF" + content for content in splitted_content]
-			
-		#Write out
-		for motif in splitted_content:
-
-			#Get name from headerline
-			elements = motif.replace("MOTIF", "").replace(">", "").split()
-			motifid, name = elements[0], elements[1]
-
+		for motif in motif_list:
+			motif_string = MotifList([motif]).as_string(args.format)
 
 			#Open file and write
-			out_path = os.path.join(args.output, motifid + "." + args.format)
+			out_path = os.path.join(args.output, motif.id + "." + args.format)
 			logger.info("- {0}".format(out_path))
 			f_out = open(out_path, "w")
-
-			if args.format == "meme":
-				f_out.write(meme_header + motif) #make sure every motif has a header
-			else:
-				f_out.write(motif)
-
+			f_out.write(motif_string)
 			f_out.close()
 	
 	elif args.task == "join":
 		logger.info("Writing converted motifs to file {0}".format(args.output))
 
-		if args.format == "meme":
-			converted_content = meme_header + converted_content
-
-		out_f.write(converted_content + "\n")
+		f_out = open(args.output, "w")
+		motif_string = motif_list.as_string(args.format)
+		f_out.write(motif_string)
+		f_out.close()
 
 	logger.end()
 
