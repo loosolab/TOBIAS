@@ -1,3 +1,6 @@
+## 0.5.2 (2019-05-16)
+- Bugfix for reading meme format files in MotifList().from_file()
+
 ## 0.5.1 (2019-05-15)
 - Internal changes to OneMotif and MotifList classes
 - Bindetect now takes directories/file(s) as input for --motifs

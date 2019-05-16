@@ -23,7 +23,7 @@ from matplotlib.text import TextPath
 from matplotlib.patches import PathPatch
 from matplotlib.font_manager import FontProperties
 
-#Internal 
+#Internal
 from tobias.utils.regions import * 
 from tobias.utils.utilities import filafy, num 	#filafy for filenames
 
@@ -64,8 +64,9 @@ class MotifList(list):
 				columns = line.strip().split()
 
 				if line.startswith("MOTIF"):
-					self.append(OneMotif()) #create new motif
+					self.append(OneMotif()) 				#create new motif
 					self[-1].input_format = file_format
+					self[-1].counts = [[] for _ in range(4)]
 
 					#Get id/name of motif
 					if len(columns) > 2: #MOTIF, ID, NAME
@@ -82,7 +83,7 @@ class MotifList(list):
 						#If line contains counts
 						if re.match("^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
 							for i, col in enumerate(columns):
-								self[-1][i].append(num(col))
+								self[-1].counts[i].append(num(col))
 
 		elif file_format in ["pfm", "jaspar"]:
 																				
