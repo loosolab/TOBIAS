@@ -91,9 +91,10 @@ def file_writer(q, key_file_dict, args):
 	for fil in set(key_file_dict.values()):
 		try:
 			file2handle[fil] = open(fil, "w")
-		except Exception:
-			print("Tried opening file {0} in file_writer but something went wrong?".format(fil))
-			traceback.print_exc(file=sys.stderr)
+		except Exception as e:
+			print("Error opening file {0} in file_writer".format(fil))
+			print(e)
+			return(0)
 
 	#Assign handles to keys
 	handles = {}
@@ -109,10 +110,10 @@ def file_writer(q, key_file_dict, args):
 
 			handles[key].write(content)
 
-		except Exception:
+		except Exception as e:
 			import sys, traceback
-			print('Problem in file_writer:', file=sys.stderr)
-			traceback.print_exc(file=sys.stderr)
+			print('Problem in file_writer:')
+			print(e)
 			break
 
 	#Got all regions in queue, close files
@@ -137,9 +138,9 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			handles[key] = pyBigWig.open(key_file_dict[key], "w")
 			handles[key].addHeader(header)
 
-		except Exception:
-			print("Tried opening file {0} in bigwig_writer but something went wrong?".format(fil))
-			traceback.print_exc(file=sys.stderr)
+		except Exception as e:
+			logger.error("Error opening file {0} in bigwig_writer".format(fil))
+			print(e)
 
 	#Correct order of chromosomes as given in header
 	contig_list = [tup[0] for tup in header]
@@ -209,10 +210,9 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 						#progress = sum([i_to_write[key] for key in handles])
 						#writing_progress.write(progress)
 
-		except Exception:
-			import sys, traceback
-			print('Problem in file_writer:', file=sys.stderr)
-			traceback.print_exc(file=sys.stderr)
+		except Exception as e:
+			logger.error('Problem in file_writer:')
+			print(e)
 			break
 
 	return(1)

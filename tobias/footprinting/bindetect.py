@@ -327,7 +327,7 @@ def run_bindetect(args):
 		results = [task.get() for task in task_list]
 	
 	logger.info("Done scanning for TFBS across regions!")
-	logger.stop_logger_queue()	#stop the listening process (wait until all was written)
+	#logger.stop_logger_queue()	#stop the listening process (wait until all was written)
 	
 	#--------------------------------------#
 	logger.info("Waiting for bedfiles to write")
@@ -518,7 +518,7 @@ def run_bindetect(args):
 	cols = len(info_columns)
 	rows = len(motif_names)
 	info_table = pd.DataFrame(np.zeros((rows, cols)), columns=info_columns, index=motif_names)
-	
+
 	#Starting calculations
 	results = []
 	if args.cores == 1:
@@ -526,7 +526,9 @@ def run_bindetect(args):
 			logger.info("- {0}".format(name))
 			results.append(process_tfbs(name, args, log2fc_params))
 	else:
-		task_list = [pool.apply_async(process_tfbs, (name, args, log2fc_params)) for name in motif_names]
+		logger.debug("Sending jobs to worker pool")
+
+		task_list = [pool.apply_async(process_tfbs, (name, args, log2fc_params, )) for name in motif_names]
 		monitor_progress(task_list, logger) 	#will not exit before all jobs are done
 		results = [task.get() for task in task_list]
 
@@ -535,6 +537,8 @@ def run_bindetect(args):
 
 	pool.terminate()
 	pool.join()
+	
+	logger.stop_logger_queue()
 	
 	#-------------------------------------------------------------------------------------------------------------#	
 	#------------------------------------------------ Cluster TFBS -----------------------------------------------#	
@@ -602,7 +606,6 @@ def run_bindetect(args):
 		n_rows = worksheet.dim_rowmax
 		n_cols = worksheet.dim_colmax
 		worksheet.autofilter(0,0,n_rows,n_cols)
-
 	writer.save()
 
 	#Format comparisons

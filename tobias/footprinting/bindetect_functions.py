@@ -279,13 +279,19 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	comparisons = args.comparisons
 
 	#Read file to list of dicts
+	stime = datetime.now()
 	header = ["TFBS_chr", "TFBS_start", "TFBS_end", "TFBS_name", "TFBS_score", "TFBS_strand"] + args.peak_header_list + ["{0}_score".format(condition) for condition in args.cond_names]
 	with open(filename) as f:
 		bedlines = [dict(zip(header, line.rstrip().split("\t"))) for line in f.readlines()]
 	n_rows = len(bedlines)
+	etime = datetime.now()
+	logger.debug("{0} - Reading took:\t{1}".format(TF_name, etime - stime))
+	
 
 	############################## Local effects ###############################
 	
+	stime = datetime.now()
+
 	#Sort, scale and calculate log2fc
 	bedlines = sorted(bedlines, key=lambda line: (line["TFBS_chr"], int(line["TFBS_start"]), int(line["TFBS_end"])))
 	for line in bedlines:
@@ -294,7 +300,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		for condition in args.cond_names:
 			threshold = args.thresholds[condition]
 			line[condition + "_score"] = float(line[condition + "_score"])
-			line[condition + "_score"] = np.round(args.norm_objects[condition].normalize(line[condition + "_score"] ), 5)
+			line[condition + "_score"] = round(args.norm_objects[condition].normalize(line[condition + "_score"] ), 5)
 			line[condition + "_bound"] = 1 if line[condition + "_score"] > threshold else 0
 
 		#Comparison specific
@@ -339,8 +345,12 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		print("Error writing excelfile for TF {0}".format(TF_name))
 		sys.exit()
 
+	etime = datetime.now()
+	logger.debug("{0} - Local effects took:\t{1}".format(TF_name, etime - stime))
 
 	############################## Global effects ##############################
+
+	stime = datetime.now()
 
 	#Get info table ready
 	info_columns = ["total_tfbs"]
@@ -425,6 +435,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 	log2fc_pdf.close()	
 	
+	etime = datetime.now()
+	logger.debug("{0} - Global effects took:\t{1}".format(TF_name, etime - stime))
+
 	#################### Remove temporary file ######################
 	try:
 		os.remove(filename)
