@@ -12,6 +12,7 @@ Uilities for argparse, logging, file handling, multiprocessing in TOBIAS
 import os
 import logging
 import sys
+import re
 import argparse
 import collections
 import time
@@ -243,7 +244,6 @@ def monitor_progress(task_list, logger, prefix="Progress"):
 #------------------------------------- Argparser -------------------------------------------#
 #-------------------------------------------------------------------------------------------#
 
-
 def restricted_float(f, f_min, f_max):
     f = float(f)
     if f < f_min or f > f_max:
@@ -283,6 +283,29 @@ def check_required(args, required):
 	for arg in required:
 		if getattr(args, arg) == None:
 			sys.exit("ERROR: Missing argument --{0}".format(arg))
+
+def add_underscore_options(parser):
+
+	for group in parser._action_groups:
+		group_actions = group._group_actions
+
+		if len(group_actions) > 0:
+			for option in group_actions:
+				opt_string = option.option_strings[-1]
+				opt_string_fmt = re.sub(r'^\-*', "", opt_string)
+
+				#Add backwards compatibility of options with -/_
+				if "-" in opt_string_fmt:
+					new_opt_string = "--" + opt_string_fmt.replace("-", "_")
+
+					#Get keys for the new option
+					keep = ["nargs", "const", "default", "type", "choices", "required", "metavar"]
+					new_option_dict = {key: option.__dict__[key] for key in keep}
+					new_option_dict["nargs"] = "?" if new_option_dict["nargs"] == 0 else new_option_dict["nargs"]
+				
+					parser.add_argument(new_opt_string, help=argparse.SUPPRESS, **new_option_dict)
+
+	return(parser)
 
 #-------------------------------------------------------------------------------------------#
 #---------------------------------------- Misc ---------------------------------------------#

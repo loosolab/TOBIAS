@@ -71,13 +71,13 @@ def add_atacorrect_arguments(parser):
 
 	#Optional arguments
 	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--regions_in', metavar="<bed>", help="Input regions for estimating bias (default: regions not in peaks.bed)")
-	optargs.add_argument('--regions_out', metavar="<bed>", help="Output regions (default: peaks.bed)")
+	optargs.add_argument('--regions-in', metavar="<bed>", help="Input regions for estimating bias (default: regions not in peaks.bed)")
+	optargs.add_argument('--regions-out', metavar="<bed>", help="Output regions (default: peaks.bed)")
 	optargs.add_argument('--blacklist', metavar="<bed>", help="Blacklisted regions in .bed-format (default: None)") #file containing blacklisted regions to be excluded from analysis")
 	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend output regions with basepairs upstream/downstream (default: 100)", default=100)
-	optargs.add_argument('--split_strands', help="Write out tracks per strand", action="store_true")
-	optargs.add_argument('--norm_off', help="Switches off normalization based on number of reads", action='store_true')
-	optargs.add_argument('--track_off', metavar="<track>", help="Switch off writing of individual .bigwig-tracks (uncorrected/bias/expected/corrected)", nargs="*", choices=["uncorrected", "bias", "expected", "corrected"], default=[])
+	optargs.add_argument('--split-strands', help="Write out tracks per strand", action="store_true")
+	optargs.add_argument('--norm-off', help="Switches off normalization based on number of reads", action='store_true')
+	optargs.add_argument('--track-off', metavar="<track>", help="Switch off writing of individual .bigwig-tracks (uncorrected/bias/expected/corrected)", nargs="*", choices=["uncorrected", "bias", "expected", "corrected"], default=[])
 
 	optargs = parser.add_argument_group('Advanced ATACorrect arguments (no need to touch)')
 	optargs.add_argument('--k_flank', metavar="<int>", help="Flank +/- of cutsite to estimate bias from (default: 12)", type=int, default=12)
@@ -93,6 +93,8 @@ def add_atacorrect_arguments(parser):
 	runargs.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
 	
 	runargs = add_logger_args(runargs)
+
+	
 
 	return(parser)
 

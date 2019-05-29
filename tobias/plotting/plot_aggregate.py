@@ -16,6 +16,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
+import copy
 
 import itertools
 from datetime import datetime
@@ -52,21 +53,22 @@ def add_aggregate_arguments(parser):
 	PLOT = parser.add_argument_group('Plot arguments')
 	PLOT.add_argument('--title', metavar="", help="Title of plot (default: \"Aggregated signals\")", default="Aggregated signals")
 	PLOT.add_argument('--flank', metavar="", help="Flanking basepairs (+/-) to show in plot (counted from middle of motif) (default: 60)", default="60", type=int)
-	PLOT.add_argument('--TFBS_labels', metavar="", help="Labels used for each TFBS file (default: prefix of each --TFBS)", nargs="*")
-	PLOT.add_argument('--signal_labels', metavar="", help="Labels used for each signal file (default: prefix of each --signals)", nargs="*")
-	PLOT.add_argument('--region_labels', metavar="", help="Labels used for each regions file (default: prefix of each --regions)", nargs="*")
-	PLOT.add_argument('--share_y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable. (default: none)", choices=["none", "signals", "sites", "both"], default="none")
-
-	#signals / regions
-	PLOT.add_argument('--norm_comparisons', action='store_true', help="Normalize the aggregate signal in comparison column/row to the same range (default: the true range is shown)")
+	PLOT.add_argument('--TFBS-labels', metavar="", help="Labels used for each TFBS file (default: prefix of each --TFBS)", nargs="*")
+	PLOT.add_argument('--signal-labels', metavar="", help="Labels used for each signal file (default: prefix of each --signals)", nargs="*")
+	PLOT.add_argument('--region-labels', metavar="", help="Labels used for each regions file (default: prefix of each --regions)", nargs="*")
+	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable. (default: none)", choices=["none", "signals", "sites", "both"], default="none")
+	
+	#Signals / regions
+	PLOT.add_argument('--norm-comparisons', action='store_true', help="Normalize the aggregate signal in comparison column/row to the same range (default: the true range is shown)")
 	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
-	PLOT.add_argument('--log_transform', help="", action="store_true")
-	PLOT.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
+	PLOT.add_argument('--log-transform', help="", action="store_true")
+	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries", action='store_true')
+	PLOT.add_argument('--signal-on-x', help="Show signals on x-axis and TFBSs on y-axis (default: signal is on y-axis)", action='store_true')
 	#PLOT.add_argument('--outliers', help="")
 
 	RUN = parser.add_argument_group("Run arguments")
 	RUN = add_logger_args(RUN)
-
+	
 	return(parser)
 
 
@@ -91,12 +93,12 @@ def run_aggregate(args):
 	
 	#### Test input ####
 	if args.TFBS_labels != None and (len(args.TFBS) != len(args.TFBS_labels)):
-		logger.error("ERROR --TFBS and --TFBS_labels have different lengths ({0} vs. {1})".format(len(args.TFBS), len(args.TFBS_labels)))
+		logger.error("ERROR --TFBS and --TFBS-labels have different lengths ({0} vs. {1})".format(len(args.TFBS), len(args.TFBS_labels)))
 	if args.region_labels != None and (len(args.regions) != len(args.region_labels)):
-		logger.error("ERROR: --regions and --region_labels have different lengths ({0} vs. {1})".format(len(args.regions), len(args.region_labels)))
+		logger.error("ERROR: --regions and --region-labels have different lengths ({0} vs. {1})".format(len(args.regions), len(args.region_labels)))
 		sys.exit()
 	if args.signal_labels != None and (len(args.signals) != len(args.signal_labels)):
-		logger.error("ERROR: --signals and --signal_labels have different lengths ({0} vs. {1})".format(len(args.signals), len(args.signal_labels)))
+		logger.error("ERROR: --signals and --signal-labels have different lengths ({0} vs. {1})".format(len(args.signals), len(args.signal_labels)))
 		sys.exit()
 
 	#### Format input ####
@@ -117,7 +119,7 @@ def run_aggregate(args):
 	logger.info("Reading information from .bed-files")
 
 	#Make combinations of TFBS / regions
-	column_names = []
+	region_names = []
 
 	if len(args.regions) > 0:
 		logger.info("Overlapping sites to --regions")
@@ -137,18 +139,18 @@ def run_aggregate(args):
 			#todo: length after overlap
 
 			name = args.TFBS_labels[i] + " <OVERLAPPING> " + args.region_labels[j]	#name for column 
-			column_names.append(name)
+			region_names.append(name)
 			regions_dict[name] = RegionList().from_bed(overlap.fn)
 
 			if args.negate == True:
 				overlap_neg = pb_tfbs.intersect(pb_region, v=True)
 
 				name = args.TFBS_labels[i] + " <NOT OVERLAPPING> " + args.region_labels[j]
-				column_names.append(name)
+				region_names.append(name)
 				regions_dict[name] = RegionList().from_bed(overlap_neg.fn)
 
 	else:
-		column_names = args.TFBS_labels
+		region_names = args.TFBS_labels
 		regions_dict = {args.TFBS_labels[i]: RegionList().from_bed(args.TFBS[i]) for i in range(len(args.TFBS))}
 
 		for name in regions_dict:
@@ -156,6 +158,7 @@ def run_aggregate(args):
 
 
 	#-------- Do overlap of regions if whitelist / blacklist -------#
+
 	if len(args.whitelist) > 0 or len(args.blacklist) > 0:
 		logger.info("Subsetting regions on whitelist/blacklist")
 		for regions_id in regions_dict:
@@ -216,25 +219,22 @@ def run_aggregate(args):
 
 		pybw.close()
 
-	
-
 
 	#########################################################################################
 	################################## Calculate aggregates #################################
 	#########################################################################################
 	
-	logger.comment("")
-	logger.info("---- Analysis ----")
+	signal_names = args.signal_labels
 
 	#Calculate aggregate per signal/region comparison
 	logger.info("Calculating aggregate signals")
-	aggregate_dict = {signal_name:{region_name: [] for region_name in regions_dict} for signal_name in args.signal_labels}
-	for row, signal_name in enumerate(args.signal_labels):	
-		for col, region_name in enumerate(column_names):
+	aggregate_dict = {signal_name:{region_name: [] for region_name in regions_dict} for signal_name in signal_names}
+	for row, signal_name in enumerate(signal_names):	
+		for col, region_name in enumerate(region_names):
 			
 			signalmat = np.array([signal_dict[signal_name][reg.tup()] for reg in regions_dict[region_name]])
 
-			#Exclude outliers from each column
+			#Exclude outlier rows 
 			lower_limit, upper_limit = -np.inf, np.inf 
 			#lower_limit, upper_limit = np.percentile(signalmat[signalmat != 0], [0.5,99.5])
 			logical = np.logical_and(np.min(signalmat, axis=1) > lower_limit, np.max(signalmat, axis=1) < upper_limit)
@@ -251,11 +251,19 @@ def run_aggregate(args):
 			aggregate = np.nanmean(signalmat, axis=0)
 			aggregate_dict[signal_name][region_name] = aggregate
 
+
+	#########################################################################################
+	################################## Footprint measures ###################################
+	#########################################################################################
+	
+	logger.comment("")
+	logger.info("---- Analysis ----")
+	
 	#Measure of footprint depth in comparison to baseline
 	logger.info("Calculating footprint depth measure")
 	logger.info("FPD (signal,regions): footprint_width baseline middle FPD")
-	for row, signal_name in enumerate(args.signal_labels):	
-		for col, region_name in enumerate(column_names):
+	for row, signal_name in enumerate(signal_names):	
+		for col, region_name in enumerate(region_names):
 
 			agg = aggregate_dict[signal_name][region_name]
 
@@ -280,13 +288,13 @@ def run_aggregate(args):
 			FPD_results_best = FPD_results #[result + ["  "] if result[-1] != min(all_fpds) else result + ["*"] for result in FPD_results]
 
 			for result in FPD_results_best:
-				logger.stats("FPD ({0},{1}): {2} {3:.3f} {4:.3f} {5:.3f}".format(signal_name, region_name, result[0], result[1], result[2], result[3]))
+				logger.stats("FPD ({0},{1}): {2} {3:.5f} {4:.5f} {5:.5f}".format(signal_name, region_name, result[0], result[1], result[2], result[3]))
 
 	#Compare pairwise to calculate chance of footprint
 	logger.comment("")
 	logger.info("Calculating pairwise aggregate pearson correlation")
 	logger.info("CORRELATION (signal1,region1) VS (signal2,region2): PEARSONR")
-	plots = itertools.product(args.signal_labels, column_names)
+	plots = itertools.product(signal_names, region_names)
 	combis = itertools.combinations(plots, 2)
 
 	for ax1, ax2 in combis:
@@ -309,30 +317,64 @@ def run_aggregate(args):
 	logger.info("---- Plotting aggregates ----")
 	logger.info("Setting up plotting grid")
 
-	no_rows = len(args.signals) + 1 if len(args.signals) > 1 else len(args.signals)
-	no_cols = len(column_names) + 1 if len(column_names) > 1 else len(column_names)
-	row_compare = True if no_rows > 1 else False
-	col_compare = True if no_cols > 1 else False
+	n_signals = len(signal_names) 
+	n_regions = len(region_names) #regions are set of sites
+
+	signal_compare = True if n_signals > 1 else False
+	region_compare = True if n_regions > 1 else False
+	
+	#Define whether signal is on x/y
+	if args.signal_on_x:
+		#x-axis
+		n_cols = n_signals
+		col_compare = signal_compare
+		col_names = signal_names
+
+		#y-axis
+		n_rows = n_regions 
+		row_compare = region_compare
+		row_names = region_names
+	else:
+		#x-axis
+		n_cols = n_regions
+		col_compare = region_compare
+		col_names = region_names 
+
+		#y-axis
+		n_rows = n_signals
+		row_compare = signal_compare
+		row_names = signal_names 
+
+	#Compare across rows/cols?
+	if row_compare:
+		n_rows += 1
+		row_names += ["Comparison"]
+	if col_compare:
+		n_cols += 1
+		col_names += ["Comparison"]
 
 	#Set grid
-	fig, axarr = plt.subplots(no_rows, no_cols, figsize = (no_cols*5, no_rows*5))
-	axarr = np.array(axarr).reshape((-1, 1)) if no_cols == 1 else axarr		#Fix indexing for one column figures
-	axarr = np.array(axarr).reshape((1, -1)) if no_rows == 1 else axarr		#Fix indexing for one row figures
+	fig, axarr = plt.subplots(n_rows, n_cols, figsize = (n_cols*5, n_rows*5))
+	axarr = np.array(axarr).reshape((-1, 1)) if n_cols == 1 else axarr		#Fix indexing for one column figures
+	axarr = np.array(axarr).reshape((1, -1)) if n_rows == 1 else axarr		#Fix indexing for one row figures
+
+	#X axis / Y axis labels
+	#mainax = fig.add_subplot(111, frameon=False)
+	#mainax.set_xlabel("X label", labelpad=30, fontsize=16)
+	#mainax.set_ylabel("Y label", labelpad=30, fontsize=16)
+	#mainax.xaxis.set_label_position('top') 
 
 	#Title of plot and grid
 	plt.suptitle(args.title, fontsize=16)
+	
+	for col in range(n_cols):
+		axarr[0, col].set_title(col_names[col].replace(" ","\n"))
 
-	row_names = args.signal_labels + ["Comparison"] if row_compare else args.signal_labels
-	col_names = column_names + ["Comparison"] if col_compare else column_names
-
-	for col in range(no_cols):
-		axarr[0,col].set_title(col_names[col].replace(" ","\n"))
-
-	for row in range(no_rows):
-		axarr[row,0].set_ylabel(row_names[row], fontsize=12)
+	for row in range(n_rows):
+		axarr[row, 0].set_ylabel(row_names[row], fontsize=12)
 
 	#Colors
-	colors = mpl.cm.brg(np.linspace(0, 1, len(args.signals) + len(column_names)))
+	colors = mpl.cm.brg(np.linspace(0, 1, len(signal_names) + len(region_names)))
 
 	#xvals
 	flank = int(args.width/2.0)
@@ -340,8 +382,8 @@ def run_aggregate(args):
 	xvals = np.delete(xvals, flank)
 
 	#Settings for each subplot
-	for row in range(no_rows):
-		for col in range(no_cols):
+	for row in range(n_rows):
+		for col in range(n_cols):
 			axarr[row, col].set_xlim(-flank, flank)
 			axarr[row, col].set_xlabel('bp from center')
 			#axarr[row, col].set_ylabel('Mean aggregated signal')
@@ -356,24 +398,25 @@ def run_aggregate(args):
 				
 			minor_ticks = np.arange(-flank, flank, args.width/10.0)
 
-
 	#Settings for comparison plots
-	a = [axarr[-1, col].set_facecolor("0.9") if row_compare == True else 0 for col in range(no_cols)]
-	a = [axarr[row, -1].set_facecolor("0.9") if col_compare == True else 0 for row in range(no_rows)]
+	a = [axarr[-1, col].set_facecolor("0.9") if row_compare == True else 0 for col in range(n_cols)]
+	a = [axarr[row, -1].set_facecolor("0.9") if col_compare == True else 0 for row in range(n_rows)]
 
 	#Air between subplots
 	plt.subplots_adjust(hspace=0.3, top=0.93)
-
-
 
 	#########################################################################################
 	############################## Fill in with bigwig scores ###############################
 	#########################################################################################
 
-	for row, signal_name in enumerate(args.signal_labels):
-		for col, region_name in enumerate(column_names):
+	for si in range(n_signals):
+		signal_name = signal_names[si]
+		for ri in range(n_regions):
+			region_name = region_names[ri]
 
 			logger.info("Plotting regions {0} from signal {1}".format(region_name, signal_name))
+
+			row, col = (ri, si) if args.signal_on_x else (si, ri)
 
 			#If there are any regions:
 			if len(regions_dict[region_name]) > 0:
@@ -385,27 +428,28 @@ def run_aggregate(args):
 				aggregate_norm = preprocessing.minmax_scale(aggregate)
 
 				#Compare across rows and cols
-				if col_compare: 	#compare between different regions
+				if col_compare: 	#compare between different columns by adding one more column
 					if args.norm_comparisons:
 						aggregate_compare = aggregate_norm
 					else:
 						aggregate_compare = aggregate		
-					axarr[row, -1].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=region_name)
+					axarr[row, -1].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=col_names[col])
+					axarr[row, -1].legend(loc="lower right")
 
-				if row_compare:	#compare between different bigwigs
+				if row_compare:	#compare between different rows by adding one more row
 					if args.norm_comparisons:
 						aggregate_compare = aggregate_norm
 					else:
 						aggregate_compare = aggregate
-					axarr[-1, col].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=signal_name)
+					axarr[-1, col].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=row_names[row])
 					axarr[-1, col].legend(loc="lower right")
 
 				#Diagonal comparison
-				if no_rows == no_cols and col_compare and row_compare and col == row:
-					axarr[-1, -1].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=signal_name)
+				if n_rows == n_cols and col_compare and row_compare and col == row:
+					axarr[-1, -1].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8)
 
 				#Add number of sites to plot
-				axarr[row, col].text(0.98,0.98,str(len(regions_dict[region_name])), transform = axarr[row,col].transAxes, fontsize=12, va="top", ha="right")
+				axarr[row, col].text(0.98,0.98,str(len(regions_dict[region_name])), transform = axarr[row, col].transAxes, fontsize=12, va="top", ha="right")
 
 
 	#------------- Finishing up plots ---------------#
@@ -413,44 +457,47 @@ def run_aggregate(args):
 	logger.info("Adjusting final details")
 
 	#remove lower-right corner if not applicable
-	if no_rows != no_cols:
+	if n_rows != n_cols:
 		axarr[-1,-1] = None
 	
+	#Check whether share_y is set
 	if args.share_y == "none":
-		pass 	#Do not set ylim for plots
+		pass
 
-	#Signals are comparable (for example normalized signal between two conditions)
-	elif args.share_y == "signals":	
-		for col in range(no_cols):
+	#Comparable rows (rowcompare = same across all)
+	elif (args.share_y == "signals" and args.signal_on_x == False) or (args.share_y == "sites" and args.signal_on_x == True):	
+		for col in range(n_cols):
 			lims = np.array([ax.get_ylim() for ax in axarr[:,col] if ax is not None])
 			ymin, ymax = np.min(lims), np.max(lims)
 
-			for row in range(no_rows):
+			#Set limit across rows for this col
+			for row in range(n_rows):
 				if axarr[row, col] is not None:
 					axarr[row, col].set_ylim(ymin, ymax)
 
-	#Regions are comparable (for example bound/unbound)
-	elif args.share_y == "sites":
-		for row in range(no_rows):
+	#Comparable columns (colcompare = same across all)
+	elif (args.share_y == "sites" and args.signal_on_x == False) or (args.share_y == "signals" and args.signal_on_x == True):	
+		for row in range(n_rows):
 			lims = np.array([ax.get_ylim() for ax in axarr[row,:] if ax is not None])
 			ymin, ymax = np.min(lims), np.max(lims)
-			for col in range(no_cols):
+
+			#Set limit across cols for this row
+			for col in range(n_cols):
 				if axarr[row, col] is not None:
 					axarr[row, col].set_ylim(ymin, ymax)
 
 	#Comparable on both rows/columns
 	elif args.share_y == "both":
 		global_ymin, global_ymax = np.inf, -np.inf
-		for row in range(no_rows):
-			for col in range(no_cols):
+		for row in range(n_rows):
+			for col in range(n_cols):
 				if axarr[row, col] is not None:
 					local_ymin, local_ymax = axarr[row, col].get_ylim()
 					global_ymin = local_ymin if local_ymin < global_ymin else global_ymin
 					global_ymax = local_ymax if local_ymax > global_ymax else global_ymax
 
-
-		for row in range(no_rows):
-			for col in range(no_cols):
+		for row in range(n_rows):
+			for col in range(n_cols):
 				if axarr[row, col] is not None:
 					axarr[row, col].set_ylim(global_ymin, global_ymax)
 	
