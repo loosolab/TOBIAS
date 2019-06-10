@@ -32,6 +32,10 @@ from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.logger import *
 
+#Force numpy to run single threaded
+
+
+
 
 def add_aggregate_arguments(parser):
 
@@ -193,7 +197,6 @@ def run_aggregate(args):
 	for regions_id in regions_dict:
 		regions_dict[regions_id].apply_method(OneRegion.set_width, args.width)
 
-
 	#########################################################################################
 	############################ Read signal for bigwig per site ############################
 	#########################################################################################
@@ -207,7 +210,7 @@ def run_aggregate(args):
 		signal_dict[signal_name] = {}
 
 		#Open pybw to read signal
-		pybw = pyBigWig.open(signal_f, "rb")
+		pybw = pyBigWig.open(signal_f)
 
 		logger.info("- Reading signal from {0}".format(signal_name))
 
@@ -250,6 +253,8 @@ def run_aggregate(args):
 
 			aggregate = np.nanmean(signalmat, axis=0)
 			aggregate_dict[signal_name][region_name] = aggregate
+
+			signalmat = None
 
 
 	#########################################################################################

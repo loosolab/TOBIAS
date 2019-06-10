@@ -114,6 +114,11 @@ Split a motif file containing several motifs:
 $ TOBIAS FormatMotifs --input test_data/example_motifs.txt --format pfm --task split --output split_motifs
 ```
 
+Filter a larger motif file using TF names:
+```
+$ echo 'MAFK CTCF JUNB' > TF_names.txt
+$ FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt --filter TF_names.txt
+```
 
 Snakemake pipeline
 ------------

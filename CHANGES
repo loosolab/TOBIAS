@@ -1,3 +1,7 @@
+## 0.6.1 (2019-06-05)
+- Fixed motif cluster names to prefix C_
+- Added --filter function to format_motifs to filter output motifs using names/ids
+
 ## 0.6.0 (2019-05-29)
 - Added option to flip axes in PlotAggregate via "--signal-on-x"
 - Changed all command-line arguments containing "_" to "-" (e.g. --regions_in to --regions-in) (but retaining both options internally)

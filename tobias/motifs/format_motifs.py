@@ -48,7 +48,7 @@ def run_formatmotifs(args):
 
 	check_required(args, ["input", "output"])	#Check input arguments
 	motif_files = expand_dirs(args.input)		#Expand any dirs in input
-	check_files(motif_files) 					#Check if files exist
+	check_files(motif_files + [args.filter]) 	#Check if files exist
 
 	# Create logger and write argument overview
 	logger = TobiasLogger("FormatMotifs", args.verbosity)
@@ -77,8 +77,27 @@ def run_formatmotifs(args):
 	if args.filter != None:
 
 		#Read filter
-		pass
+		logger.info("Reading entries in {0}".format(args.filter))
+		entries = open(args.filter, "r").read().split()
 
+		#Match to input motifs #print(entries)
+		logger.info("Matching motifs to filter")
+		filtered_list = MotifList()
+		for input_motif in motif_list:
+			found_in_filter = 0
+			i = -1
+			while found_in_filter == 0 and i < len(entries) - 1:
+				i += 1 
+				if entries[i].lower() in input_motif.name.lower() or entries[i].lower() in input_motif.id.lower():
+					filtered_list.append(input_motif)
+					logger.debug("Selected motif {0} ({1}) due to filter value {2}".format(input_motif.name, input_motif.id, entries[i]))
+					found_in_filter = 1
+
+			if found_in_filter == 0:
+				logger.debug("Could not find any match to motif {0} ({1}) in filter".format(input_motif.name, input_motif.id))
+
+		logger.info("Filtered number of motifs from {0} to {1}".format(len(motif_list), len(filtered_list)))
+		motif_list = filtered_list
 
 	#### Write out results ####
 	if args.task == "split":

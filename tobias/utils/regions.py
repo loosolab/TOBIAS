@@ -141,9 +141,6 @@ class OneRegion(list):
 
 		return(self)
 
-		
-
-
 	def get_signal(self, pybw, numpy_bool = True):
 		""" Get signal from bigwig in region """
 
@@ -663,10 +660,10 @@ class RegionCluster:
 				ordered_idx = sorted(distances.keys(), key=lambda member: distances[member])
 
 				self.clusters[cluster]["representative"] = self.names[ordered_idx[0]]
-				self.cluster_names[cluster] =  "C_" + self.names[ordered_idx[0]] #cluster is the idx for cluster
+				self.cluster_names[cluster] = "C_" + self.names[ordered_idx[0]] #cluster is the idx for cluster
 			else:		
-				self.cluster_names[cluster] = self.clusters[cluster]["member_names"][0]
-				self.clusters[cluster]["representative"] = "C_" + self.cluster_names[cluster]
+				self.cluster_names[cluster] = "C_" + self.clusters[cluster]["member_names"][0]
+				self.clusters[cluster]["representative"] = self.cluster_names[cluster]
 				
 			self.clusters[cluster]["cluster_name"] = self.cluster_names[cluster]
 
