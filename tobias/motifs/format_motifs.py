@@ -68,10 +68,18 @@ def run_formatmotifs(args):
 	motif_list = MotifList()
 	converted_content = ""
 	for f in motif_files:
-		logger.info("- {0}".format(f))
+		logger.debug("- {0}".format(f))
 		motif_list.extend(MotifList().from_file(f))
 
 	logger.info("Read {} motifs\n".format(len(motif_list)))
+
+	#Sort out duplicate motifs
+	all_motif_ids = [motif.id for motif in motif_list]
+	unique_motif_ids = set(all_motif_ids)
+	if len(all_motif_ids) != len(unique_motif_ids):
+		logger.info("Found duplicate motif ids in file - choosing first motif with unique id.")
+		motif_list = MotifList([motif_list[all_motif_ids.index(motifid)] for motifid in unique_motif_ids])
+		logger.info("Reduced to {0} unique motif ids".format(len(motif_list)))
 
 	### Filter motif list ###
 	if args.filter != None:
@@ -79,9 +87,11 @@ def run_formatmotifs(args):
 		#Read filter
 		logger.info("Reading entries in {0}".format(args.filter))
 		entries = open(args.filter, "r").read().split()
+		logger.info("Read {0} unique filter values".format(len(set(entries))))
 
 		#Match to input motifs #print(entries)
 		logger.info("Matching motifs to filter")
+		used_filters = []
 		filtered_list = MotifList()
 		for input_motif in motif_list:
 			found_in_filter = 0
@@ -92,12 +102,15 @@ def run_formatmotifs(args):
 					filtered_list.append(input_motif)
 					logger.debug("Selected motif {0} ({1}) due to filter value {2}".format(input_motif.name, input_motif.id, entries[i]))
 					found_in_filter = 1
+					used_filters.append(entries[i])
 
 			if found_in_filter == 0:
 				logger.debug("Could not find any match to motif {0} ({1}) in filter".format(input_motif.name, input_motif.id))
 
 		logger.info("Filtered number of motifs from {0} to {1}".format(len(motif_list), len(filtered_list)))
 		motif_list = filtered_list
+
+		logger.debug("Filters not used: {0}".format(list(set(entries) - set(used_filters))))
 
 	#### Write out results ####
 	if args.task == "split":

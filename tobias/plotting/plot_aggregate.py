@@ -63,7 +63,7 @@ def add_aggregate_arguments(parser):
 	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable. (default: none)", choices=["none", "signals", "sites", "both"], default="none")
 	
 	#Signals / regions
-	PLOT.add_argument('--norm-comparisons', action='store_true', help="Normalize the aggregate signal in comparison column/row to the same range (default: the true range is shown)")
+	PLOT.add_argument('--normalize', action='store_true', help="Normalize the aggregate signal to be in the same range (default: the true range of values is shown)")
 	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
 	PLOT.add_argument('--log-transform', help="", action="store_true")
 	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries", action='store_true')
@@ -250,8 +250,12 @@ def run_aggregate(args):
 				signalmat_log = np.log2(signalmat_abs + 1)
 				signalmat_log[signalmat < 0] *= -1	 #original negatives back to <0
 				signalmat = signalmat_log
-
+			
 			aggregate = np.nanmean(signalmat, axis=0)
+
+			if args.normalize:
+				aggregate = preprocessing.minmax_scale(aggregate)
+
 			aggregate_dict[signal_name][region_name] = aggregate
 
 			signalmat = None
@@ -263,7 +267,7 @@ def run_aggregate(args):
 	
 	logger.comment("")
 	logger.info("---- Analysis ----")
-	
+
 	#Measure of footprint depth in comparison to baseline
 	logger.info("Calculating footprint depth measure")
 	logger.info("FPD (signal,regions): footprint_width baseline middle FPD")
@@ -430,28 +434,18 @@ def run_aggregate(args):
 				aggregate = aggregate_dict[signal_name][region_name] 
 				axarr[row, col].plot(xvals, aggregate, color=colors[col+row], linewidth=1, label=signal_name)
 
-				aggregate_norm = preprocessing.minmax_scale(aggregate)
-
 				#Compare across rows and cols
-				if col_compare: 	#compare between different columns by adding one more column
-					if args.norm_comparisons:
-						aggregate_compare = aggregate_norm
-					else:
-						aggregate_compare = aggregate		
-					axarr[row, -1].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=col_names[col])
+				if col_compare: 	#compare between different columns by adding one more column	
+					axarr[row, -1].plot(xvals, aggregate, color=colors[row+col], linewidth=1, alpha=0.8, label=col_names[col])
 					axarr[row, -1].legend(loc="lower right")
 
 				if row_compare:	#compare between different rows by adding one more row
-					if args.norm_comparisons:
-						aggregate_compare = aggregate_norm
-					else:
-						aggregate_compare = aggregate
-					axarr[-1, col].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8, label=row_names[row])
+					axarr[-1, col].plot(xvals, aggregate, color=colors[row+col], linewidth=1, alpha=0.8, label=row_names[row])
 					axarr[-1, col].legend(loc="lower right")
 
 				#Diagonal comparison
 				if n_rows == n_cols and col_compare and row_compare and col == row:
-					axarr[-1, -1].plot(xvals, aggregate_compare, color=colors[row+col], linewidth=1, alpha=0.8)
+					axarr[-1, -1].plot(xvals, aggregate, color=colors[row+col], linewidth=1, alpha=0.8)
 
 				#Add number of sites to plot
 				axarr[row, col].text(0.98,0.98,str(len(regions_dict[region_name])), transform = axarr[row, col].transAxes, fontsize=12, va="top", ha="right")

@@ -321,7 +321,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			outfile = os.path.join(bed_outdir, "{0}_{1}_{2}.bed".format(TF_name, condition, state))
 			chosen_bool = 1 if state == "bound" else 0
 			bedlines_subset = [bedline for bedline in bedlines if bedline[condition + "_bound"] == chosen_bool]
-			bedlines_subset = sorted(bedlines_subset, key= lambda line: line[condition + "_score"], reverse=True)
+			#bedlines_subset = sorted(bedlines_subset, key= lambda line: line[condition + "_score"], reverse=True)
 			dict_to_tab(bedlines_subset, outfile, chosen_columns)
 
 	##### Write overview with scores, bound and log2fcs ####
@@ -331,22 +331,27 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	
 	#Write xlsx overview
 	bed_table = pd.DataFrame(bedlines)
-	try:
-		overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
-		writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter')
-		bed_table.to_excel(writer, index=False, columns=overview_columns)
-		
-		worksheet = writer.sheets['Sheet1']
-		no_rows, no_cols = bed_table.shape
-		worksheet.autofilter(0,0,no_rows, no_cols-1)
-		writer.save()
+	stime_excel = datetime.now()
+	if args.skip_excel == False:
+		try:
+			overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
+			writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter') #, options=dict(constant_memory=True))
+			bed_table.to_excel(writer, index=False, columns=overview_columns)
 
-	except:
-		print("Error writing excelfile for TF {0}".format(TF_name))
-		sys.exit()
+			#autfilter not possible with constant_memory
+			worksheet = writer.sheets['Sheet1']
+			no_rows, no_cols = bed_table.shape
+			worksheet.autofilter(0,0,no_rows, no_cols)
+			writer.save()
 
+		except Exception as e:
+			print("Error writing excelfile for TF {0}".format(TF_name))
+			print(e)
+			sys.exit()
+
+	etime_excel = datetime.now()
 	etime = datetime.now()
-	logger.debug("{0} - Local effects took:\t{1}".format(TF_name, etime - stime))
+	logger.debug("{0} - Local effects took:\t{1} (excel: {2})".format(TF_name, etime - stime, etime_excel - stime_excel))
 
 	############################## Global effects ##############################
 
@@ -402,6 +407,8 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			info_table.at[TF_name, base + "_change"] = 0
 			info_table.at[TF_name, base + "_pvalue"] = 1
 
+		#stime_plot = datetime.now()
+
 		#### Plot comparison ###
 		fig, ax = plt.subplots(1,1)
 		ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
@@ -432,6 +439,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		plt.tight_layout()
 		log2fc_pdf.savefig(fig, bbox_inches='tight')
 		plt.close(fig)
+
+		#etime_plot = datetime.now()
+		#logger.debug("{0} - Plotting took:\t{1}".format(TF_name, etime_plot - stime_plot))
 
 	log2fc_pdf.close()	
 	

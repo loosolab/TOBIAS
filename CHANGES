@@ -1,3 +1,8 @@
+## 0.6.2 (2019-06-19)
+- Added --skip-excel option to skip excel overview per factor in BINDetect (can slow the run considerably for large output)
+- Internal changes to BINDetect for better debug overview
+- Fixed normalization for plotAggregate
+
 ## 0.6.1 (2019-06-05)
 - Fixed motif cluster names to prefix C_
 - Added --filter function to format_motifs to filter output motifs using names/ids

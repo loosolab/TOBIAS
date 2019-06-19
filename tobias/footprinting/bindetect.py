@@ -80,6 +80,7 @@ def add_bindetect_arguments(parser):
 	optargs.add_argument('--bound-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for bound/unbound split (default: 0.001)", default=0.001)
 	optargs.add_argument('--pseudo', type=float, metavar="<float>", help="Pseudocount for calculating log2fcs (default: estimated from data)", default=None)
 	optargs.add_argument('--time-series', action='store_true', help="Will only compare signals1<->signals2<->signals3 (...) in order of input, and skip all-against-all comparison.")
+	optargs.add_argument('--skip-excel', action='store_true', help="Skip creation of excel files - for large datasets, this will speed up BINDetect considerably")
 
 	runargs = parser.add_argument_group("Run arguments")
 	runargs.add_argument('--outdir', metavar="<directory>", help="Output directory to place TFBS/plots in (default: bindetect_output)", default="bindetect_output")
@@ -204,6 +205,9 @@ def run_bindetect(args):
 	peak_chroms = peaks.get_chroms()
 	peak_columns = len(peaks[0]) #number of columns
 
+	if args.debug:
+		peaks = RegionList(peaks[:1000])
+
 	#Header
 	if args.peak_header != None:
 		content = open(args.peak_header, "r").read()
@@ -235,7 +239,6 @@ def run_bindetect(args):
 	args.gc = gc_content
 	bg = np.array([(1-args.gc)/2.0, args.gc/2.0, args.gc/2.0, (1-args.gc)/2.0])
 	logger.info("- GC content estimated at {0:.2f}%".format(gc_content*100))
-
 
 	################ Get motifs ################
 	logger.info("Reading motifs from file") 
