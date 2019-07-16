@@ -21,6 +21,7 @@ import random
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.patches as patches
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.ticker import NullFormatter
 from cycler import cycler
@@ -615,9 +616,13 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 		ax1.scatter(coord[0], coord[1], color=diff_scores[TF]["color"], s=4.5)
 
 		if diff_scores[TF]["show"] == True:
-			txts.append(ax1.text(coord[0], coord[1], diff_scores[TF]["volcano_label"], fontsize=7))
+			txts.append(ax1.text(coord[0], coord[1], diff_scores[TF]["volcano_label"], fontsize=8))
 
-	adjust_text(txts, ax=ax1, text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
+	#Plot custom legend for colors
+	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="Higher scores in {0}".format(conditions[0])),
+						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="Higher scores in {0}".format(conditions[1]))]
+	l = ax1.legend(handles=legend_elements, loc="lower left", framealpha=0.5)
+	adjust_text(txts, ax=ax1, add_objects=[l], text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
 	
 	"""
 	#Add arrows to other cluster members
@@ -637,12 +642,6 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 
 				ax1.arrow(point_x, point_y, len_x, len_y, linestyle="-", color="black", lw=0.5)
 	"""
-	#print(txts)
-
-	#Plot custom legend for colors
-	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="Higher scores in {0}".format(conditions[0])),
-						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="Higher scores in {0}".format(conditions[1]))]
-	ax1.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
 
 	return(fig)
 
