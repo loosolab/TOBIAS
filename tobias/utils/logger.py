@@ -164,16 +164,18 @@ class TobiasLogger(logging.Logger):
 		content = ""
 		content += "# ----- Input parameters -----\n"
 		for group in parser._action_groups:
-				group_actions = group._group_actions
-				if len(group_actions) > 0:
-					#content += "# ----- {0} -----\n".format(group.title)
-					for option in group_actions:
+
+			group_actions = group._group_actions
+			#print(args)
+			if len(group_actions) > 0:
+				#content += "# ----- {0} -----\n".format(group.title)
+				for option in group_actions:
+					if option.help != "==SUPPRESS==": #only show if not suppressed
 						name = option.dest
 						attr = getattr(args, name, None)
 						content += "# {0}:\t{1}\n".format(name, attr)
-					#content += "\n"
+				#content += "\n"
 		self.comment(content + "\n")
-
 
 	def output_files(self, outfiles):
 		""" Print out list of output files"""

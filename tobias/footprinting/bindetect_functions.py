@@ -21,6 +21,7 @@ import random
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.patches as patches
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.ticker import NullFormatter
 from cycler import cycler
@@ -279,13 +280,19 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	comparisons = args.comparisons
 
 	#Read file to list of dicts
+	stime = datetime.now()
 	header = ["TFBS_chr", "TFBS_start", "TFBS_end", "TFBS_name", "TFBS_score", "TFBS_strand"] + args.peak_header_list + ["{0}_score".format(condition) for condition in args.cond_names]
 	with open(filename) as f:
 		bedlines = [dict(zip(header, line.rstrip().split("\t"))) for line in f.readlines()]
 	n_rows = len(bedlines)
+	etime = datetime.now()
+	logger.debug("{0} - Reading took:\t{1}".format(TF_name, etime - stime))
+	
 
 	############################## Local effects ###############################
 	
+	stime = datetime.now()
+
 	#Sort, scale and calculate log2fc
 	bedlines = sorted(bedlines, key=lambda line: (line["TFBS_chr"], int(line["TFBS_start"]), int(line["TFBS_end"])))
 	for line in bedlines:
@@ -294,7 +301,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		for condition in args.cond_names:
 			threshold = args.thresholds[condition]
 			line[condition + "_score"] = float(line[condition + "_score"])
-			line[condition + "_score"] = np.round(args.norm_objects[condition].normalize(line[condition + "_score"] ), 5)
+			line[condition + "_score"] = round(args.norm_objects[condition].normalize(line[condition + "_score"] ), 5)
 			line[condition + "_bound"] = 1 if line[condition + "_score"] > threshold else 0
 
 		#Comparison specific
@@ -315,7 +322,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			outfile = os.path.join(bed_outdir, "{0}_{1}_{2}.bed".format(TF_name, condition, state))
 			chosen_bool = 1 if state == "bound" else 0
 			bedlines_subset = [bedline for bedline in bedlines if bedline[condition + "_bound"] == chosen_bool]
-			bedlines_subset = sorted(bedlines_subset, key= lambda line: line[condition + "_score"], reverse=True)
+			#bedlines_subset = sorted(bedlines_subset, key= lambda line: line[condition + "_score"], reverse=True)
 			dict_to_tab(bedlines_subset, outfile, chosen_columns)
 
 	##### Write overview with scores, bound and log2fcs ####
@@ -325,22 +332,31 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	
 	#Write xlsx overview
 	bed_table = pd.DataFrame(bedlines)
-	try:
-		overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
-		writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter')
-		bed_table.to_excel(writer, index=False, columns=overview_columns)
-		
-		worksheet = writer.sheets['Sheet1']
-		no_rows, no_cols = bed_table.shape
-		worksheet.autofilter(0,0,no_rows, no_cols-1)
-		writer.save()
+	stime_excel = datetime.now()
+	if args.skip_excel == False:
+		try:
+			overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
+			writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter') #, options=dict(constant_memory=True))
+			bed_table.to_excel(writer, index=False, columns=overview_columns)
 
-	except:
-		print("Error writing excelfile for TF {0}".format(TF_name))
-		sys.exit()
+			#autfilter not possible with constant_memory
+			worksheet = writer.sheets['Sheet1']
+			no_rows, no_cols = bed_table.shape
+			worksheet.autofilter(0,0,no_rows, no_cols)
+			writer.save()
 
+		except Exception as e:
+			print("Error writing excelfile for TF {0}".format(TF_name))
+			print(e)
+			sys.exit()
+
+	etime_excel = datetime.now()
+	etime = datetime.now()
+	logger.debug("{0} - Local effects took:\t{1} (excel: {2})".format(TF_name, etime - stime, etime_excel - stime_excel))
 
 	############################## Global effects ##############################
+
+	stime = datetime.now()
 
 	#Get info table ready
 	info_columns = ["total_tfbs"]
@@ -392,6 +408,8 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			info_table.at[TF_name, base + "_change"] = 0
 			info_table.at[TF_name, base + "_pvalue"] = 1
 
+		#stime_plot = datetime.now()
+
 		#### Plot comparison ###
 		fig, ax = plt.subplots(1,1)
 		ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
@@ -423,8 +441,14 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		log2fc_pdf.savefig(fig, bbox_inches='tight')
 		plt.close(fig)
 
+		#etime_plot = datetime.now()
+		#logger.debug("{0} - Plotting took:\t{1}".format(TF_name, etime_plot - stime_plot))
+
 	log2fc_pdf.close()	
 	
+	etime = datetime.now()
+	logger.debug("{0} - Global effects took:\t{1}".format(TF_name, etime - stime))
+
 	#################### Remove temporary file ######################
 	try:
 		os.remove(filename)
@@ -592,9 +616,13 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 		ax1.scatter(coord[0], coord[1], color=diff_scores[TF]["color"], s=4.5)
 
 		if diff_scores[TF]["show"] == True:
-			txts.append(ax1.text(coord[0], coord[1], diff_scores[TF]["volcano_label"], fontsize=7))
+			txts.append(ax1.text(coord[0], coord[1], diff_scores[TF]["volcano_label"], fontsize=8))
 
-	adjust_text(txts, ax=ax1, text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
+	#Plot custom legend for colors
+	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="Higher scores in {0}".format(conditions[0])),
+						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="Higher scores in {0}".format(conditions[1]))]
+	l = ax1.legend(handles=legend_elements, loc="lower left", framealpha=0.5)
+	adjust_text(txts, ax=ax1, add_objects=[l], text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
 	
 	"""
 	#Add arrows to other cluster members
@@ -614,12 +642,6 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 
 				ax1.arrow(point_x, point_y, len_x, len_y, linestyle="-", color="black", lw=0.5)
 	"""
-	#print(txts)
-
-	#Plot custom legend for colors
-	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="Higher scores in {0}".format(conditions[0])),
-						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="Higher scores in {0}".format(conditions[1]))]
-	ax1.legend(handles=legend_elements, bbox_to_anchor=(1.05, 1), loc='upper left')
 
 	return(fig)
 

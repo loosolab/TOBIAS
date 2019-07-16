@@ -12,6 +12,7 @@ Uilities for argparse, logging, file handling, multiprocessing in TOBIAS
 import os
 import logging
 import sys
+import re
 import argparse
 import collections
 import time
@@ -91,9 +92,10 @@ def file_writer(q, key_file_dict, args):
 	for fil in set(key_file_dict.values()):
 		try:
 			file2handle[fil] = open(fil, "w")
-		except Exception:
-			print("Tried opening file {0} in file_writer but something went wrong?".format(fil))
-			traceback.print_exc(file=sys.stderr)
+		except Exception as e:
+			print("Error opening file {0} in file_writer".format(fil))
+			print(e)
+			return(0)
 
 	#Assign handles to keys
 	handles = {}
@@ -109,10 +111,10 @@ def file_writer(q, key_file_dict, args):
 
 			handles[key].write(content)
 
-		except Exception:
+		except Exception as e:
 			import sys, traceback
-			print('Problem in file_writer:', file=sys.stderr)
-			traceback.print_exc(file=sys.stderr)
+			print('Problem in file_writer:')
+			print(e)
 			break
 
 	#Got all regions in queue, close files
@@ -137,9 +139,9 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			handles[key] = pyBigWig.open(key_file_dict[key], "w")
 			handles[key].addHeader(header)
 
-		except Exception:
-			print("Tried opening file {0} in bigwig_writer but something went wrong?".format(fil))
-			traceback.print_exc(file=sys.stderr)
+		except Exception as e:
+			logger.error("Error opening file {0} in bigwig_writer".format(fil))
+			print(e)
 
 	#Correct order of chromosomes as given in header
 	contig_list = [tup[0] for tup in header]
@@ -209,10 +211,9 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 						#progress = sum([i_to_write[key] for key in handles])
 						#writing_progress.write(progress)
 
-		except Exception:
-			import sys, traceback
-			print('Problem in file_writer:', file=sys.stderr)
-			traceback.print_exc(file=sys.stderr)
+		except Exception as e:
+			logger.error('Problem in file_writer:')
+			print(e)
 			break
 
 	return(1)
@@ -242,7 +243,6 @@ def monitor_progress(task_list, logger, prefix="Progress"):
 #-------------------------------------------------------------------------------------------#
 #------------------------------------- Argparser -------------------------------------------#
 #-------------------------------------------------------------------------------------------#
-
 
 def restricted_float(f, f_min, f_max):
     f = float(f)
@@ -284,10 +284,38 @@ def check_required(args, required):
 		if getattr(args, arg) == None:
 			sys.exit("ERROR: Missing argument --{0}".format(arg))
 
+def add_underscore_options(parser):
+
+	for group in parser._action_groups:
+		group_actions = group._group_actions
+
+		if len(group_actions) > 0:
+			for option in group_actions:
+				opt_string = option.option_strings[-1]
+				opt_string_fmt = re.sub(r'^\-*', "", opt_string)
+
+				#Add backwards compatibility of options with -/_
+				if "-" in opt_string_fmt:
+					new_opt_string = "--" + opt_string_fmt.replace("-", "_")
+
+					#Get keys for the new option
+					keep = ["nargs", "const", "default", "type", "choices", "required", "metavar"]
+					new_option_dict = {key: option.__dict__[key] for key in keep}
+					new_option_dict["nargs"] = "?" if new_option_dict["nargs"] == 0 else new_option_dict["nargs"]
+				
+					parser.add_argument(new_opt_string, help=argparse.SUPPRESS, **new_option_dict)
+
+	return(parser)
+
 #-------------------------------------------------------------------------------------------#
 #---------------------------------------- Misc ---------------------------------------------#
 #-------------------------------------------------------------------------------------------#
 
+def num(s):
+	try:
+		return int(s)
+	except ValueError:
+		return float(s)
 
 class Progress:
 	""" Class for writing out progress of processes such as multiprocessing """
@@ -316,11 +344,24 @@ class Progress:
 
 def flatten_list(lst):
 
-    for element in lst:
-        if isinstance(element, collections.Iterable) and not isinstance(element, (str, bytes)):
-            yield from flatten_list(element)
-        else:
-            yield element
+	for element in lst:
+		if isinstance(element, collections.Iterable) and not isinstance(element, (str, bytes)):
+			yield from flatten_list(element)
+		else:
+			yield element
+
+def expand_dirs(list_of_paths):
+	""" Expands a list of files and dirs to a list of all files within dirs """
+
+	all_files = []
+	for path in list_of_paths:
+		if os.path.isdir(path):
+			files = os.listdir(path)
+			all_files.extend([os.path.join(path, f) for f in files])
+		else:
+			all_files.append(path)
+
+	return(all_files)
 
 def check_files(lst_of_files, action="r"):
 

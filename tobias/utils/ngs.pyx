@@ -108,8 +108,8 @@ class ReadList(list):
 	def __init__(self, data_array=[]):
 		list.__init__(self, data_array)
 
-	def __getitem__(self, sliced):
-		return ReadList(self[sliced])
+	#def __getitem__(self, sliced):
+	#	return ReadList(self[sliced])
 
 	def from_bam(self, bam_obj, region):
 		try:

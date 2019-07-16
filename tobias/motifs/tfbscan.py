@@ -49,7 +49,7 @@ def add_tfbscan_arguments(parser):
 	optional_arguments.add_argument('--gc', metavar="", type=lambda x: restricted_float(x,0,1), help='Set the gc content for background regions (default: will be estimated from fasta)')
 	optional_arguments.add_argument('--pvalue', metavar="", type=lambda x: restricted_float(x,0,1), help='Set p-value for motif matches (default: 0.0001)', default=0.0001)
 	optional_arguments.add_argument('--keep-overlaps', action='store_true', help='Keep overlaps of same motifs (default: overlaps are resolved by keeping best-scoring site)')
-	optional_arguments.add_argument('--add-region-columns', action='store_true', help="Add extra information columns (from 4th column) from --regions to the output .bed-file(s) (default: off)")
+	optional_arguments.add_argument('--add-region-columns', action='store_true', help="Add extra information columns (starting from 4th column) from --regions to the output .bed-file(s) (default: off)")
 
 	RUN = parser.add_argument_group('Run arguments')
 	RUN.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
@@ -154,7 +154,6 @@ def run_tfbscan(args):
 	if args.outfile != None:
 		logger.output_files([args.outfile])
 
-
 	######## Read sequences from file and estimate background gc ########
 	
 	logger.info("Handling input files")
@@ -185,7 +184,6 @@ def run_tfbscan(args):
 		sys.exit()
 	logger.info("- Total of {0} regions (after splitting)".format(len(regions)))
 	
-
 	#Background gc
 	if args.gc == None:
 		logger.info("Estimating GC content from fasta (set --gc to skip this step)")
@@ -210,7 +208,6 @@ def run_tfbscan(args):
 	
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
-	#motif_names = [motif.prefix for motif in motif_list]
 
 	reverse_motifs = [motif.get_reverse() for motif in motif_list]
 	motif_list.extend(reverse_motifs)

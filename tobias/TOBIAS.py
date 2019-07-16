@@ -119,10 +119,15 @@ def main():
 
 			#Add version to subparser
 			subparser.add_argument("--version", action='version', version=TOBIAS_VERSION)
+			subparser = add_underscore_options(subparser)
 
 			#Add parser for old tool names
 			if "replaces" in info[tool]:
-				all_tool_parsers[info[tool]["replaces"].lower()] = subparser
+				replace_tool = info[tool]["replaces"]
+				subparser = subparsers.add_parser(replace_tool, usage=SUPPRESS)
+				subparser = info[tool]["add_arguments"](subparser)
+				subparser.set_defaults(func=info[tool]["function"])
+				all_tool_parsers[replace_tool.lower()] = subparser
 
 		parser.description += "\n"
 

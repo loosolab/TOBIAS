@@ -1,4 +1,36 @@
-## 0.4.0 (2019-04-26)
+## 0.6.3 (2019-07-16)
+- Increased size of texts in BINDetect volcano plot and moved label into plot
+
+## 0.6.2 (2019-06-19)
+- Added --skip-excel option to skip excel overview per factor in BINDetect (can slow the run considerably for large output)
+- Internal changes to BINDetect for better debug overview
+- Fixed normalization for plotAggregate
+
+## 0.6.1 (2019-06-05)
+- Fixed motif cluster names to prefix C_
+- Added --filter function to format_motifs to filter output motifs using names/ids
+
+## 0.6.0 (2019-05-29)
+- Added option to flip axes in PlotAggregate via "--signal-on-x"
+- Changed all command-line arguments containing "_" to "-" (e.g. --regions_in to --regions-in) (but retaining both options internally)
+
+## 0.5.3 (2019-05-28)
+- Improved error messaging from file writers in bindetect
+
+## 0.5.2 (2019-05-16)
+- Bugfix for reading meme format files in MotifList().from_file()
+
+## 0.5.1 (2019-05-15)
+- Internal changes to OneMotif and MotifList classes
+- Bindetect now takes directories/file(s) as input for --motifs
+
+## 0.5.0 (2019-05-02)
+- Added sum/mean/none scoring to ScoreBigwig as well as the option to get --absolute of input signal
+
+## 0.4.1 (2019-04-29)
+- Fixed weird "can't pickle SwigPyObject objects"-error in bindetect
+
+## 0.4.0 (2019-04-29)
 - Added --add_region_columns to TFBScan
 - Renamed FootprintScores to ScoreBigwig
 - Added normalization of input score distributions in BINDetect

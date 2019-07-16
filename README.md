@@ -2,6 +2,7 @@ TOBIAS - Transcription factor Occupancy prediction By Investigation of ATAC-seq 
 =======================================
 
 [![PyPI Version](https://img.shields.io/pypi/v/tobias.svg?style=plastic)](https://pypi.org/project/tobias/)
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](http://bioconda.github.io/recipes/tobias/README.html)
 
 Introduction 
 ------------
@@ -113,6 +114,11 @@ Split a motif file containing several motifs:
 $ TOBIAS FormatMotifs --input test_data/example_motifs.txt --format pfm --task split --output split_motifs
 ```
 
+Filter a larger motif file using TF names:
+```
+$ echo 'MAFK CTCF JUNB' > TF_names.txt
+$ FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt --filter TF_names.txt
+```
 
 Snakemake pipeline
 ------------

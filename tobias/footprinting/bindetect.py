@@ -69,17 +69,18 @@ def add_bindetect_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('--signals', metavar="<bigwig>", help="Signal per condition (.bigwig format)", nargs="*")
 	required.add_argument('--peaks', metavar="<bed>", help="Peaks.bed containing open chromatin regions across all conditions")
-	required.add_argument('--motifs', metavar="<motifs>", help="Motifs in pfm/jaspar format")
+	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar format", nargs="*")
 	required.add_argument('--genome', metavar="<fasta>", help="Genome .fasta file")
 
 	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--cond_names', metavar="<name>", nargs="*", help="Names of conditions fitting to --signals (default: prefix of --signals)")
-	optargs.add_argument('--peak_header', metavar="<file>", help="File containing the header of --peaks separated by whitespace or newlines (default: peak columns are named \"_additional_<count>\")")
+	optargs.add_argument('--cond-names', metavar="<name>", nargs="*", help="Names of conditions fitting to --signals (default: prefix of --signals)")
+	optargs.add_argument('--peak-header', metavar="<file>", help="File containing the header of --peaks separated by whitespace or newlines (default: peak columns are named \"_additional_<count>\")")
 	#optargs.add_argument('--naming', metavar="<type>", help="Naming convention for TFs ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
-	optargs.add_argument('--motif_pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for motif scanning (default: 1e-4)", default=0.0001)
-	optargs.add_argument('--bound_pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for bound/unbound split (default: 0.001)", default=0.001)
+	optargs.add_argument('--motif-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for motif scanning (default: 1e-4)", default=0.0001)
+	optargs.add_argument('--bound-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for bound/unbound split (default: 0.001)", default=0.001)
 	optargs.add_argument('--pseudo', type=float, metavar="<float>", help="Pseudocount for calculating log2fcs (default: estimated from data)", default=None)
-	optargs.add_argument('--time_series', action='store_true', help="Will only compare signals1<->signals2<->signals3 (...) in order of input, and skip all-against-all comparison.")
+	optargs.add_argument('--time-series', action='store_true', help="Will only compare signals1<->signals2<->signals3 (...) in order of input, and skip all-against-all comparison.")
+	optargs.add_argument('--skip-excel', action='store_true', help="Skip creation of excel files - for large datasets, this will speed up BINDetect considerably")
 
 	runargs = parser.add_argument_group("Run arguments")
 	runargs.add_argument('--outdir', metavar="<directory>", help="Output directory to place TFBS/plots in (default: bindetect_output)", default="bindetect_output")
@@ -190,7 +191,6 @@ def run_bindetect(args):
 	figure_pdf.savefig(bbox_inches='tight')
 	plt.close()
 
-
 	################# Peaks / GC in peaks ################
 	#Read peak and peak_header
 	peaks = RegionList().from_bed(args.peaks)
@@ -204,6 +204,9 @@ def run_bindetect(args):
 		
 	peak_chroms = peaks.get_chroms()
 	peak_columns = len(peaks[0]) #number of columns
+
+	if args.debug:
+		peaks = RegionList(peaks[:1000])
 
 	#Header
 	if args.peak_header != None:
@@ -237,16 +240,15 @@ def run_bindetect(args):
 	bg = np.array([(1-args.gc)/2.0, args.gc/2.0, args.gc/2.0, (1-args.gc)/2.0])
 	logger.info("- GC content estimated at {0:.2f}%".format(gc_content*100))
 
-
 	################ Get motifs ################
 	logger.info("Reading motifs from file") 
-
-	motif_content = open(args.motifs).read()
-	converted_content = convert_motif(motif_content, "pfm")
-	motif_list = pfm_to_motifs(converted_content) 			#List of OneMotif objects
+	motif_list = MotifList()
+	args.motifs = expand_dirs(args.motifs)
+	for f in args.motifs:
+		motif_list += MotifList().from_file(f)  #List of OneMotif objects
 	no_pfms = len(motif_list)
+	logger.info("- Read {0} motifs".format(no_pfms))
 
-	logger.info("- Found {0} motifs in file".format(no_pfms))
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
 
@@ -328,7 +330,7 @@ def run_bindetect(args):
 		results = [task.get() for task in task_list]
 	
 	logger.info("Done scanning for TFBS across regions!")
-	logger.stop_logger_queue()	#stop the listening process (wait until all was written)
+	#logger.stop_logger_queue()	#stop the listening process (wait until all was written)
 	
 	#--------------------------------------#
 	logger.info("Waiting for bedfiles to write")
@@ -519,7 +521,7 @@ def run_bindetect(args):
 	cols = len(info_columns)
 	rows = len(motif_names)
 	info_table = pd.DataFrame(np.zeros((rows, cols)), columns=info_columns, index=motif_names)
-	
+
 	#Starting calculations
 	results = []
 	if args.cores == 1:
@@ -527,7 +529,9 @@ def run_bindetect(args):
 			logger.info("- {0}".format(name))
 			results.append(process_tfbs(name, args, log2fc_params))
 	else:
-		task_list = [pool.apply_async(process_tfbs, (name, args, log2fc_params)) for name in motif_names]
+		logger.debug("Sending jobs to worker pool")
+
+		task_list = [pool.apply_async(process_tfbs, (name, args, log2fc_params, )) for name in motif_names]
 		monitor_progress(task_list, logger) 	#will not exit before all jobs are done
 		results = [task.get() for task in task_list]
 
@@ -536,6 +540,8 @@ def run_bindetect(args):
 
 	pool.terminate()
 	pool.join()
+	
+	logger.stop_logger_queue()
 	
 	#-------------------------------------------------------------------------------------------------------------#	
 	#------------------------------------------------ Cluster TFBS -----------------------------------------------#	
@@ -603,7 +609,6 @@ def run_bindetect(args):
 		n_rows = worksheet.dim_rowmax
 		n_cols = worksheet.dim_colmax
 		worksheet.autofilter(0,0,n_rows,n_cols)
-
 	writer.save()
 
 	#Format comparisons
@@ -632,7 +637,7 @@ def run_bindetect(args):
 			base = cond1 + "_" + cond2
 
 			#Make copy of motifs and fill in with metadata
-			comparison_motifs = copy.deepcopy(motif_list)
+			comparison_motifs = motif_list 	#copy.deepcopy(motif_list) - swig pickle error, just overwrite motif_list
 			for motif in comparison_motifs:
 				name = motif.prefix
 				motif.change = float(info_table.at[name, base + "_change"])

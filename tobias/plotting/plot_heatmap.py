@@ -45,16 +45,16 @@ def add_heatmap_arguments(parser):
 	IO.add_argument('--output',  metavar="", help="Output filename (default: TOBIAS_heatmap.pdf)", default="TOBIAS_heatmap.pdf")
 
 	PLOT = parser.add_argument_group('Plot arguments')
-	PLOT.add_argument('--plot_boundaries', help="Plot TFBS boundaries", action='store_true')
-	PLOT.add_argument('--share_colorbar', help="Share colorbar across all bigwigs (default: estimate colorbar per bigwig)", action='store_true')
+	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries", action='store_true')
+	PLOT.add_argument('--share-colorbar', help="Share colorbar across all bigwigs (default: estimate colorbar per bigwig)", action='store_true')
 	PLOT.add_argument('--flank', metavar="", help="", type=int, default=75)
 	
 	PLOT.add_argument('--title', metavar="", default="TOBIAS heatmap")
-	PLOT.add_argument('--TFBS_labels', metavar="", nargs="*", action='append', help="Labels of TFBS (default: basename of --TFBS)")
-	PLOT.add_argument('--signal_labels', metavar="", nargs="*", help="Labels of signals (default: basename of --signals)")
+	PLOT.add_argument('--TFBS-labels', metavar="", nargs="*", action='append', help="Labels of TFBS (default: basename of --TFBS)")
+	PLOT.add_argument('--signal-labels', metavar="", nargs="*", help="Labels of signals (default: basename of --signals)")
 
-	PLOT.add_argument('--show_columns', nargs="*", metavar="", type=int, help="Show scores from TFBS column besides heatmap. Set to 0-based python coordinates (for example -1 for last column) (default: None)", default=[])
-	PLOT.add_argument('--sort_by', metavar="", help="Columns in .bed to sort heatmap by (default: input .beds are not sorted)", type=int)
+	PLOT.add_argument('--show-columns', nargs="*", metavar="", type=int, help="Show scores from TFBS column besides heatmap. Set to 0-based python coordinates (for example -1 for last column) (default: None)", default=[])
+	PLOT.add_argument('--sort-by', metavar="", help="Columns in .bed to sort heatmap by (default: input .beds are not sorted)", type=int)
 
 	RUN = parser.add_argument_group('Run arguments')
 	RUN = add_logger_args(RUN)

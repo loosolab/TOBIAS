@@ -52,11 +52,12 @@ setup(name='tobias',
 		version=find_version(os.path.join(setupdir, "tobias", "__init__.py")),	#get version from __init__.py
 		description='Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal',
 		long_description=readme(),
+		long_description_content_type='text/markdown',
 		url='https://github.molgen.mpg.de/loosolab/TOBIAS',
 		author='Mette Bentsen',
 		author_email='mette.bentsen@mpi-bn.mpg.de',
 		license='MIT',
-		packages=find_packages(), #"tobias"), #['tobias', 'tobias.footprinting', 'tobias.plotting', 'tobias.motifs', 'tobias.misc', 'tobias.utils'],
+		packages=find_packages(),
 		entry_points={
 			'console_scripts': ['TOBIAS=tobias.TOBIAS:main']
 		},
@@ -77,6 +78,7 @@ setup(name='tobias',
 			'pyBigWig',
 			'MOODS-python',
 		],
+		scripts=["tobias/utils/filter_important_factors.py"],
 		classifiers=[
 			'License :: OSI Approved :: MIT License',
 			'Intended Audience :: Science/Research',
