@@ -38,16 +38,16 @@ def add_network_arguments(parser):
 	
 	#Required arguments
 	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--TFBS', metavar="", help="TFBS folder from bindetect")
-	required.add_argument('--origin', metavar="", help="File of origins of TF to genes")
+	required.add_argument('--TFBS', metavar="", help="File(s) containing TFBS to create network from")
+	required.add_argument('--origin', metavar="", help="File containing gene origins of TF <-> gene")
 
 	#Optional arguments
 	optional = parser.add_argument_group('Optional arguments')
-	required.add_argument('--subset', metavar="", help="File containing subset of names to filter on")
-	optional.add_argument('--TFBS_columns', metavar="", nargs="*", help="Donor -> recipient columns", default=["TFBS_name", "gene_id"])
-	optional.add_argument('--origin_columns', metavar="", nargs="*", help="Name, id", default=["TOBIAS_motif_name", "ensembl_gene_id"])
+	optional.add_argument('--subset', metavar="", help="File containing subset of names to filter on")
+	optional.add_argument('--TFBS_columns', metavar="", nargs="*", help="Source TF -> target gene columns", default=["TFBS_name", "gene_id"])
+	optional.add_argument('--origin_columns', metavar="", nargs="*", help="Source TF, source gene", default=["TOBIAS_motif_id", "ensembl_gene_id"])
 
-	optional.add_argument('--expression', metavar="", help="Expression of each gene per timepoint")
+	#optional.add_argument('--additional', metavar="", help="Additional information on genes to add; for example RNA-seq")
 	optional.add_argument('--output', metavar="", help="Path to output directory (default: tobias_network)", default="tobias_network") 
 
 	return(parser)
@@ -91,27 +91,26 @@ def dfs(adjacency, path, timeline, all_paths = {"paths":[], "timelines":[]}):
 def run_network(args):
 
 	make_directory(args.output)
-
+	check_required(args, ["TFBS", "origin"])
 
 	#-------------------------- Origin file translating motif name -> gene origin -----------------------------------#
 	#translation file, where one motif can constitute more than one gene (jun::fos) 
 	#and more genes can encode transcription factors with same motifs (close family members with same target sequence)
 	origin_table = pd.read_csv(args.origin, sep="\t")
-	origin_table = origin_table[args.origin_columns]
+	#origin_table = origin_table[args.origin_columns]
 	
+	print(origin_table)
+
 	TFBS_donor, TFBS_recipient = args.TFBS_columns
 	origin_name, origin_gene = args.origin_columns
 
-	id2name = {gene_id: names_list for gene_id, names_list in origin_table.groupby(origin_gene)[origin_name].apply(list).iteritems()}
+	#id2name = {gene_id: names_list for gene_id, names_list in origin_table.groupby(origin_gene)[origin_name].apply(list).iteritems()}
 	
-	TFBS_donor, TFBS_recipient = args.TFBS_columns
-	origin_name, origin_gene = args.origin_columns
-
-
 	#---------------------------------------------- BINDetect results --------------------------------------------#
 
 	#Get all overview files from TFBS dir
 	print("Getting files from {0}".format(args.TFBS))
+	TF_folders = list(os.walk(args.TFBS))[0][1]													#list of folder names = TF names
 	overview_files = [f for f in glob.glob(args.TFBS + "/*/*_overview.txt")]
 	print("- Found results from {0} motifs".format(len(overview_files)))
 
@@ -125,11 +124,15 @@ def run_network(args):
 		print("Subset to {0} files".format(len(overview_files)))
 
 	#Read all edges to table
+	#find donor col in origin_table
+	#origin_name_col = 
 	#todo: read in parallel
+	#print(overview_files)
+
 	print("Reading all overview tables")
 	dataframes = []
-	for fil in overview_files[:40]:
-		print(fil)
+	for fil in overview_files[:30]:
+		print("- {0}".format(fil))
 
 		df = pd.read_csv(fil, sep="\t")
 
@@ -167,8 +170,8 @@ def run_network(args):
 		df["donor_bound_in"] = df[condition_names].apply(lambda x: ",".join(x.index[x == 1]), axis=1)
 
 		#Select columns
-		selected = ["TFBS_chr", "TFBS_start", "TFBS_end", "donor_name", "donor_id", "recipient_name", "recipient_id", "donor_bound_in"]
-		df = df[selected]
+		#selected = ["TFBS_chr", "TFBS_start", "TFBS_end", "donor_name", "donor_id", "recipient_name", "recipient_id", "donor_bound_in"]
+		#df = df[selected]
 
 		#Add to list
 		dataframes.append(df)
@@ -179,7 +182,7 @@ def run_network(args):
 
 
 	#------------------------------------- Expression info to subset edges -----------------------------------#
-
+	"""
 	print("Reading expression data")
 	#Read expression values
 	expression_threshold = 50
@@ -202,23 +205,37 @@ def run_network(args):
 
 	#expression_table = "" 		#rows, cols, values > expression_threshold
 	expression_dict = expression_table.to_dict()
+	"""
 
 	#--------------------------------------------#
+
+
+
+	all_source_names = set(sites["donor_name"])
+	print(all_source_names)
+
+	print(sites.shape[0])
+
+	sites = sites[(sites["recipient_name"].isin(all_source_names))]
+	print(sites.shape[0])
+
+	#--------------------------------------------#
+
 
 	print(condition_names)
 	conditions = condition_names
 
 	#Subset edges on those where donor_bound in is part of recipient_expressed_in
 	sites["donor_bound_in"] = sites["donor_bound_in"].apply(lambda x: x.split(","))
-	sites["recipient_expressed_in"] = sites["recipient_expressed_in"].apply(lambda x: x.split(","))
+	#sites["recipient_expressed_in"] = sites["recipient_expressed_in"].apply(lambda x: x.split(","))
 
 	#Expand the bound_in columns
 	exploded = sites["donor_bound_in"].apply(pd.Series).stack().reset_index().rename(columns={0:"donor_bound_in_exploded"})
 	sites = pd.merge(sites, exploded, left_index=True, right_on="level_0", how="left").drop(columns=["level_0", "level_1", "donor_bound_in"]).rename(columns={"donor_bound_in_exploded":"donor_bound_in"})
 
-	print(sites.shape[0])
-	sites = sites[sites.apply(lambda x: x["donor_bound_in"] in x["recipient_expressed_in"], axis=1)]
-	print(sites.shape[0])
+	#print(sites.shape[0])
+	#sites = sites[sites.apply(lambda x: x["donor_bound_in"] in x["recipient_expressed_in"], axis=1)]
+	#print(sites.shape[0])
 	#print(sites)
 	
 	##### Write out edges
