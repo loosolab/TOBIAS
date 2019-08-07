@@ -235,10 +235,13 @@ def run_atacorrect(args):
 		output_regions = RegionList().from_bed(args.regions_out)
 	else:
 		output_regions = deepcopy(peak_regions)
-	
-	output_regions.apply_method(OneRegion.extend_reg, args.extend)
+
+	#Extend regions to make sure extend + flanking for window/flank are within boundaries
+	flank_extend = args.k_flank + int(args.window/2.0)
+	output_regions.apply_method(OneRegion.extend_reg, args.extend + flank_extend)
 	output_regions.merge()	
 	output_regions.apply_method(OneRegion.check_boundary, bam_chrom_info, "cut")
+	output_regions.apply_method(OneRegion.extend_reg, -flank_extend)	#Cut to needed size knowing that the region will be extended in function
 
 	#Remove blacklisted regions and chromosomes not in common
 	blacklist_regions = RegionList().from_bed(args.blacklist) if args.blacklist != None else RegionList([])	 #fill in with regions from args.blacklist

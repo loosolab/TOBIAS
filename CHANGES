@@ -1,3 +1,6 @@
+## 0.6.4 (2019-08-07)
+- Bug fix for error with regions very close to chromosome borders for ATACorrect and ScoreBigwig. 
+
 ## 0.6.3 (2019-07-16)
 - Increased size of texts in BINDetect volcano plot and moved label into plot
 
