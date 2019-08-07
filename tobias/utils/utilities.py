@@ -168,6 +168,7 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 					if i_to_write[akey] != no_regions - 1:
 						logger.error("Wrote {0} regions but there are {1} in total".format(i_to_write[akey], len(region_tups)))
 						logger.error("Ready_to_write[{0}]: {1}".format(akey, len(ready_to_write[akey])))
+						sys.exit()
 				break
 
 			#Save key:region:signal to ready_to_write

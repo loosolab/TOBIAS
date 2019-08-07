@@ -194,7 +194,7 @@ def bias_correction(regions_list, params, bias_obj):
 	for region_obj in regions_list:
 
 		region_obj.extend_reg(f_extend)
-		region_obj.check_boundary(chrom_lengths, "cut")
+		#region_obj.check_boundary(chrom_lengths, "cut")	#moved to outside of function
 		reg_len = region_obj.get_length()	#length including flanking
 		reg_key = (region_obj.chrom, region_obj.start+f_extend, region_obj.end-f_extend)	#output region
 		out_signals[reg_key] = {"uncorrected":{}, "bias":{}, "expected":{}, "corrected":{}}

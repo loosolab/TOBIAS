@@ -139,6 +139,9 @@ class OneRegion(list):
 		else:
 			exit("Error in regions.check_boundary: unknown action")
 
+		self[1] = self.start
+		self[2] = self.end
+
 		return(self)
 
 	def get_signal(self, pybw, numpy_bool = True):

@@ -74,6 +74,8 @@ def add_scorebigwig_arguments(parser):
 #------------------------------------------------------------------#
 def calculate_scores(regions, args):
 
+	logger = TobiasLogger("", args.verbosity, args.log_q)
+
 	pybw_signal = pyBigWig.open(args.signal) 	#cutsites signal
 	pybw_header = pybw_signal.chroms()			
 	chrom_lengths = {chrom:int(pybw_header[chrom]) for chrom in pybw_header}
@@ -83,6 +85,8 @@ def calculate_scores(regions, args):
 
 	#Go through each region
 	for i, region in enumerate(regions):
+
+		logger.debug("Calculating scores for region: {0}".format(region))
 
 		#Extend region with necessary flank
 		region.extend_reg(flank)
@@ -168,6 +172,7 @@ def run_scorebigwig(args):
 	pybw_signal = pyBigWig.open(args.signal)
 	pybw_header = pybw_signal.chroms()
 	chrom_info = {chrom:int(pybw_header[chrom]) for chrom in pybw_header}
+	logger.debug("Chromosome lengths from input bigwig: {0}".format(chrom_info))
 
 	#Decide regions 
 	logger.info("- Getting output regions ready")
@@ -175,7 +180,8 @@ def run_scorebigwig(args):
 		regions = RegionList().from_bed(args.regions)
 		regions.apply_method(OneRegion.extend_reg, args.extend)
 		regions.merge()
-		regions.apply_method(OneRegion.check_boundary, chrom_info)
+		regions.apply_method(OneRegion.check_boundary, chrom_info, "cut")
+
 	else:
 		regions = RegionList().from_list([OneRegion([chrom, 0, chrom_info[chrom]]) for chrom in chrom_info])	
 
@@ -190,9 +196,8 @@ def run_scorebigwig(args):
 	#Go through each region
 	for i, region in enumerate(regions):
 		region.extend_reg(args.region_flank)
-		region.check_boundary(chrom_info, "cut")	
-		region.start = region.start + args.region_flank
-		region.end = region.end - args.region_flank
+		region = region.check_boundary(chrom_info, "cut")
+		region.extend_reg(-args.region_flank)
 
 	#Information for output bigwig
 	reference_chroms = sorted(list(chrom_info.keys()))
