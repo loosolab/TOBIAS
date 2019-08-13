@@ -1,3 +1,6 @@
+## 0.7.0 (2019-08-13)
+- Updated the way p-values are calculated in BINDetect. Included 100-fold subsampling of background to estimate confidence interval.
+
 ## 0.6.4 (2019-08-07)
 - Bug fix for error with regions very close to chromosome borders for ATACorrect and ScoreBigwig. 
 

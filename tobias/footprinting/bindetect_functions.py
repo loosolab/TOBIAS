@@ -393,6 +393,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		obs_mean, obs_std = obs_params
 		bg_mean, bg_std = bg_params
 		obs_no = np.min([len(observed_log2fcs), 50000])		#Set cap on obs_no to prevent super small p-values
+		n_obs = len(observed_log2fcs)
 
 		#If there was any change found at all (0 can happen if two bigwigs are the same)
 		if obs_mean != bg_mean: 
@@ -400,16 +401,27 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			info_table.at[TF_name, base + "_change"] = np.round(info_table.at[TF_name, base + "_change"], 5)
 		
 			#pval = scipy.stats.mannwhitneyu(observed_log2fcs, bg_log2fcs, alternative="two-sided")[1]
-			pval = scipy.stats.ttest_ind_from_stats(obs_mean, obs_std, obs_no, bg_mean, bg_std, obs_no, equal_var=False)[1] 	#pvalue is second in tup
-			info_table.at[TF_name, base + "_pvalue"] = pval
+			#pval = scipy.stats.ttest_ind_from_stats(obs_mean, obs_std, obs_no, bg_mean, bg_std, obs_no, equal_var=False)[1] 	#pvalue is second in tup
+			#info_table.at[TF_name, base + "_pvalue"] = pval
 		
 		#Else not possible to compare groups
 		else:
 			info_table.at[TF_name, base + "_change"] = 0
 			info_table.at[TF_name, base + "_pvalue"] = 1
 
-		#stime_plot = datetime.now()
+		#Sample from background distribution
+		np.random.seed(n_obs)
+		sample_changes = []
+		for i in range(100):
+			sample = scipy.stats.norm.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
+			sample_mean, sample_std = np.mean(sample), np.std(sample)
+			sample_change = (sample_mean - bg_mean) / np.mean([sample_std, bg_std])
+			sample_changes.append(sample_change)
 
+		#Estimate p-value by comparing sampling to observed mean
+		ttest = scipy.stats.ttest_1samp(sample_changes, info_table.at[TF_name, base + "_change"])
+		info_table.at[TF_name, base + "_pvalue"] = ttest[1]
+		
 		#### Plot comparison ###
 		fig, ax = plt.subplots(1,1)
 		ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
@@ -616,7 +628,7 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 		ax1.scatter(coord[0], coord[1], color=diff_scores[TF]["color"], s=4.5)
 
 		if diff_scores[TF]["show"] == True:
-			txts.append(ax1.text(coord[0], coord[1], diff_scores[TF]["volcano_label"], fontsize=8))
+			txts.append(ax1.text(coord[0], coord[1], diff_scores[TF]["volcano_label"], fontsize=9))
 
 	#Plot custom legend for colors
 	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="Higher scores in {0}".format(conditions[0])),
