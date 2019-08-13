@@ -25,7 +25,6 @@ import sklearn
 from sklearn import mixture
 import scipy
 from scipy.optimize import curve_fit
-import statsmodels.stats.multitest as multitest
 
 #Plotting
 import matplotlib.pyplot as plt
