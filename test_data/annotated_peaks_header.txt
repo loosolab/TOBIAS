@@ -1,13 +1,1 @@
-peak_chr
-peak_start
-peak_end
-peak_id
-feature
-feat_start
-feat_end
-feat_strand
-feat_anchor
-distance
-gene_biotype
-gene_id
-gene_name
+peak_chr	peak_start	peak_end	peak_id	feature	feat_start	feat_end	feat_strand	feat_anchor	distance	relative_location	gene_biotype	gene_id	gene_name	name
