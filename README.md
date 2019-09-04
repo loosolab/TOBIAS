@@ -18,7 +18,7 @@ ATAC-seq (Assay for Transposase-Accessible Chromatin using high-throughput seque
 - Estimation of bound/unbound transcription factor binding sites
 - Visualization of footprints within and across different conditions
 
-For information on each tool, please see the [wiki](https://github.molgen.mpg.de/loosolab/TOBIAS/wiki/).
+For information on each tool, please see the [wiki](https://github.com/loosolab/TOBIAS/wiki/).
 
 Installation
 ------------
@@ -29,11 +29,11 @@ pip install tobias
 
 or directly from github using:
 ```bash
-$ git clone https://github.molgen.mpg.de/loosolab/TOBIAS
+$ git clone https://github.com/loosolab/TOBIAS
 $ cd TOBIAS
 $ python setup.py install
 ```
-Please see the [installation](https://github.molgen.mpg.de/loosolab/TOBIAS/wiki/installation) page for more info.
+Please see the [installation](https://github.com/loosolab/TOBIAS/wiki/installation) page for more info.
 
 Usage
 ------------
@@ -64,7 +64,7 @@ Output files:
 Command-line examples
 -------------
 
-These examples use the test data provided in the [TOBIAS/test_data](https://github.molgen.mpg.de/loosolab/TOBIAS/tree/master/test_data) directory, so please make sure you are in the upper TOBIAS/ directory when running the commands.
+These examples use the test data provided in the [TOBIAS/test_data](https://github.com/loosolab/TOBIAS/tree/master/test_data) directory, so please make sure you are in the upper TOBIAS/ directory when running the commands.
 
 **ATACorrect: Bias correction of ATAC-seq reads in open chromatin**     
 ```
@@ -123,7 +123,7 @@ $ FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt
 Snakemake pipeline
 ------------
 
-You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
+You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.com/loosolab/TOBIAS_snakemake).
 
 License
 ------------
