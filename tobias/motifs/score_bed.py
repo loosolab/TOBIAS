@@ -47,7 +47,7 @@ def add_scorebed_arguments(parser):
 	
 	#Optional arguments
 	optional = parser.add_argument_group('Optional arguments')
-	optional.add_argument('--output', metavar="", help="Path to output .bed-file (default: scored sites are written to stdout") 
+	optional.add_argument('--output', metavar="", help="Path to output .bed-file (default: scored sites are written to stdout)") 
 	optional.add_argument('--subset', metavar="", help="Subset scoring to .bed regions and set all other sites to --null value (default: all sites in input file will be scored)")
 	optional.add_argument('--null', metavar="", help="If --subset is given, which score/label to add to non-scored regions (default: 0)", default="0", type=float)
 	optional.add_argument('--position', metavar="", help="Position in sites to score (start/mid/end/full) (default: full)", choices=["mid", "start", "end", "full"], default="full")
@@ -132,6 +132,10 @@ def run_scorebed(args):
 
 	pybw = {bigwig_f: pyBigWig.open(bigwig_f) for bigwig_f in args.bigwigs}		#open filehandles for all bigwigs
 
+	#Get chrom/start/stop from pybw objects
+	pybw_headers = {bigwig_f: pybw[bigwig_f].chroms() for bigwig_f in pybw}
+	logger.debug(pybw_headers)
+
 	logger.info("Starting scoring...")
 	#buff = [""]*args.buffer
 	#buff_idx = 0
@@ -148,14 +152,22 @@ def run_scorebed(args):
 			if overlap != 0: 
 				for bigwig_f in args.bigwigs:	#preserves order of bigwigs
 					
-					signal = pybw[bigwig_f].values(chrom, start, end, numpy=True)
+					if chrom in pybw_headers[bigwig_f]:	#only get score if chromosome is in bigwig; to prevent error from pybigwig.values
+						try:
+							signal = pybw[bigwig_f].values(chrom, start, end, numpy=True)
+						except:
+							logger.error("Error reading signal for site: {0}".format(line))
+							sys.exit()
 
-					if len(signal) > 0:
-						signal = np.nan_to_num(signal)
-						score = round(score_func(signal), 5)
+						if len(signal) > 0:
+							signal = np.nan_to_num(signal)
+							score = round(score_func(signal), 5)
+						else:
+							score = args.null
 					else:
 						score = args.null
-										
+
+					#Format line with score
 					outline += "\t" + "{0:.5f}".format(score)
 			else:
 				outline += "\t" + "\t".join([args.null]*no_bigwigs) 

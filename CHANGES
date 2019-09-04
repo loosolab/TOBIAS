@@ -1,3 +1,7 @@
+## 0.8.0 (2019-09-04)
+- Added CreateNetwork to tools
+- Smaller bugfixes
+
 ## 0.7.0 (2019-08-13)
 - Updated the way p-values are calculated in BINDetect. Included 100-fold subsampling of background to estimate confidence interval.
 

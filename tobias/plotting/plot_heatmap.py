@@ -139,7 +139,7 @@ def run_heatmap(args):
 			#Estimate region width
 			distri = heatmap_info[col][row]["regions"].get_width_distri()
 			if len(distri) > 1:
-				sys.exit(distri)
+				logger.warning("Input regions have differing lengths: {0}".format(distri))
 			
 			heatmap_info[col][row]["width"] = list(distri.keys())[0]
 
