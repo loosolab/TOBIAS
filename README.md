@@ -123,7 +123,7 @@ $ FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt
 Snakemake pipeline
 ------------
 
-You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.com/loosolab/TOBIAS_snakemake).
+You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
 
 License
 ------------
