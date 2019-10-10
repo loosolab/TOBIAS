@@ -125,6 +125,18 @@ Snakemake pipeline
 
 You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
 
+Nextflow pipeline
+------------
+
+You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow can be found [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
+
+de.NBI cloud aware pipeline
+------------
+
+We also provide the TOBIAS nextflow pipeline for a cloud computing environment. There is one version utilising a kubertetes framework and a second one utilizing a webbased job scheduler, started automatically from within a local TOBIAS run, making use of the de.NBI cloud [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
+
+
+
 License
 ------------
 This project is licensed under the [MIT license](LICENSE). 
