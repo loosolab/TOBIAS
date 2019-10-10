@@ -130,10 +130,10 @@ Nextflow pipeline
 
 You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow can be found [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
 
-de.NBI cloud aware pipeline
+kubernetes/de.NBI cloud aware pipeline
 ------------
 
-We also provide the TOBIAS nextflow pipeline for a cloud computing environment. There is one version utilising a kubernetes framework, and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
+We also provide the TOBIAS nextflow pipeline for a cloud computing environment. There is one version utilising a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_S3), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_NGINX).
 
 
 
