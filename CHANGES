@@ -1,4 +1,4 @@
-## 0.9.0 (2019-10-25)
+## 0.9.0 (2019-11-21)
 - Added PlotTracks to tools
 - Fixed smaller bug with flank estimation in footprint calculation
 - Fixed rescale to original sum in ATACorrect
