@@ -103,6 +103,11 @@ $ TOBIAS PlotAggregate --TFBS test_data/IRF1_all.bed test_data/IRF1_bound.bed te
 $ TOBIAS PlotHeatmap --TFBS test_data/BATFJUN_Bcell_bound.bed test_data/BATFJUN_Bcell_unbound.bed --TFBS test_data/BATFJUN_Tcell_bound.bed test_data/BATFJUN_Tcell_unbound.bed --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_heatmap.pdf --signal_labels Bcell Tcell --share_colorbar
 ```
 
+**PlotTracks: Plot IGV-style genomic signals such as cutsites and footprints across a selection of regions**
+```
+$ TOBIAS PlotTracks --bigwigs test_data/*_corrected.bw --bigwigs test_data/*_footprints.bw --regions test_data/plot_regions.bed --sites test_data/binding_sites.bed --highlight test_data/binding_sites.bed --gtf test_data/transcripts_chr4.gtf --colors red darkblue red darkblue
+```
+
 **FormatMotifs: A utility to convert and join/split across different motif-file formats**    
 Join individual motif files to one:    
 ```

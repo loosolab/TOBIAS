@@ -35,6 +35,7 @@ from tobias.footprinting.bindetect import *
 from tobias.plotting.plot_aggregate import *
 from tobias.plotting.plot_heatmap import *
 from tobias.plotting.plot_changes import *
+from tobias.plotting.plot_tracks import *
 
 from tobias.motifs.tfbscan import * 
 from tobias.motifs.format_motifs import * 
@@ -72,7 +73,8 @@ def main():
 							{
 							"PlotAggregate": {"help": "Aggregate of .bigwig-signal across TF binding sites", "add_arguments": add_aggregate_arguments, "function": run_aggregate, "space":"\t"},
 							"PlotHeatmap": {"help": "Heatmap of .bigwig-signal across TF binding sites", "add_arguments": add_heatmap_arguments, "function": run_heatmap},
-							"PlotChanges": {"help": "Plot changes in TF binding across multiple conditions (from BINDetect output)", "add_arguments": add_plotchanges_arguments, "function": run_plotchanges}
+							"PlotChanges": {"help": "Plot changes in TF binding across multiple conditions (from BINDetect output)", "add_arguments": add_plotchanges_arguments, "function": run_plotchanges},
+							"PlotTracks": {"help": "Plot genomic tracks using the svist4get package", "add_arguments": add_tracks_arguments, "function": run_tracks}
 							},
 
 						"Miscellaneous tools":

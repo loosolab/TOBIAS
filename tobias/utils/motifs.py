@@ -491,7 +491,7 @@ def pfm_to_motifs(content):
 
 			#Read name for this motif
 			columns = line.replace(">", "").rstrip().split()
-			motifid, alt_name = columns[0], columns[1]
+			motifid, alt_name = (columns[0], columns[1]) if len(columns) > 1 else (columns[0], columns[0])	#Some jaspar formats do not have alternate names
 			
 			motif_obj = OneMotif(motifid, alt_name, [])		#pfm is set to empty list
 

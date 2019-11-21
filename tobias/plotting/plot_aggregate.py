@@ -32,11 +32,6 @@ from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.logger import *
 
-#Force numpy to run single threaded
-
-
-
-
 def add_aggregate_arguments(parser):
 
 	#---------------- Parse arguments ---------------#
@@ -47,28 +42,28 @@ def add_aggregate_arguments(parser):
 	parser._action_groups.pop()	#pop -h
 
 	IO = parser.add_argument_group('Input / output arguments')
-	IO.add_argument('--TFBS', metavar="", nargs="*", help="TFBS sites (*required)")
-	IO.add_argument('--signals', metavar="", nargs="*", help="Signals in bigwig format (*required)")
-	IO.add_argument('--regions', metavar="", nargs="*", help="Regions to overlap with TFBS", default=[])
-	IO.add_argument('--whitelist', metavar="", nargs="*", help="Only plot sites within whitelist (.bed)", default=[])
-	IO.add_argument('--blacklist', metavar="", nargs="*", help="Exclude sites within blacklist (.bed)", default=[])
+	IO.add_argument('--TFBS', metavar="<bed>", nargs="*", help="TFBS sites (*required)") 						#default is None
+	IO.add_argument('--signals', metavar="<bigwig>", nargs="*", help="Signals in bigwig format (*required)")	#default is None
+	IO.add_argument('--regions', metavar="<bed>", nargs="*", help="Regions to overlap with TFBS (optional)", default=[])
+	IO.add_argument('--whitelist', metavar="<bed>", nargs="*", help="Only plot sites overlapping whitelist (optional)", default=[])
+	IO.add_argument('--blacklist', metavar="<bed>", nargs="*", help="Exclude sites overlapping blacklist (optional)", default=[])
 	IO.add_argument('--output', metavar="", help="Path to output (default: TOBIAS_aggregate.pdf)", default="TOBIAS_aggregate.pdf")
 
 	PLOT = parser.add_argument_group('Plot arguments')
 	PLOT.add_argument('--title', metavar="", help="Title of plot (default: \"Aggregated signals\")", default="Aggregated signals")
-	PLOT.add_argument('--flank', metavar="", help="Flanking basepairs (+/-) to show in plot (counted from middle of motif) (default: 60)", default="60", type=int)
+	PLOT.add_argument('--flank', metavar="", help="Flanking basepairs (+/-) to show in plot (counted from middle of the TFBS) (default: 60)", default=60, type=int)
 	PLOT.add_argument('--TFBS-labels', metavar="", help="Labels used for each TFBS file (default: prefix of each --TFBS)", nargs="*")
 	PLOT.add_argument('--signal-labels', metavar="", help="Labels used for each signal file (default: prefix of each --signals)", nargs="*")
 	PLOT.add_argument('--region-labels', metavar="", help="Labels used for each regions file (default: prefix of each --regions)", nargs="*")
-	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable. (default: none)", choices=["none", "signals", "sites", "both"], default="none")
+	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable (default: none)", choices=["none", "signals", "sites", "both"], default="none")
 	
 	#Signals / regions
-	PLOT.add_argument('--normalize', action='store_true', help="Normalize the aggregate signal to be in the same range (default: the true range of values is shown)")
+	PLOT.add_argument('--normalize', action='store_true', help="Normalize the aggregate signal(s) to be between 0-1 (default: the true range of values is shown)")
 	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
-	PLOT.add_argument('--log-transform', help="", action="store_true")
-	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries", action='store_true')
+	PLOT.add_argument('--log-transform', help="Log transform the signals before aggregation", action="store_true")
+	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries (Note: estimated from first region in each --TFBS)", action='store_true')
 	PLOT.add_argument('--signal-on-x', help="Show signals on x-axis and TFBSs on y-axis (default: signal is on y-axis)", action='store_true')
-	#PLOT.add_argument('--outliers', help="")
+	PLOT.add_argument('--remove-outliers', help="Value between 0-1 indicating the percentile of regions to include, e.g. 0.99 to remove the sites with 1\% highest values (default: 1)", type=lambda x: restricted_float(x, 0, 1), default=1)
 
 	RUN = parser.add_argument_group("Run arguments")
 	RUN = add_logger_args(RUN)
@@ -98,12 +93,13 @@ def run_aggregate(args):
 	#### Test input ####
 	if args.TFBS_labels != None and (len(args.TFBS) != len(args.TFBS_labels)):
 		logger.error("ERROR --TFBS and --TFBS-labels have different lengths ({0} vs. {1})".format(len(args.TFBS), len(args.TFBS_labels)))
+		sys.exit(1)
 	if args.region_labels != None and (len(args.regions) != len(args.region_labels)):
 		logger.error("ERROR: --regions and --region-labels have different lengths ({0} vs. {1})".format(len(args.regions), len(args.region_labels)))
-		sys.exit()
+		sys.exit(1)
 	if args.signal_labels != None and (len(args.signals) != len(args.signal_labels)):
 		logger.error("ERROR: --signals and --signal-labels have different lengths ({0} vs. {1})".format(len(args.signals), len(args.signal_labels)))
-		sys.exit()
+		sys.exit(1)
 
 	#### Format input ####
 	#args.TFBS = [os.path.abspath(f) for f in args.TFBS]
@@ -114,6 +110,11 @@ def run_aggregate(args):
 	args.signal_labels = [os.path.splitext(os.path.basename(f))[0] for f in args.signals] if args.signal_labels == None else args.signal_labels 
 	#args.output = os.path.abspath(args.output)
 
+	#TFBS labels cannot be the same
+	if len(set(args.TFBS_labels)) < len(args.TFBS_labels):	#this indicates duplicates
+		logger.error("ERROR: --TFBS-labels are not allowed to contain duplicates. Note that '--TFBS-labels' are created automatically from the '--TFBS'-files if no input was given." +
+					  "Please check that neither contain duplicate names")
+		sys.exit(1)
 
 	#########################################################################################
 	############################ Get input regions/signals ready ############################
@@ -157,7 +158,7 @@ def run_aggregate(args):
 		region_names = args.TFBS_labels
 		regions_dict = {args.TFBS_labels[i]: RegionList().from_bed(args.TFBS[i]) for i in range(len(args.TFBS))}
 
-		for name in regions_dict:
+		for name in region_names:
 			logger.stats("COUNT {0}: {1} sites".format(name, len(regions_dict[name]))) #length of RegionList obj
 
 
@@ -185,17 +186,20 @@ def run_aggregate(args):
 
 			regions_dict[regions_id] = RegionList().from_bed(sites.fn)
 
-	# Estimate motif width per region
-	site_list = regions_dict[list(regions_dict.keys())[0]]
-	if len(site_list) > 0:
-		motif_width = site_list[0].get_width()
-	else:
-		motif_width = 0
+	# Estimate motif width per --TFBS
+	motif_widths = {}
+	for regions_id in regions_dict:
+		site_list = regions_dict[regions_id]
+		if len(site_list) > 0:
+			motif_widths[regions_id] = site_list[0].get_width()
+		else:
+			motif_widths[regions_id] = 0
 
 	# Set width (centered on mid)
 	args.width = args.flank*2
 	for regions_id in regions_dict:
 		regions_dict[regions_id].apply_method(OneRegion.set_width, args.width)
+
 
 	#########################################################################################
 	############################ Read signal for bigwig per site ############################
@@ -213,7 +217,6 @@ def run_aggregate(args):
 		pybw = pyBigWig.open(signal_f)
 
 		logger.info("- Reading signal from {0}".format(signal_name))
-
 		for regions_id in regions_dict:
 			for one_region in regions_dict[regions_id]:
 				tup = one_region.tup()	#(chr, start, end, strand)
@@ -238,13 +241,13 @@ def run_aggregate(args):
 			signalmat = np.array([signal_dict[signal_name][reg.tup()] for reg in regions_dict[region_name]])
 
 			#Exclude outlier rows 
-			lower_limit, upper_limit = -np.inf, np.inf 
-			#lower_limit, upper_limit = np.percentile(signalmat[signalmat != 0], [0.5,99.5])
-			logical = np.logical_and(np.min(signalmat, axis=1) > lower_limit, np.max(signalmat, axis=1) < upper_limit)
-			#logger.debug("Lower limits: {0}".format(lower_limit))
-			#logger.debug("Upper limits: {0}".format(upper_limit))
+			max_values = np.max(signalmat, axis=1)
+			upper_limit = np.percentile(np.max(signalmat, axis=1), [100*args.remove_outliers])[0]	#remove-outliers is a fraction
+			logical = np.max(signalmat, axis=1) <= upper_limit 
+			logger.debug("{0}:{1}\tUpper limit: {2} (regions removed: {3})".format(signal_name, region_name, upper_limit, len(signalmat) - sum(logical)))
 			signalmat = signalmat[logical]
-			
+						
+			#Log-transform values before aggregating
 			if args.log_transform:
 				signalmat_abs = np.abs(signalmat)
 				signalmat_log = np.log2(signalmat_abs + 1)
@@ -253,12 +256,12 @@ def run_aggregate(args):
 			
 			aggregate = np.nanmean(signalmat, axis=0)
 
+			#normalize between 0-1
 			if args.normalize:
 				aggregate = preprocessing.minmax_scale(aggregate)
 
 			aggregate_dict[signal_name][region_name] = aggregate
-
-			signalmat = None
+			signalmat = None	#free up space
 
 
 	#########################################################################################
@@ -275,6 +278,7 @@ def run_aggregate(args):
 		for col, region_name in enumerate(region_names):
 
 			agg = aggregate_dict[signal_name][region_name]
+			motif_width = motif_widths[region_name]
 
 			#Estimation of possible footprint width
 			FPD_results = []
@@ -294,12 +298,12 @@ def run_aggregate(args):
 
 			#Estimation of possible footprint width
 			all_fpds = [result[-1] for result in FPD_results]
-			FPD_results_best = FPD_results #[result + ["  "] if result[-1] != min(all_fpds) else result + ["*"] for result in FPD_results]
+			FPD_results_best = FPD_results 	#[result + ["  "] if result[-1] != min(all_fpds) else result + ["*"] for result in FPD_results]
 
 			for result in FPD_results_best:
 				logger.stats("FPD ({0},{1}): {2} {3:.5f} {4:.5f} {5:.5f}".format(signal_name, region_name, result[0], result[1], result[2], result[3]))
 
-	#Compare pairwise to calculate chance of footprint
+	#Compare pairwise to calculate correlation of signals
 	logger.comment("")
 	logger.info("Calculating pairwise aggregate pearson correlation")
 	logger.info("CORRELATION (signal1,region1) VS (signal2,region2): PEARSONR")
@@ -397,11 +401,14 @@ def run_aggregate(args):
 			axarr[row, col].set_xlabel('bp from center')
 			#axarr[row, col].set_ylabel('Mean aggregated signal')
 
-			#Motif boundaries
+			#Motif boundaries (can only be compared across sites)
 			if args.plot_boundaries:
-				width = motif_width
+				
+				#Get motif width for this list of TFBS
+				width = motif_widths[region_names[min(row,n_rows-2)]] if args.signal_on_x else motif_widths[region_names[min(col,n_cols-2)]]
+
 				mstart = - np.floor(width/2.0)
-				mend = np.ceil(width/2.0) - 1 #as it spans the "0" nucleotide
+				mend = np.ceil(width/2.0) - 1 	#as it spans the "0" nucleotide
 				axarr[row, col].axvline(mstart, color="grey", linestyle="dashed", linewidth=1)
 				axarr[row, col].axvline(mend, color="grey", linestyle="dashed", linewidth=1)
 				
@@ -415,7 +422,7 @@ def run_aggregate(args):
 	plt.subplots_adjust(hspace=0.3, top=0.93)
 
 	#########################################################################################
-	############################## Fill in with bigwig scores ###############################
+	####################### Fill in grid with aggregate bigwig scores #######################
 	#########################################################################################
 
 	for si in range(n_signals):
@@ -448,15 +455,15 @@ def run_aggregate(args):
 					axarr[-1, -1].plot(xvals, aggregate, color=colors[row+col], linewidth=1, alpha=0.8)
 
 				#Add number of sites to plot
-				axarr[row, col].text(0.98,0.98,str(len(regions_dict[region_name])), transform = axarr[row, col].transAxes, fontsize=12, va="top", ha="right")
+				axarr[row, col].text(0.98, 0.98, str(len(regions_dict[region_name])), transform = axarr[row, col].transAxes, fontsize=12, va="top", ha="right")
 
 
 	#------------- Finishing up plots ---------------#
 
 	logger.info("Adjusting final details")
 
-	#remove lower-right corner if not applicable
-	if n_rows != n_cols:
+	#remove lower-right corner if not applicable 
+	if n_rows != n_cols and n_rows > 1 and n_cols > 1:
 		axarr[-1,-1] = None
 	
 	#Check whether share_y is set

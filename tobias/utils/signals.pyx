@@ -6,7 +6,7 @@ Classes for working with signal arrays (such as bias and cutsite signals)
 @author: Mette Bentsen
 @contact: mette.bentsen (at) mpi-bn.mpg.de
 @license: MIT
-	
+
 """
 
 import numpy as np
@@ -140,7 +140,7 @@ def tobias_footprint_array(np.ndarray[np.float64_t, ndim=1] arr, int flank_min, 
 	cdef int i, j, footprint_w, flank_w
 
 	cdef float fp_sum, fp_mean, fp_score, flank_mean
-	cdef float left_sum, right_sum
+	cdef float left_sum, right_sum, val
 
 	#Each position in array, starting at i, going until last possible start of region
 	for i in range(L-2*flank_max-fp_max):
@@ -150,26 +150,29 @@ def tobias_footprint_array(np.ndarray[np.float64_t, ndim=1] arr, int flank_min, 
 				#Sum of left flank
 				left_sum = 0.0
 				for j in range(flank_w):
-					if arr[i+j] > 0:
-						left_sum += arr[i+j]
+					val = arr[i+j]
+					if val > 0.0:
+						left_sum += val
 
-				#Sum of footprint
+				#Sum of footprint (only negative counts)
 				fp_sum = 0.0
 				for j in range(footprint_w):
-					if arr[i+j] < 0:
-						fp_sum += arr[i+flank_w+j]	
+					val = arr[i+flank_w+j]	
+					if val < 0.0:
+						fp_sum += val 	#val is negative
 
 				#Sum of right flank
 				right_sum = 0.0
 				for j in range(flank_w):
-					if arr[i+j] > 0:
-						right_sum += arr[i+flank_w+footprint_w+j]
+					val = arr[i+flank_w+footprint_w+j]
+					if val > 0.0:
+						right_sum += val
 
 				#Calculate score
 				fp_mean = fp_sum/(1.0*footprint_w)	#will be minus
 				flank_mean = (right_sum + left_sum)/(2.0*flank_w)
 
-				fp_score = flank_mean - fp_mean		#-- = +
+				fp_score = flank_mean - fp_mean 	#-- = +
 
 				#Save score across footprint
 				for pos in range(i+flank_w, i+flank_w+footprint_w):

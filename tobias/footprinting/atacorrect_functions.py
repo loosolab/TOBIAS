@@ -304,6 +304,28 @@ def bias_correction(regions_list, params, bias_obj):
 			out_signals[reg_key]["expected"][strand] *= bias_obj.correction_factor
 			out_signals[reg_key]["corrected"][strand] = out_signals[reg_key]["uncorrected"][strand] - out_signals[reg_key]["expected"][strand]
 
+			######## Rescale signal to fit uncorrected sum ########
+			uncorrected_sum = fast_rolling_math(out_signals[reg_key]["uncorrected"][strand], w, "sum")
+			uncorrected_sum[np.isnan(uncorrected_sum)] = 0
+			corrected_sum = fast_rolling_math(np.abs(out_signals[reg_key]["corrected"][strand]), w, "sum")	#negative values count as positive
+			corrected_sum[np.isnan(corrected_sum)] = 0
+
+			#Positive signal left after correction
+			corrected_pos = np.copy(out_signals[reg_key]["corrected"][strand])
+			corrected_pos[corrected_pos < 0] = 0 
+			corrected_pos_sum = fast_rolling_math(corrected_pos, w, "sum")
+			corrected_pos_sum[np.isnan(corrected_pos_sum)] = 0 
+			corrected_neg_sum = corrected_sum - corrected_pos_sum
+
+			#The corrected sum is less than the signal sum, so scale up positive cuts
+			zero_sum = corrected_pos_sum == 0
+			corrected_pos_sum[zero_sum] = np.nan 	#allow for zero division
+			scale_factor = (uncorrected_sum - corrected_neg_sum) / corrected_pos_sum
+			scale_factor[zero_sum] = 1			#Scale factor is 1 (which will be multiplied to the 0 values)
+			scale_factor[scale_factor < 1] = 1	#Only scale up if needed
+			pos_bool = out_signals[reg_key]["corrected"][strand] > 0
+			out_signals[reg_key]["corrected"][strand][pos_bool] *= scale_factor[pos_bool]
+
 			
 		#######################################
 		########   Verify correction   ########

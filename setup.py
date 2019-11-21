@@ -77,6 +77,7 @@ setup(name='tobias',
 			'adjustText',
 			'pyBigWig',
 			'MOODS-python',
+			'svist4get'
 		],
 		scripts=["tobias/utils/filter_important_factors.py"],
 		classifiers=[
