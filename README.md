@@ -128,7 +128,19 @@ $ FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt
 Snakemake pipeline
 ------------
 
-You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.com/loosolab/TOBIAS_snakemake).
+You can run each TOBIAS tool independently or as part of a pipeline. We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
+
+Nextflow pipeline
+------------
+
+You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow can be found [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
+
+kubernetes/de.NBI cloud aware pipeline
+------------
+
+We also provide the TOBIAS nextflow pipeline for a cloud computing environment. There is one version utilising a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_S3), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_NGINX).
+
+
 
 License
 ------------
