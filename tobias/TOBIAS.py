@@ -47,6 +47,7 @@ from tobias.misc.merge_pdfs import *
 from tobias.misc.maxpos import *
 from tobias.misc.create_network import *
 from tobias.misc.log2table import *
+from tobias.misc.filterfragments import *
 
 from tobias import __version__ as TOBIAS_VERSION
 
@@ -83,7 +84,8 @@ def main():
 							"MaxPos": {"help": "Get .bed-positions of highest bigwig signal within .bed-regions", "add_arguments": add_maxpos_arguments, "function": run_maxpos},
 							"SubsampleBam": {"help": "Subsample a .bam-file using samtools", "add_arguments": add_subsample_arguments, "function": run_subsampling},
 							"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": run_network, "space":"\t"},
-							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": run_log2table}
+							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": run_log2table},
+							"FilterFragments": {"help": "Tool for filtering fragments from a .bam-file based on the overlap of reads with .bed-regions", "add_arguments": add_filterfragments_arguments, "function": run_filterfragments}
 							}
 						}
 
