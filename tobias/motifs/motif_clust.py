@@ -54,9 +54,9 @@ def add_motifclust_arguments(parser):
     optional = parser.add_argument_group('optional arguments')
     visualisation = parser.add_argument_group('visualisation arguments')
 
-    required.add_argument("-m1", "--motifs1", dest="Path_1", required=True, help="A motif file containing a set of motifs", metavar="")
+    required.add_argument("-m1", "--motifs1", dest="motifs1", required=True, help="A motif file containing a set of motifs", metavar="")
     
-    optional.add_argument("-m2", "--motifs2", dest="Path_2", help="A motif file containing a set of motifs (common: Motif Database like jaspar or hocomoco)", metavar="")
+    optional.add_argument("-m2", "--motifs2", dest="motifs2", help="A motif file containing a set of motifs (common: Motif Database like jaspar or hocomoco)", metavar="")
     optional.add_argument("-f", "--format", dest="Format", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the first motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Deafult: ‘jaspar’)", default="jaspar")
     optional.add_argument("-f2", "--format_2", dest="Format_2", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the second motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Deafult: ‘jaspar’)", default="jaspar")
     optional.add_argument("-t", "--threshold", dest="threshold", help="Cluster threshold (Default = 0.5)", type=float, default=0.5)
@@ -669,6 +669,8 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
 #--------------------------------------------------------------------------------------------------------#
 def run_motifclust(args):
 
+    print("entered run_motifclust")
+    print(args)
     ###### Check input arguments ######
     check_required(args, ["motifs1"]) #Check input arguments
     check_files([args.motifs1, args.motifs2]) #Check if files exist
@@ -676,7 +678,7 @@ def run_motifclust(args):
     out_prefix = os.path.join(args.out, args.name)
 
     ###### Create logger and write argument overview ######
-    logger = TobiasLogger("MotifClust", args.verbosity)
+    logger = TobiasLogger("MotifClust.log")
     logger.begin()
     parser = add_motifclust_arguments(argparse.ArgumentParser())
     logger.arguments_overview(parser, args)
