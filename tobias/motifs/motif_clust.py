@@ -6,35 +6,10 @@ If only one motif file is given, it will be compared with itself.
 
 @author: René Wiegandt
 @contact: rene.wiegandt (at) mpi-bn.mpg.de
-
 """
 
-import argparse
-import numpy as np
-import seaborn as sns
-import pandas as pd
-import datetime
-import os
-import yaml
-import re
-import math
-import itertools
-import warnings
-from Bio import motifs
-from matplotlib import pyplot as plt
-from gimmemotifs.motif import Motif,read_motifs
-from gimmemotifs.comparison import MotifComparer
-from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
-import scipy.spatial.distance as ssd
-from collections import defaultdict
-
-from tobias.utils.utilities import *
-from tobias.utils.logger import *
-
-
-
 #--------------------------------------------------------------------------------------------------------#
-def add_motifclust_arguments(parser):
+def parse_arguments():
     """Parsing arguments using argparse
 
     Returns
@@ -43,20 +18,14 @@ def add_motifclust_arguments(parser):
         an object containing all parameters given.
     """
 
-    parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-    description = "Cluster motifs based on similarity and create one consensus motif pro cluster.\n\n"
-    description += "Usage:\nTOBIAS MotifClust --motifs1 <motifs1.jaspar>\n\n"
-    parser.description = format_help_description("MotifClust", description) 
-
-    parser._action_groups.pop() #pop -h
-
+    parser = argparse.ArgumentParser(description="Comparing two sets of motifs with each other. Generating similarity matrix and a clustered heatmap. \
+    If only one motif file is given, it will be compared with itself.")
+    parser._action_groups.pop()
     required = parser.add_argument_group('required arguments')
     optional = parser.add_argument_group('optional arguments')
     visualisation = parser.add_argument_group('visualisation arguments')
-
-    required.add_argument("-m1", "--motifs1", dest="Path_1", required=True, help="A motif file containing a set of motifs", metavar="")
-    
-    optional.add_argument("-m2", "--motifs2", dest="Path_2", help="A motif file containing a set of motifs (common: Motif Database like jaspar or hocomoco)", metavar="")
+    required.add_argument("-i", dest="Path_1", required=True, help="A motif file containing a set of motifs")
+    optional.add_argument("-i2", dest="Path_2", help="A motif file containing a set of motifs (common: Motif Database like jaspar or hocomoco)")
     optional.add_argument("-f", "--format", dest="Format", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the first motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Deafult: ‘jaspar’)", default="jaspar")
     optional.add_argument("-f2", "--format_2", dest="Format_2", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the second motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Deafult: ‘jaspar’)", default="jaspar")
     optional.add_argument("-t", "--threshold", dest="threshold", help="Cluster threshold (Default = 0.5)", type=float, default=0.5)
@@ -69,15 +38,14 @@ def add_motifclust_arguments(parser):
     optional.add_argument("-cc", "--no_col_clust", dest="ncc", help="No column clustering", action="store_false")
     optional.add_argument("-rc", "--no_row_clust", dest="nrc", help="No row clustering", action="store_false")
     optional.add_argument("-z", "--z_score", dest="zscore", choices= ['row', 'col', 'None'], help="Calculate the z-score for row or column [‘col’, ‘row’, ‘None’] (Default: None)", default="None")
-    
     visualisation.add_argument("-nh", "--no_heatmap", dest="no_heatmap", help="Disable heatmap", action="store_false")
     visualisation.add_argument("-e", "--type", dest="type", choices= ['png', 'pdf', 'jpg'], help="Plot file type [png, pdf, jpg] (Default: pdf)", default="pdf")
     visualisation.add_argument("-x", "--width", dest="width", help="Width of Heatmap (Default: autoscaling)", type=int)
     visualisation.add_argument("-y", "--height", dest="height", help="Height of Heatmap (Default: autoscaling)", type=int)
     visualisation.add_argument("-d", "--dpi", dest="dpi", help="Dpi for plots (Default: 100)", type=int, default=100)
     visualisation.add_argument("-c", "--color_palette", dest="color", help="Color palette (All possible paletts: https://python-graph-gallery.com/197-available-color-palettes-with-matplotlib/. Add '_r' to reverse palette.)", default="YlOrRd_r")
-    
-    return(parser)
+    args = parser.parse_args()
+    return args
 
 
 #--------------------------------------------------------------------------------------------------------#
@@ -498,7 +466,6 @@ def generate_consensus_motif(motifs, similarity_dict):
 
     # generate average motif
     average_motif = merge_1.average_motifs(merge_2, pos=score[1], orientation=score[2])
-
     average_motif.id = merge_1.id + "_" + merge_2.id
 
     # alter list 
@@ -564,6 +531,7 @@ def convert_motif(consensus_motif, f):
     return motif
 
 
+#--------------------------------------------------------------------------------------------------------#
 def consesus_motif_out_wrapper(consensus_motifs, out_prefix, img_out, cons_format, name, typ, file_name = None):
     """ Wrapper for consensus motif output
 
@@ -667,62 +635,63 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
 
 
 #--------------------------------------------------------------------------------------------------------#
-def run_motifclust():
+def main():
 
-    ###### Check input arguments ######
-    check_required(args, ["motifs1"]) #Check input arguments
-    check_files([args.motifs1, args.motifs2]) #Check if files exist
-    make_directory(args.out)
+    #---------------------------------------- Setup ---------------------------------------------------------#
+
+    # Parsing command line parameters
+    args = parse_arguments()
+
+    # Check if out dir exists
+    if not os.path.exists(args.out):
+        # Create if not
+        os.makedirs(args.out)
+
     out_prefix = os.path.join(args.out, args.name)
 
-    ###### Create logger and write argument overview ######
-    logger = TobiasLogger("MotifClust", args.verbosity)
-    logger.begin()
-    parser = add_motifclust_arguments(argparse.ArgumentParser())
-    logger.arguments_overview(parser, args)
-    #logger.output_files([])
+    #---------------------------------------- Reading motifs from file(s) -----------------------------------#
 
-    ###### Read motifs from file/files ######
+    now = datetime.datetime.now()
+    print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Reading motif files")
 
-    logger.info("Handling input file/files")
-
-    motif_list = get_motifs(args.motifs1, args.Format)
+    motif_list = get_motifs(args.Path_1, args.Format)
     m1_names = list(m.id for m in motif_list)
 
-    if args.motifs2:
-        m2  = get_motifs(args.motifs2, args.Format_2)
+    if args.Path_2:
+        m2  = get_motifs(args.Path_2, args.Format_2)
         m2_names = list(m.id for m in m2)
         motif_list = motif_list + m2
 
-    ###### Generate similarity matrix ######
-
-    logger.info("Generating similarity matrix")
+    #---------------------------------------- Generating similarity matrix ----------------------------------#
 
     mc = MotifComparer()
 
     # Pairwise comparison of a set of motifs compared to reference motifs
+    now = datetime.datetime.now()
+    print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Comparing motifs")
+
     score_dict = mc.get_all_scores(motif_list, motif_list, match = "total", metric = "pcc", combine = "mean" )
 
     # Generating similarity matrix
+    now = datetime.datetime.now()
+    print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Generating matrix")
     similarity_matrix = generate_similarity_matrix(score_dict)
 
-    if args.motifs2 and not args.merge :
+    if args.Path_2 and not args.merge :
         # Subsetting matrix
         sub_matrix_1, sub_matrix_2, similarity_matrix = subset_matrix(similarity_matrix, m1_names, m2_names)
     else:
         sub_matrix_1, sub_matrix_2 = None, None
 
     # Safe matrix to file
-    matrix_out = out_prefix + "_matrix.txt"
+    now = datetime.datetime.now()
+    print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Saving matrix file")
 
-    logger.info("Saving matrix to the file " + str(matrix_out))
-    
+    matrix_out = out_prefix + "_matrix.txt"
     similarity_matrix.to_csv(matrix_out, sep = '\t')
 
-    ###### Matrix stats ######
+    #---------------------------------------- Motif stats ---------------------------------------------------#
     
-    logger.info("Making matrix statistics about dissimilar motifs and GC-content")
-
     dissimilar_motifs_out = out_prefix + "_dissimilar_motifs.txt"
     full_motifs_out = out_prefix + "_stats_motifs.txt"
     dissimilar_motifs = get_dissimilar_motifs(similarity_matrix, args.d_thresh)
@@ -733,9 +702,10 @@ def run_motifclust():
     stats_dissimilar_motifs = dict((k, motifs_stats[k]) for k in dissimilar_motifs)
     write_motif_stats(stats_dissimilar_motifs, dissimilar_motifs_out)
     
-    ###### Motif clustering ######
+    #---------------------------------------- Motif clustering ----------------------------------------------#
     
-    logger.info("Clustering motifs")
+    now = datetime.datetime.now()
+    print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Clustering motifs")
 
     row_linkage, col_linkage, row_cluster, col_cluster = clustering_motifs(similarity_matrix, args.threshold, args.method, sub_matrix_1, sub_matrix_2)
 
@@ -752,76 +722,86 @@ def run_motifclust():
     else:
         x = x_len*scaling(x_len)
 
-
-    filename_1 = os.path.splitext(os.path.basename(args.motifs1))[0]
+    filename_1 = os.path.splitext(os.path.basename(args.Path_1))[0]
     f_name_2 = filename_1
 
-    if args.motifs2:
-        if args.merge:
-            filename_1 = os.path.splitext(os.path.basename(args.motifs1))[0] + "_" + os.path.splitext(os.path.basename(args.motifs2))[0]
-            f_name_2 = filename_1
-        else:
-            filename_2 = os.path.splitext(os.path.basename(args.motifs2))[0]
-            f_name_2 = filename_2
-            if args.nrc: # if false skip writing yaml file and dendrogram for row clustering
-                write_yaml(row_cluster, out_prefix + "_" + filename_2)
-                plot_dendrogram(similarity_matrix.index.values, row_linkage, 12, args.out, args.name + "_" + filename_2, args.threshold, y, args.dpi, args.type)
-    
-    if args.nrc and args.ncc:
-        write_yaml(col_cluster, out_prefix + "_" + filename_1)
-        plot_dendrogram(similarity_matrix.columns, col_linkage, 12, args.out, args.name + "_" + filename_1, args.threshold, x, args.dpi, args.type)
+    if args.merge or not args.Path_2:
+        if args.ncc or args.nrc:
+            if args.Path_2:
+                filename_1 = os.path.splitext(os.path.basename(args.Path_1))[0] + "_" + os.path.splitext(os.path.basename(args.Path_2))[0]
+                f_name_2 = filename_1
+            write_yaml(col_cluster, out_prefix + "_" + filename_1)
+            plot_dendrogram(similarity_matrix.columns, col_linkage, 12, args.out, args.name + "_" + filename_1, args.threshold, x, args.dpi, args.type)
 
-    ###### Consensus motifs ######
+    if args.Path_2 and not args.merge:
+        filename_2 = os.path.splitext(os.path.basename(args.Path_2))[0]
+        f_name_2 = filename_2
+        if args.nrc: # if false skip writing yaml file and dendrogram for row clustering
+            write_yaml(row_cluster, out_prefix + "_" + filename_2)
+            plot_dendrogram(similarity_matrix.index.values, row_linkage, 12, args.out, args.name + "_" + filename_2, args.threshold, y, args.dpi, args.type)
+        if args.ncc:
+            write_yaml(col_cluster, out_prefix + "_" + filename_1)
+            plot_dendrogram(similarity_matrix.columns, col_linkage, 12, args.out, args.name + "_" + filename_1, args.threshold, y, args.dpi, args.type)
 
-    logger.info("Building consensus motifs")
+    #---------------------------------------- Consensus motif -----------------------------------------------#
 
-    consensus_motifs = dict()
-    if args.ncc:
-        # Generate consensus motifs for each column cluster 
-        consensus_motifs["col"] = generate_consensus_motifs(motif_list, col_cluster, score_dict)
-    if args.nrc:
-        # Generate consensus motifs for each row cluster 
-        consensus_motifs["row"] = generate_consensus_motifs(motif_list, row_cluster, score_dict)
+    now = datetime.datetime.now()
+    print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Generating consensus motifs")
 
-    if len(consensus_motifs) >= 1:
+    # Image output path
+    out_cons_img = os.path.join(args.out, "consensus_motifs_img")
+    # Check if out_cons_img directory exists
+    if not os.path.exists(out_cons_img):
+        # Create if not
+        os.mkdir(out_cons_img)
 
-        out_cons_img = os.path.join(args.out, "consensus_motifs_img")
-        # Check if out_cons_img directory exists
-        if not os.path.exists(out_cons_img):
-            # Create if not
-            os.mkdir(out_cons_img)
+    # Generate output depending on set parameters
+    if args.merge or not args.Path_2: # col and row are identical
+        if args.ncc or args.nrc:
+            # Generate consensus motifs for each column cluster 
+            cons = generate_consensus_motifs(motif_list, col_cluster, score_dict)
+            # Save output
+            consesus_motif_out_wrapper(cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type)
+    else: # col and row differ
+        if args.ncc:
+            # Generate consensus motifs for each column cluster 
+            col_cons = generate_consensus_motifs(motif_list, col_cluster, score_dict)
+            # Save output
+            consesus_motif_out_wrapper(col_cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type, os.path.splitext(os.path.basename(args.Path_1))[0])
+        if args.nrc:
+            # Generate consensus motifs for each row cluster 
+            row_cons = generate_consensus_motifs(motif_list, row_cluster, score_dict)
+            # Save output
+            consesus_motif_out_wrapper(row_cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type, os.path.splitext(os.path.basename(args.Path_2))[0])
 
-        if args.merge or not args.motifs2:
-            if args.ncc or args.nrc:
-                consesus_motif_out_wrapper(consensus_motifs["col"], out_prefix, out_cons_img, args.cons_format, args.name, args.type)
-        elif args.motifs2:
-            if args.ncc:
-                consesus_motif_out_wrapper(consensus_motifs["col"], out_prefix, out_cons_img, args.cons_format, args.name, args.type, os.path.splitext(os.path.basename(args.motifs1))[0])
-            if args.nrc:
-                consesus_motif_out_wrapper(consensus_motifs["row"], out_prefix, out_cons_img, args.cons_format, args.name, args.type, os.path.splitext(os.path.basename(args.motifs2))[0])
-
-    ###### Plot heatmap ######
+    #---------------------------------------- Plot heatmap --------------------------------------------------#
 
     if args.no_heatmap:
-
+        now = datetime.datetime.now()
+        print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Plotting heatmap")
         pdf_out = out_prefix + "_heatmap." + args.type
-        
-        logger.info("Plotting the heatmap to the file " + str(pdf_out))
-        
         plot_heatmap(similarity_matrix, pdf_out, x, y, col_linkage, row_linkage, args.dpi, filename_1, f_name_2, args.color, args.ncc, args.nrc, args.zscore)
-
-    logger.end()
 
 
 #--------------------------------------------------------------------------------------------------------#
 if __name__ == "__main__":
-    
-    parser = argparse.ArgumentParser()
-    parser = add_motifclust_arguments(parser)
-    args = parser.parse_args()
-
-    if len(sys.argv[1:]) == 0:
-        parser.print_help()
-        sys.exit()
-
-    run_motifclust()
+    import argparse
+    import numpy as np
+    import seaborn as sns
+    import pandas as pd
+    import datetime
+    import os
+    import yaml
+    import re
+    import math
+    import itertools
+    import warnings
+    import multiprocessing
+    from Bio import motifs
+    from matplotlib import pyplot as plt
+    from gimmemotifs.motif import Motif,read_motifs
+    from gimmemotifs.comparison import MotifComparer
+    from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+    import scipy.spatial.distance as ssd
+    from collections import defaultdict
+    main()
