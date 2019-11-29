@@ -667,7 +667,7 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
 
 
 #--------------------------------------------------------------------------------------------------------#
-def run_motifclust():
+def run_motifclust(args):
 
     ###### Check input arguments ######
     check_required(args, ["motifs1"]) #Check input arguments
