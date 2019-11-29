@@ -38,7 +38,8 @@ from tobias.plotting.plot_changes import *
 from tobias.plotting.plot_tracks import *
 
 from tobias.motifs.tfbscan import * 
-from tobias.motifs.format_motifs import * 
+from tobias.motifs.format_motifs import *
+from tobias.motifs.motif_clust import *
 #from tobias.motifs.cluster_tfbs import *
 from tobias.motifs.score_bed import *
 
@@ -65,6 +66,7 @@ def main():
 							{
 							"TFBScan": {"help":"Identify positions of TFBS given sequence and motifs", "add_arguments": add_tfbscan_arguments, "function": run_tfbscan},
 							"FormatMotifs": {"help": "Utility to deal with motif files", "add_arguments": add_formatmotifs_arguments, "function": run_formatmotifs},
+							"MotifClust": {"help": "Cluster motifs by similarity", "add_arguments": add_motifclust_arguments, "function": run_motifclust},
 							#"ClusterTFBS": {"help": "Cluster TFs based on overlap of sites", "add_arguments": add_clustering_arguments, "function": run_clustering},
 							"ScoreBed": {"help":"Score .bed-file with signal from .bigwig-file(s)", "add_arguments": add_scorebed_arguments, "function": run_scorebed},
 							},
