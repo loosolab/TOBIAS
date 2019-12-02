@@ -74,8 +74,8 @@ def add_motifclust_arguments(parser):
     visualisation.add_argument("-y", "--height", dest="height", help="Height of Heatmap (Default: autoscaling)", type=int)
     visualisation.add_argument("-d", "--dpi", dest="dpi", help="Dpi for plots (Default: 100)", type=int, default=100)
     visualisation.add_argument("-c", "--color_palette", dest="color", help="Color palette (All possible paletts: https://python-graph-gallery.com/197-available-color-palettes-with-matplotlib/. Add '_r' to reverse palette.)", default="YlOrRd_r")
-    args = parser.parse_args()
-    return args
+    #args = parser.parse_args()
+    return parser
 
 
 #--------------------------------------------------------------------------------------------------------#
