@@ -55,8 +55,8 @@ def add_motifclust_arguments(parser):
     required.add_argument("-m1", "--motifs1", dest="motifs1", required=True, help="A motif file containing a set of motifs", metavar="")
     
     optional.add_argument("-m2", "--motifs2", dest="motifs2", help="A motif file containing a set of motifs (common: Motif Database like jaspar or hocomoco)", metavar="")
-    optional.add_argument("-f", "--format", dest="Format", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the first motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Deafult: ‘jaspar’)", default="jaspar")
-    optional.add_argument("-f2", "--format_2", dest="Format_2", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the second motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Deafult: ‘jaspar’)", default="jaspar")
+    optional.add_argument("-f", "--format", dest="Format", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the first motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Default: ‘jaspar’)", default="jaspar")
+    optional.add_argument("-f2", "--format_2", dest="Format_2", choices= ['pwm', 'transfac', 'xxmotif', 'jaspar', 'minimal', 'meme', 'align'], help="Format of the second motif file [‘pwm’, ‘transfac’, ‘xxmotif’, ‘jaspar’, ‘minimal’, ‘meme’ or ‘align’] (Default: ‘jaspar’)", default="jaspar")
     optional.add_argument("-t", "--threshold", dest="threshold", help="Cluster threshold (Default = 0.5)", type=float, default=0.5)
     optional.add_argument("-s", "--ds_threshold", dest="d_thresh", help="Threshold for dissimilar cutoff", type=float, default=0.5)
     optional.add_argument("-l", "--method", dest="method", help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average")
