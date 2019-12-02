@@ -682,11 +682,6 @@ def run_motifclust(args):
     logger.arguments_overview(parser, args)
     #logger.output_files([])
 
-    # Check if out dir exists
-    if not os.path.exists(args.out):
-        # Create if not
-        os.makedirs(args.out)
-
     out_prefix = os.path.join(args.out, args.name)
 
     #---------------------------------------- Reading motifs from file(s) -----------------------------------#
@@ -711,8 +706,6 @@ def run_motifclust(args):
     score_dict = mc.get_all_scores(motif_list, motif_list, match = "total", metric = "pcc", combine = "mean" )
 
     # Generating similarity matrix
-    now = datetime.datetime.now()
-    print("[" + now.strftime("%Y-%m-%d %H:%M") + "] Generating matrix")
     similarity_matrix = generate_similarity_matrix(score_dict)
 
     if args.motifs2 and not args.merge :
