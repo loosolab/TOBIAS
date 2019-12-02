@@ -42,7 +42,7 @@ def add_motifclust_arguments(parser):
     """
 
     parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-    description = "Cluster motifs based on similarity and create one consensus motif pro cluster.\n\n"
+    description = "Cluster motifs based on similarity and create one consensus motif per cluster.\n\n"
     description += "Usage:\nTOBIAS MotifClust --motifs1 <motifs1.jaspar>\n\n"
     parser.description = format_help_description("MotifClust", description) 
 
