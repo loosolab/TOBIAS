@@ -4,8 +4,8 @@
 Skript to compare two sets of motifs with each other. Generating similarity matrix and a clustered heatmap.
 If only one motif file is given, it will be compared with itself.
 
-@author: René Wiegandt
-@contact: rene.wiegandt (at) mpi-bn.mpg.de
+@author: René Wiegandt, Anastasiia Petrova
+@contact: rene.wiegandt (at) mpi-bn.mpg.de, anastasiia.petrova (at) mpi-bn.mpg.de 
 """
 
 import argparse
