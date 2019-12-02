@@ -5,7 +5,9 @@ Skript to compare two sets of motifs with each other. Generating similarity matr
 If only one motif file is given, it will be compared with itself.
 
 @author: René Wiegandt, Anastasiia Petrova
-@contact: rene.wiegandt (at) mpi-bn.mpg.de, anastasiia.petrova (at) mpi-bn.mpg.de 
+@contact: rene.wiegandt (at) mpi-bn.mpg.de, anastasiia.petrova (at) mpi-bn.mpg.de
+@license: MIT
+
 """
 
 import argparse
