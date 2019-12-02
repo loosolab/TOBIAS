@@ -66,11 +66,11 @@ def add_motifclust_arguments(parser):
     optional.add_argument("-p", "--prefix", dest="name", help="Output prefix (Default: ‘motif_comparison’)", default="motif_comparison")
     optional.add_argument("-o", "--outdir", dest="out", help="Output directory (Default: ‘./‘)", default="./")
     optional.add_argument("-m", "--merge", dest="merge", help="Merge both motif files and compare 'all to all'", action="store_true")
-    optional.add_argument("-cc", "--no_col_clust", dest="ncc", help="No column clustering", action="store_false")
-    optional.add_argument("-rc", "--no_row_clust", dest="nrc", help="No row clustering", action="store_false")
+    optional.add_argument("-cc", "--no_col_clust", dest="ncc", help="No column clustering", action="store_true")
+    optional.add_argument("-rc", "--no_row_clust", dest="nrc", help="No row clustering", action="store_true")
     optional.add_argument("-z", "--z_score", dest="zscore", choices= ['row', 'col', 'None'], help="Calculate the z-score for row or column [‘col’, ‘row’, ‘None’] (Default: None)", default="None")
     
-    visualisation.add_argument("-nh", "--no_heatmap", dest="no_heatmap", help="Disable heatmap", action="store_false")
+    visualisation.add_argument("-nh", "--no_heatmap", dest="no_heatmap", help="Disable heatmap", action="store_true")
     visualisation.add_argument("-e", "--type", dest="type", choices= ['png', 'pdf', 'jpg'], help="Plot file type [png, pdf, jpg] (Default: pdf)", default="pdf")
     visualisation.add_argument("-x", "--width", dest="width", help="Width of Heatmap (Default: autoscaling)", type=int)
     visualisation.add_argument("-y", "--height", dest="height", help="Height of Heatmap (Default: autoscaling)", type=int)
@@ -758,7 +758,7 @@ def run_motifclust(args):
     f_name_2 = filename_1
 
     if args.merge or not args.motifs2:
-        if args.ncc or args.nrc:
+        if not args.ncc or not args.nrc:
             if args.motifs2:
                 filename_1 = os.path.splitext(os.path.basename(args.motifs1))[0] + "_" + os.path.splitext(os.path.basename(args.motifs2))[0]
                 f_name_2 = filename_1
@@ -768,10 +768,10 @@ def run_motifclust(args):
     if args.motifs2 and not args.merge:
         filename_2 = os.path.splitext(os.path.basename(args.motifs2))[0]
         f_name_2 = filename_2
-        if args.nrc: # if false skip writing yaml file and dendrogram for row clustering
+        if not args.nrc: # if false skip writing yaml file and dendrogram for row clustering
             write_yaml(row_cluster, out_prefix + "_" + filename_2)
             plot_dendrogram(similarity_matrix.index.values, row_linkage, 12, args.out, args.name + "_" + filename_2, args.threshold, y, args.dpi, args.type)
-        if args.ncc:
+        if not args.ncc:
             write_yaml(col_cluster, out_prefix + "_" + filename_1)
             plot_dendrogram(similarity_matrix.columns, col_linkage, 12, args.out, args.name + "_" + filename_1, args.threshold, y, args.dpi, args.type)
 
@@ -788,18 +788,18 @@ def run_motifclust(args):
 
     # Generate output depending on set parameters
     if args.merge or not args.motifs2: # col and row are identical
-        if args.ncc or args.nrc:
+        if not args.ncc or not args.nrc:
             # Generate consensus motifs for each column cluster 
             cons = generate_consensus_motifs(motif_list, col_cluster, score_dict)
             # Save output
             consesus_motif_out_wrapper(cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type)
     else: # col and row differ
-        if args.ncc:
+        if not args.ncc:
             # Generate consensus motifs for each column cluster 
             col_cons = generate_consensus_motifs(motif_list, col_cluster, score_dict)
             # Save output
             consesus_motif_out_wrapper(col_cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type, os.path.splitext(os.path.basename(args.motifs1))[0])
-        if args.nrc:
+        if not args.nrc:
             # Generate consensus motifs for each row cluster 
             row_cons = generate_consensus_motifs(motif_list, row_cluster, score_dict)
             # Save output
@@ -807,7 +807,7 @@ def run_motifclust(args):
 
     #---------------------------------------- Plot heatmap --------------------------------------------------#
 
-    if args.no_heatmap:
+    if not args.no_heatmap:
         pdf_out = out_prefix + "_heatmap." + args.type
         logger.info("Plotting the heatmap to the file " + str(pdf_out))
         plot_heatmap(similarity_matrix, pdf_out, x, y, col_linkage, row_linkage, args.dpi, filename_1, f_name_2, args.color, args.ncc, args.nrc, args.zscore)
