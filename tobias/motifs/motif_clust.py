@@ -64,7 +64,7 @@ def add_motifclust_arguments(parser):
     optional.add_argument("-l", "--method", dest="method", help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average")
     optional.add_argument("-a", "--cons_format", dest="cons_format", choices= ['transfac', 'meme', 'pwm'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’] (Default: pwm)", default="pwm")
     optional.add_argument("-p", "--prefix", dest="name", help="Output prefix (Default: ‘motif_comparison’)", default="motif_comparison")
-    optional.add_argument("-o", "--outdir", dest="out", help="Output directory (Default: ‘./‘)", default="./")
+    optional.add_argument("-o", "--outdir", dest="out", help="Output directory (Default: ‘./MotifClust‘)", default="./MotifClust")
     optional.add_argument("-m", "--merge", dest="merge", help="Merge both motif files and compare 'all to all'", action="store_true")
     optional.add_argument("-cc", "--no_col_clust", dest="ncc", help="No column clustering", action="store_true")
     optional.add_argument("-rc", "--no_row_clust", dest="nrc", help="No row clustering", action="store_true")
@@ -650,8 +650,8 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
         plot = sns.clustermap(similarity_matrix,
             row_linkage=row_linkage,
             col_linkage=col_linkage,
-            col_cluster=col_clust,
-            row_cluster=row_clust,
+            col_cluster= not col_clust,
+            row_cluster= not row_clust,
             z_score=zs,
             cmap=color,
             vmin=vmin, vmax=vmax,
@@ -781,10 +781,7 @@ def run_motifclust(args):
 
     # Image output path
     out_cons_img = os.path.join(args.out, "consensus_motifs_img")
-    # Check if out_cons_img directory exists
-    if not os.path.exists(out_cons_img):
-        # Create if not
-        os.mkdir(out_cons_img)
+    make_directory(out_cons_img)
 
     # Generate output depending on set parameters
     if args.merge or not args.motifs2: # col and row are identical
