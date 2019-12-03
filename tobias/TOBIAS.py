@@ -85,7 +85,7 @@ def main():
 							"SubsampleBam": {"help": "Subsample a .bam-file using samtools", "add_arguments": add_subsample_arguments, "function": run_subsampling},
 							"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": run_network, "space":"\t"},
 							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": run_log2table},
-							"FilterFragments": {"help": "Tool for filtering fragments from a .bam-file based on the overlap of reads with .bed-regions", "add_arguments": add_filterfragments_arguments, "function": run_filterfragments}
+							"FilterFragments": {"help": "Tool for filtering fragments from a .bam-file based on the overlap of reads with .bed-regions", "add_arguments": add_filterfragments_arguments, "function": run_filterfragments, "space":"\t"}
 							}
 						}
 
