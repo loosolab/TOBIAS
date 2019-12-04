@@ -926,7 +926,7 @@ def run_motifclust(args):
         logger.info("Finding consensus motifs, one pro cluster")
         cluster_consensus_pwm, score_dict = create_consensus_pro_cluster(col_cluster, score_dict, motif_list)
         consensus_output_file = open(out_prefix + "_consensus_motifs.pwm", 'w')
-        print("The output with consensus motifs will be written to the file " + out_prefix + "_consensus_motifs.pwm")
+        #print("The output with consensus motifs will be written to the file " + out_prefix + "_consensus_motifs.pwm")
 
         for c in cluster_consensus_pwm:
             consensus_output_file.write(cluster_consensus_pwm[c] + 2*'\n')
