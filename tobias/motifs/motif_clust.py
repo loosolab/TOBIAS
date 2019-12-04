@@ -173,15 +173,19 @@ def generate_similarity_matrix(score_dict):
     """
 
     similarity_dict = dict()
-    
+
     m2_keys = list(score_dict.values())[0].keys()
     m2_label = [s.replace('\t', ' ') for s in m2_keys] # replacing tabs with whitespace
 
-    for m1, m2_dict in score_dict.items():
+    for m1 in score_dict:
         m1_space = m1.replace('\t', ' ') # replacing tabs with whitespace
         sim_list = list()
-        for score_list in m2_dict.values():
-            score = float('%.3f'%(1 - score_list[0]))
+        for m2 in m2_keys:
+            if score_dict[m1][m2][0] != score_dict[m2][m1][0]:
+                # Calc mean if scores differ
+                score = 1 - round((score_dict[m1][m2][0] + score_dict[m2][m1][0])/2, 5)
+            else:
+                score = 1 - round(score_dict[m1][m2][0], 5)
             sim_list.append(score)
         similarity_dict[m1_space] = sim_list
     
@@ -437,7 +441,7 @@ def plot_dendrogram(label, linkage, font_size, out ,name, threshold, y, dpi, t):
 
 
 #--------------------------------------------------------------------------------------------------------#
-def generate_consensus_motifs(motif_list, cluster, similarity_dict):
+def generate_consensus_motifs(motif_list, clusters, similarity_dict):
     """Generates a consensus motif for each cluster
 
     Parameter:
@@ -455,7 +459,7 @@ def generate_consensus_motifs(motif_list, cluster, similarity_dict):
     """
 
     consensus_motifs = dict()
-    for cluster, value in cluster.items():
+    for cluster, value in clusters.items():
         cluster_motifs = list()
         # Get motif instances
         for m in motif_list:
@@ -487,9 +491,9 @@ def generate_consensus_motif(motifs, similarity_dict):
     if len(motifs) == 1:
         return motifs[0]
 
-    # score cannot be higher lower that 0 so max score is initialized with 0
+    # score cannot be lower that 0 so max score is initialized with 0
     max_score = 0
-    for motif_1, motif_2  in itertools.combinations(motifs, 2):
+    for motif_1, motif_2 in itertools.combinations(motifs, 2):
         score = similarity_dict[motif_1.id][motif_2.id]
         if score[0] >= max_score:
             max_score = score[0]
