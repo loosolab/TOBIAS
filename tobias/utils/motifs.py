@@ -354,8 +354,13 @@ def get_motif_format(content):
 	elif re.match(">.+", content, re.DOTALL) is not None:
 		motif_format = "pfm"
 
+	elif re.match("AC\s.+", content, re.DOTALL) is not None:
+		motif_format = "transfac"
+
 	return(motif_format)
 
+
+###########################################################
 
 def convert_motif(content, output_format):
 	""" Output formats are "pfm", "jaspar" or "meme" """
