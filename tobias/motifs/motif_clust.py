@@ -259,9 +259,6 @@ def get_dissimilar_motifs(matrix, threshold):
 
         col_series = matrix.iloc[:,col]
         col_series.drop(labels=matrix.iloc[:,col].name, inplace=True)
-
-        print(col_series)
-
         col_vec = col_series > threshold
 
         if(col_vec.eq(True).all()):
@@ -466,10 +463,13 @@ def save_motif_image(motif, prefix, ext, out):
         Output path
     """
 
-    if ext == "jpg":
+    """ # currently only png is supported, bug with gimmemotifs?
+    if ext == "jpg" :
         ext = "png"
         warnings.warn("The 'jpg' format is not supported for motif image. Type is set tp 'png'")
-    motif.to_img(os.path.join(out, prefix + "." + ext))
+    """
+    
+    motif.to_img(os.path.join(out, prefix))
 
 
 #--------------------------------------------------------------------------------------------------------#
