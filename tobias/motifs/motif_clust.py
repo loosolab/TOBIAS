@@ -256,7 +256,14 @@ def get_dissimilar_motifs(matrix, threshold):
     columns = matrix.shape[1]
     dissimilar_motifs = list()
     for col in range(columns-1):
-        col_vec = matrix.iloc[:,col] > threshold
+
+        col_series = matrix.iloc[:,col]
+        col_series.drop(labels=matrix.iloc[:,col].name, inplace=True)
+
+        print(col_series)
+
+        col_vec = col_series > threshold
+
         if(col_vec.eq(True).all()):
             dissimilar_motifs.append(matrix.columns[col])
     return dissimilar_motifs
