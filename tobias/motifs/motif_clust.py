@@ -115,6 +115,9 @@ def get_motifs(path, format):
         if format == "meme":
             format = "minimal"
 
+        if format == "pfm":
+            format = "jaspar"
+        
         # Otherwise Bio.python is used
         with open(path) as f:
             bio_motif_list = motifs.parse(f, format)
@@ -440,87 +443,12 @@ def plot_dendrogram(label, linkage, font_size, out, title, threshold, y, dpi, t)
 
 
 #--------------------------------------------------------------------------------------------------------#
-def generate_consensus_motifs(motif_list, clusters, similarity_dict):
-    """Generates a consensus motif for each cluster
-
-    Parameter:
-    ----------
-    motif_list : list
-        list of all motif instances
-    cluster : dict
-        A dictionary containing named clusters.
-    similarity_dict : dict
-        Output from gimmemotif.get_all_scores
-
-    Returns:
-    --------
-        dict of consensus motifs as gimmemotif motif instance
-    """
-
-    consensus_motifs = dict()
-    for cluster, value in clusters.items():
-        cluster_motifs = list()
-        # Get motif instances
-        for m in motif_list:
-            if m.id in value:
-                cluster_motifs.append(m)
-        consensus_motifs[cluster] = generate_consensus_motif(cluster_motifs, similarity_dict)
-    return consensus_motifs
-
-
-#--------------------------------------------------------------------------------------------------------#
-def generate_consensus_motif(motifs, similarity_dict):
-    """Recursive algorithm to generate consensus motif from multiple motifs
-
-    Parameter:
-    ----------
-    motifs : list
-        list of gimmemotif motif instances
-    similarity_dict : dict
-        Output from gimmemotifs.get_all_scores
-
-    Returns:
-    --------
-    gimmemotifs motif instance
-        consensus motif of all motifs in motifs list
-    """
-
-    mc = MotifComparer()
-
-    if len(motifs) == 1:
-        return motifs[0]
-
-    # score cannot be lower that 0 so max score is initialized with 0
-    max_score = 0
-    for motif_1, motif_2 in itertools.combinations(motifs, 2):
-        score = similarity_dict[motif_1.id][motif_2.id]
-        if score[0] >= max_score:
-            max_score = score[0]
-            merge_1 = motif_1
-            merge_2 = motif_2
-
-    # generate average motif
-    average_motif = merge_1.average_motifs(merge_2, pos=score[1], orientation=score[2])
-    average_motif.id = merge_1.id + "_" + merge_2.id
-
-    # alter list 
-    motifs.append(average_motif)
-    motifs.remove(merge_1)
-    motifs.remove(merge_2)
-
-    sim_dict = mc.get_all_scores(motifs, motifs, match = "total", metric = "pcc", combine = "mean" )
-
-    cons_motif = generate_consensus_motif(motifs, sim_dict)
-    return cons_motif
-
-
-#--------------------------------------------------------------------------------------------------------#
-def save_motif_image(consensus_motif, prefix, ext, out):
+def save_motif_image(motif, prefix, ext, out):
     """Save motif to image file
 
     Paramater:
     ----------
-    consensus_motif : gimmemotif motif instance
+    motif : gimmemotif motif instance
         The motif to be plotted
     prefix : string
         Prefix for image file
@@ -533,16 +461,16 @@ def save_motif_image(consensus_motif, prefix, ext, out):
     if ext == "jpg":
         ext = "png"
         warnings.warn("The 'jpg' format is not supported for motif image. Type is set tp 'png'")
-    consensus_motif.to_img(os.path.join(out, prefix + "_consensus." + ext))
+    motif.to_img(os.path.join(out, prefix + "." + ext))
 
 
 #--------------------------------------------------------------------------------------------------------#
-def convert_motif(consensus_motif, f):
+def convert_motif(motif, f):
     """ Convert motif to given format
 
     Parameter:
     ----------
-    consensus_motif : gimmemotif motif instance
+    motif : gimmemotif motif instance
         The motif to be written to file
     out : string
         Output string without file ending
@@ -556,18 +484,18 @@ def convert_motif(consensus_motif, f):
     """
 
     if f == "meme":
-        motif = consensus_motif.to_meme()
+        motif = motif.to_meme()
     elif f == "pwm":
-        motif = consensus_motif.to_pwm()
+        motif = motif.to_pwm()
     elif f == "transfac":
-        motif = consensus_motif.to_transfac()
+        motif = motif.to_transfac()
     else:
         raise ValueError("Format " + f + " is not supported")
     return motif
 
 
 #--------------------------------------------------------------------------------------------------------#
-def consensus_motif_out_wrapper(consensus_motifs, out_prefix, img_out, cons_format, name, typ, file_name = None):
+def consensus_motif_out_wrapper(consensus_motifs, out_prefix, img_out, cons_format, typ):
     """ Wrapper for consensus motif output
 
     Parameter:
@@ -582,26 +510,18 @@ def consensus_motif_out_wrapper(consensus_motifs, out_prefix, img_out, cons_form
         Format for motif file
     name : string
         Prefix for motif images
-    file_name : string
-        File name of clustered motifs
     typ : string
         File format of image
     """
 
-    if file_name is not None:
-        img_prefix = name + "_" + file_name
-        cons_out_path = out_prefix + "_" + file_name + "_consensus_motifs." + cons_format
-    else:
-        img_prefix = name 
-        cons_out_path = out_prefix + "_consensus_motifs." + cons_format
+    cons_out_path = out_prefix + "_consensus_motifs." + cons_format
 
     cons_out = open(cons_out_path, 'w+')
 
     for cluster, consensus_motif in consensus_motifs.items():
-        consensus_motif.id = cluster + "_" + consensus_motif.id
 
         # Save motif as image
-        save_motif_image(consensus_motif, img_prefix + "_" + cluster, typ, img_out)
+        save_motif_image(consensus_motif, cluster + "_consensus", typ, img_out)
 
         # Save motifs to file
         motif_string = convert_motif(consensus_motif, cons_format)
@@ -670,83 +590,100 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
 
 
 #--------------------------------------------------------------------------------------------------------#
-def create_consensus_pro_cluster(clusters, score_dict, motif_list):
+def create_consensus_per_cluster(clusters, motif_list):
     """Assigns a consensus motif in pwm format for each cluster.
     Parameter:
     ----------
     clusters : dict
-        Dictionary containing lists of motifs as values.
-    score_dict : dict
-        Dictionary conatining list of [similarity_score, pos, strand] as values and motif names as keys.
+        Dictionary containing lists of gimmemotif objects
+    motif_list : list 
+        list of gimmemotif objects
 
     Returns:
     --------
-    cluster_consensus_pwm : dict
-        Dictionary containing cluster names as keys and pwms of consensus motifs as values.
-    score_dict : dict
-        Dictionary with information about consensus motifs as well as the normal old motifs.
+    cluster_consensus_motifs : dict
+        Dictionary containing cluster names as keys and gimmemotif onjects values.
     """
-    mc = MotifComparer()
-    cluster_consensus_pwm = {}
-    motif_list_ids = [m.id for m in motif_list]
+ 
+    cluster_consensus_motifs = dict()
 
-    for c in clusters:
-        cluster_motifs = clusters[c]
+    for cluster, cluster_motifs_list in clusters.items():
 
-        if len(cluster_motifs) == 1:
-            one_motif = motif_list[motif_list_ids.index(cluster_motifs[0])]
-            one_motif.id = c + ":" + one_motif.id
-            cluster_consensus_pwm[c] = one_motif.to_pwm()
-        else:
-            consensus_found = False
+        # Get list of gimmemotif objects per cluster
+        gimmemotifs_list = list()
+        for m in motif_list:
+            if m.id in cluster_motifs_list:
+                gimmemotifs_list.append(m)
 
-            while not consensus_found:
-                best_similarity_motifs = find_best_pair(cluster_motifs, score_dict)            
+        consensus_motif = create_consensus_from_list(gimmemotifs_list)
+        consensus_motif.id = cluster + ":" + consensus_motif.id
+        cluster_consensus_motifs[cluster] = consensus_motif
 
-                new_motif = create_consensus(motif_list[motif_list_ids.index(best_similarity_motifs[0])], motif_list[motif_list_ids.index(best_similarity_motifs[1])], score_dict[best_similarity_motifs[0]][best_similarity_motifs[1]][1], score_dict[best_similarity_motifs[0]][best_similarity_motifs[1]][2])
+    return cluster_consensus_motifs
 
-                del(cluster_motifs[cluster_motifs.index(best_similarity_motifs[0])])
-                del(cluster_motifs[cluster_motifs.index(best_similarity_motifs[1])])
 
-                if cluster_motifs:
-                    #add the comparison of the new motif to the score_dict
-                    score_dict[new_motif.id] = score_dict.get(new_motif.id, {})
-                    for m in cluster_motifs:
-                        score_dict[new_motif.id][m] = mc.compare_motifs(new_motif, motif_list[motif_list_ids.index(m)], metric= "pcc")
-                        score_dict[m][new_motif.id] = mc.compare_motifs(motif_list[motif_list_ids.index(m)], new_motif, metric = "pcc")
-                        score_dict[new_motif.id][new_motif.id] = [0, 0, 1]
-                    #add the new motif to the cluster_motifs
-                    cluster_motifs.append(new_motif.id)
-                    motif_list.append(new_motif)
-                    motif_list_ids.append(new_motif.id)
-                        
-                else:
-                    consensus_found = True
-                    new_motif.id = c + ":" + new_motif.id
-                    cluster_consensus_pwm[c] = new_motif.to_pwm()
+def create_consensus_from_list(motif_list):
+    """Creats a consensus motif from list of motifs
 
-    return cluster_consensus_pwm, score_dict
+    Parameter:
+    ----------
+    motif_list : list
+        list of gimmemotif objects
+    
+    Returns:
+        gimmemotif object
+    """
 
+    if len(motif_list) > 1:
+        consensus_found = False
+        mc = MotifComparer()
+
+        #Initialize score_dict
+        score_dict = mc.get_all_scores(motif_list, motif_list, match = "total", metric = "pcc", combine = "mean")
+
+        while not consensus_found:
+
+            #Which motifs to merge?
+            best_similarity_motifs = sorted(find_best_pair(motif_list, score_dict))   #indices of most similar motifs in cluster_motifs
+
+            #Merge
+            new_motif = merge_motifs(motif_list[best_similarity_motifs[0]], motif_list[best_similarity_motifs[1]]) 
+
+            del(motif_list[best_similarity_motifs[1]])
+            motif_list[best_similarity_motifs[0]] = new_motif
+
+            if len(motif_list) == 1:    #done merging
+                consensus_found = True
+
+            else:   #Update score_dict
+
+                #add the comparison of the new motif to the score_dict
+                score_dict[new_motif.id] = score_dict.get(new_motif.id, {})
+
+                for m in motif_list:
+                    score_dict[new_motif.id][m.id] = mc.compare_motifs(new_motif, m, metric= "pcc")
+                    score_dict[m.id][new_motif.id] = mc.compare_motifs(m, new_motif, metric = "pcc")
+
+    return(motif_list[0])
 
 #--------------------------------------------------------------------------------------------------------#
-def create_consensus(motif_1, motif_2, pos, orientation):
+def merge_motifs(motif_1, motif_2):
     """Creates the consensus motif from two provided motifs, using the pos and orientation calculated by gimmemotifs get_all_scores()
     Parameter:
     ----------
     motif_1 : Object of class Motif
-        First motif to create the consensus.
+        First gimmemotif object to create the consensus.
     motif_2 : Object of class Motif
-        Second motif to create consensus.
-    pos : int
-        Distance to shift the first and second motifs for best consensus.
-    orientation : int 1 or -1
-        Normal or reverse strand.
+        Second gimmemotif object to create consensus.
 
     Returns:
     --------
     consensus : Object of class Motif
         Consensus of both motifs with id composed of ids of motifs it was created.
     """
+
+    mc = MotifComparer()
+    score, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric= "pcc")
     consensus = motif_1.average_motifs(motif_2, pos = pos, orientation = orientation)
     consensus.id = motif_1.id + "+" + motif_2.id
     return consensus
@@ -767,19 +704,15 @@ def find_best_pair(cluster_motifs, score_dict):
     best_similarity_motifs : list of two elements
         List of the best pair of motifs found based on the similarity.
     """
-    start = 1
+
     best_similarity = 0
-    best_similarity_motifs = []
-    for m in cluster_motifs:
-        for i in range(start, len(cluster_motifs)):
-            if m in score_dict and cluster_motifs[i] in score_dict:
-                this_similarity = score_dict[m][cluster_motifs[i]][0]
+    for i, m in enumerate(cluster_motifs):
+        for j, n in enumerate(cluster_motifs):
+            if m.id is not n.id: 
+                this_similarity = score_dict[m.id][n.id][0]
                 if this_similarity > best_similarity:
                     best_similarity = this_similarity
-                    best_similarity_motifs = [m, cluster_motifs[i]]
-            else:
-                print("This motifs pair can not be found in the scoring matrix: " + m + " and " + cluster_motifs[i])          
-        start += 1
+                    best_similarity_motifs = [i, j] #index of the most similar motifs in cluster_motifs
 
     return best_similarity_motifs
 
@@ -789,7 +722,8 @@ def run_motifclust(args):
     ###### Check input arguments ######
     check_required(args, ["motifs"])           #Check input arguments
     check_files([args.motifs])   #Check if files exist
-    make_directory(args.outdir)
+    out_cons_img = os.path.join(args.outdir, "consensus_motifs_img")
+    make_directory(out_cons_img)
     out_prefix = os.path.join(args.outdir, args.prefix)
 
     ###### Create logger and write argument overview ######
@@ -806,8 +740,8 @@ def run_motifclust(args):
 
     logger.info("Handling input file(s)")
 
-    motif_list = [] #list containing gimmemotifs-motif-objects
-    motif_dict = {} #dictionary containing separate motif lists per file
+    motif_list = list() #list containing gimmemotifs-motif-objects
+    motif_dict = dict() #dictionary containing separate motif lists per file
     for f in args.motifs:
         logger.debug("Reading {0}".format(f))
 
@@ -901,16 +835,14 @@ def run_motifclust(args):
 
     logger.info("Building consensus motifs for each cluster")
 
-    cluster_consensus_pwm, score_dict = create_consensus_pro_cluster(clusters, score_dict, motif_list)
-    consensus_output_file = open(out_prefix + "_consensus_motifs.pwm", 'w')
-    #print("The output with consensus motifs will be written to the file " + out_prefix + "_consensus_motifs.pwm")
-
-    for c in cluster_consensus_pwm:
-        consensus_output_file.write(cluster_consensus_pwm[c] + 2*'\n')
-    consensus_output_file.close()
+    cluster_consensus_motifs = create_consensus_per_cluster(clusters, motif_list)
+    #file writing
+    
+    consensus_motif_out_wrapper(cluster_consensus_motifs, out_prefix, out_cons_img, args.cons_format, args.type)
 
 
     #IDEA: Cluster and build consensus motif for each input file individually?
+
     """
     # Generate output depending on set parameters
     if args.merge or not args.motifs2: # col and row are identical
