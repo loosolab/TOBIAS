@@ -21,7 +21,6 @@ import re
 import math
 import itertools
 import warnings
-import copy
 from Bio import motifs
 from matplotlib import pyplot as plt
 from gimmemotifs.motif import Motif,read_motifs
@@ -844,7 +843,7 @@ def run_motifclust(args):
     logger.info("Building consensus motifs for each cluster")
 
     cluster_consensus_motifs = create_consensus_per_cluster(clusters, motif_list)
-    
+
     #file writing
     consensus_motif_out_wrapper(cluster_consensus_motifs, out_prefix, out_cons_img, args.cons_format, args.type)
 
