@@ -21,6 +21,7 @@ import re
 import math
 import itertools
 import warnings
+import copy
 from Bio import motifs
 from matplotlib import pyplot as plt
 from gimmemotifs.motif import Motif,read_motifs
@@ -750,11 +751,12 @@ def run_motifclust(args):
 
         #Read motifs to internal structure
         sub_motif_list = get_motifs(f, motif_format)
+        sub_motif_list_2 = get_motifs(f, motif_format) # ugly workaround for reference bug
         m_names = list(m.id for m in sub_motif_list)
         logger.stats("- Read {0} motifs from {1} (format: {2})".format(len(sub_motif_list), f, motif_format))
 
         motif_list.extend(sub_motif_list)
-        motif_dict[f] = sub_motif_list
+        motif_dict[f] = sub_motif_list_2
 
 
     #---------------------------------------- Generating similarity matrix ----------------------------------#
@@ -795,7 +797,7 @@ def run_motifclust(args):
     
     logger.info("Clustering motifs")
 
-    linkage, clusters = cluster_motifs(similarity_matrix, args.threshold, args.clust_method)
+    clust_linkage, clusters = cluster_motifs(similarity_matrix, args.threshold, args.clust_method)
     logger.stats("- Identified {0} clusters".format(len(clusters)))
 
     # Scaling for plots
@@ -810,7 +812,7 @@ def run_motifclust(args):
 
     #Write out clusters and plot dendrogram
     write_yaml(clusters, cluster_f)
-    plot_dendrogram(similarity_matrix.columns, linkage, 12, dendrogram_f, dendrogram_f, args.threshold, x, args.dpi, args.type)
+    plot_dendrogram(similarity_matrix.columns, clust_linkage, 12, dendrogram_f, dendrogram_f, args.threshold, x, args.dpi, args.type)
     
     #IDEA: Plot dendrogram for each input file individually?
     """
@@ -874,7 +876,7 @@ def run_motifclust(args):
     pdf_out = out_prefix + "_heatmap_all." + args.type
     x_label = "All motifs"
     y_label = "All motifs"
-    plot_heatmap(similarity_matrix, pdf_out, x, y, linkage, linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
+    plot_heatmap(similarity_matrix, pdf_out, x, y, clust_linkage, clust_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
     
     # Plot heatmaps for each combination of motif files
     comparisons = itertools.combinations(args.motifs, 2)
@@ -886,16 +888,16 @@ def run_motifclust(args):
         x_label, y_label = motif_file_1, motif_file_2
 
         #Create subset of matrices for row/col clustering
-        motif_names_1 = [motif.name for motif in motif_dict[motif_file_1]]
-        motif_names_2 = [motif.name for motif in motif_dict[motif_file_2]]
+        motif_names_1 = [motif.id for motif in motif_dict[motif_file_1]]
+        motif_names_2 = [motif.id for motif in motif_dict[motif_file_2]]
 
-        m1_matrix, m2_matrix, similarity_matrix_sub = subset_matrix(similarity_matrix,  motif_names_1, motif_names_2)
+        sub_1_vector, sub_2_vector, similarity_matrix_sub = subset_matrix(similarity_matrix,  motif_names_1, motif_names_2)
 
-        col_linkage = linkage(ssd.squareform(m1_matrix))
-        row_linkage = linkage(ssd.squareform(m2_matrix))
+        col_clust_linkage = linkage(ssd.squareform(sub_1_vector))
+        row_clust_linkage = linkage(ssd.squareform(sub_2_vector))
 
         #Plot similarity heatmap between file1 and file2
-        plot_heatmap(similarity_matrix_sub, pdf_out, x, y, col_linkage, row_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
+        plot_heatmap(similarity_matrix_sub, pdf_out, x, y, col_clust_linkage, row_clust_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
     
     # ClusterMotifs finished
     logger.end()
