@@ -759,7 +759,6 @@ def run_motifclust(args):
         #Read motifs to internal structure
         sub_motif_list = get_motifs(f, motif_format)
         sub_motif_list_2 = get_motifs(f, motif_format) # ugly workaround for reference bug
-        m_names = list(m.id for m in sub_motif_list)
         logger.stats("- Read {0} motifs from {1} (format: {2})".format(len(sub_motif_list), f, motif_format))
 
         motif_list.extend(sub_motif_list)
