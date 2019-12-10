@@ -691,7 +691,7 @@ def merge_motifs(motif_1, motif_2):
     """
 
     mc = MotifComparer()
-    score, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric= "pcc")
+    _, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric= "pcc")
     consensus = motif_1.average_motifs(motif_2, pos = pos, orientation = orientation)
     consensus.id = motif_1.id + "+" + motif_2.id
     return consensus
