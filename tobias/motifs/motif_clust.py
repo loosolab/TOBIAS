@@ -17,9 +17,11 @@ import pandas as pd
 import os
 import yaml
 import re
+import sys
 import math
 import itertools
 import warnings
+import copy
 from Bio import motifs
 from matplotlib import pyplot as plt
 from gimmemotifs.motif import Motif,read_motifs
@@ -669,7 +671,6 @@ def create_consensus_from_list(motif_list):
                 for m in motif_list:
                     score_dict[new_motif.id][m.id] = mc.compare_motifs(new_motif, m, metric= "pcc")
                     score_dict[m.id][new_motif.id] = mc.compare_motifs(m, new_motif, metric = "pcc")
-
     return(motif_list[0])
 
 #--------------------------------------------------------------------------------------------------------#
@@ -748,6 +749,10 @@ def run_motifclust(args):
 
     motif_list = list() #list containing gimmemotifs-motif-objects
     motif_dict = dict() #dictionary containing separate motif lists per file
+
+    if sys.version_info<(3,7,0): # workaround for deepcopy with python version < 3.5
+        copy._deepcopy_dispatch[type(re.compile(''))] = lambda r, _: r
+
     for f in args.motifs:
         logger.debug("Reading {0}".format(f))
 
@@ -756,11 +761,10 @@ def run_motifclust(args):
 
         #Read motifs to internal structure
         sub_motif_list = get_motifs(f, motif_format)
-        sub_motif_list_2 = get_motifs(f, motif_format) # ugly workaround for reference bug
         logger.stats("- Read {0} motifs from {1} (format: {2})".format(len(sub_motif_list), f, motif_format))
 
         motif_list.extend(sub_motif_list)
-        motif_dict[f] = sub_motif_list_2
+        motif_dict[f] = copy.deepcopy(sub_motif_list)
 
 
     #---------------------------------------- Generating similarity matrix ----------------------------------#
