@@ -32,13 +32,13 @@ from scipy.optimize import curve_fit
 #Bio-specific packages
 import pyBigWig
 import pysam
-import MOODS.scan
-import MOODS.tools
-import MOODS.parsers
+#import MOODS.scan
+#import MOODS.tools
+#import MOODS.parsers
 
 #Internal functions and classes
 from tobias.utils.regions import *
-from tobias.utils.sequences import *
+#from tobias.utils.sequences import *
 from tobias.utils.utilities import *
 from tobias.utils.motifs import *
 from tobias.utils.signals import *

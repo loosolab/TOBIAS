@@ -15,33 +15,10 @@ import re
 import textwrap
 
 #Internal functions/classes
-from tobias.utils.motifs import *
-from tobias.utils.utilities import *
-from tobias.utils.logger import *
-
-#--------------------------------------------------------------------------------------------------------#
-def add_formatmotifs_arguments(parser):
-
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = ""
-	parser.description = format_help_description("FormatMotifs", description) 
-	
-	parser._action_groups.pop()	#pop -h
-
-	#Required arguments
-	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--input', metavar="", nargs="*", help="One or more input motif files")			
-	required.add_argument('--format', metavar="", help="Desired motif output format (pfm, jaspar, meme) (default: \"jaspar\")", choices=["pfm", "jaspar", "meme"], default="jaspar")
-	required.add_argument('--task', metavar="", help="Which task to perform on motif files (join/split) (default: join)", choices=["join", "split"], default="join")
-	required.add_argument('--filter', metavar="", help="File containing list of motif names/ids to filter on. Only motifs fitting entries in filter will be output.")
-	required.add_argument('--output', metavar="", help="If task == join, output is the joined output file; if task == split, output is a directory")
-	
-	additional = parser.add_argument_group('Additional arguments')
-	additional = add_logger_args(additional)
-
-	return(parser)
-
+from tobias.parsers import add_formatmotifs_arguments
+from tobias.utils.motifs import OneMotif, MotifList
+from tobias.utils.utilities import * #check_required, check_files, expand_dirs
+from tobias.utils.logger import TobiasLogger
 
 #--------------------------------------------------------------------------------------------------------#
 def run_formatmotifs(args):

@@ -17,47 +17,12 @@ import multiprocessing as mp
 import itertools
 
 import pysam	#for reading fastafile
+from tobias.parsers import add_tfbscan_arguments
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
 from tobias.utils.sequences import * 
 from tobias.utils.motifs import *
 from tobias.utils.logger import *
-
-#----------------------------------------------------------------------------------------------------------#
-def add_tfbscan_arguments(parser):
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
-	description = "Find positions of Transcription Factor Binding Sites (TFBS) in FASTA sequences by scanning with motifs.\n\n" 
-	description += "Usage:\nTOBIAS TFBScan --motifs <motifs.txt> --fasta <genome.fa> \n\n"
-	description += "By setting --outdir, the output files are:\n- <outdir>/<TF1>.bed\n- <outdir>/<TF2>.bed\n- (...)\n\n"
-	description += "By setting --outfile, all TFBS are written to one file (with motif specified in the 4th column of the .bed)."
-	parser.description = format_help_description("TFBScan", description)
-
-	parser._action_groups.pop()	#pop -h
-
-	required_arguments = parser.add_argument_group('Required arguments')
-	required_arguments.add_argument('-m', '--motifs', metavar="", help='File containing motifs in either MEME, PFM or JASPAR format')
-	required_arguments.add_argument('-f', '--fasta', metavar="", help='A fasta file of sequences to use for scanning motifs') 	# whole genome file or regions of interest in FASTA format to be scanned with motifs')
-
-	#all other arguments are optional
-	optional_arguments = parser.add_argument_group('Optional arguments')
-	optional_arguments.add_argument('-r', '--regions', metavar="", help='Subset scanning to regions of interest')
-	optional_arguments.add_argument('--outdir', metavar="", help='Output directory for TFBS sites in one file per motif (default: ./tfbscan_output/). NOTE: Select either --outdir or --outfile.', default=None)
-	optional_arguments.add_argument('--outfile', metavar="", help='Output file for TFBS sites joined in one bed-file (default: not set). NOTE: Select either --outdir or --outfile.', default=None)
-
-	optional_arguments.add_argument('--naming', metavar="", help="Naming convention for bed-ids and output files ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
-	optional_arguments.add_argument('--gc', metavar="", type=lambda x: restricted_float(x,0,1), help='Set the gc content for background regions (default: will be estimated from fasta)')
-	optional_arguments.add_argument('--pvalue', metavar="", type=lambda x: restricted_float(x,0,1), help='Set p-value for motif matches (default: 0.0001)', default=0.0001)
-	optional_arguments.add_argument('--keep-overlaps', action='store_true', help='Keep overlaps of same motifs (default: overlaps are resolved by keeping best-scoring site)')
-	optional_arguments.add_argument('--add-region-columns', action='store_true', help="Add extra information columns (starting from 4th column) from --regions to the output .bed-file(s) (default: off)")
-
-	RUN = parser.add_argument_group('Run arguments')
-	RUN.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	RUN.add_argument('--cores', metavar="", type=int, help='Number of cores to use (default: 1)', default=1)
-	RUN.add_argument('--debug', action="store_true", help=argparse.SUPPRESS)
-	RUN = add_logger_args(optional_arguments)
-
-	return(parser)
 
 #----------------------------------------------------------------------------------------------------------#
 def motif_scanning(regions, args, motifs_obj):

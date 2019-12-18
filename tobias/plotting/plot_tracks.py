@@ -12,17 +12,14 @@ Wraps the commandline tool svist4get to automatically plot scores/sites for each
 import os
 import sys
 import argparse
-import logging
 import numpy as np
-import configs
+
 from PyPDF2 import PdfFileMerger, PdfFileReader
-import shutil
-import matplotlib
-import matplotlib.colors as mcolors
+#import matplotlib
 from matplotlib import font_manager
+import matplotlib.colors as mcolors
 
 #Bio-stuff
-import pysam
 import pyBigWig
 import pybedtools as pb
 import svist4get as sv4g
@@ -128,35 +125,6 @@ def write_out_config(config, outfile):
 				f.write("{0} = {1}\n".format(key, ",".join([str(element) for element in config[key]])))
 			else: 
 				f.write("{0} = {1}\n".format(key, config[key]))
-
-#--------------------------------------------------------------------------------------------------------#
-def add_tracks_arguments(parser):
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = "Plot genomic tracks (such as cutsite or footprint scores) in specific genomic regions.\n"
-	description += "This function is a wrapper for the svist4get package (Artyom A. Egorov, \"svist4get: a simple visualization tool for genomic tracks from sequencing experiments\", BMC Bioinformatics, Volume 20, 2019, 113)"
-	description += " which allows for automatic creation of multiple plots by using bigwigs/bedfiles."
-	parser.description = format_help_description("PlotTracks", description)
-	parser._action_groups.pop()		#pop -h
-
-	IO = parser.add_argument_group('Input / output arguments')
-	IO.add_argument('--bigwigs', metavar="",  action='append', nargs="*", help="One or more bigwigs to show. Note: All bigwigs within one \"--bigwigs\" argument will be normalized to each other. " + 
-																				"It is possible to give multiple \"--bigwigs\" arguments, which will be normalized independently per group (required)", default=[])
-	IO.add_argument('--regions', metavar="", help="Genomic regions to plot (required)")
-	IO.add_argument('--sites', metavar="", help="Genomic sites to show in plot (optional)")
-	IO.add_argument('--highlight', metavar="", help="Regions to highlight in plot (optional)")
-	IO.add_argument('--gtf', metavar="", help="GTF file containing genes to show (optional)")
-
-	IO.add_argument('--width', metavar="", help="Width of plot in cm (default 15)", type=float, default=15)
-	#IO.add_argument('--height', metavar="")
-	IO.add_argument('--colors', metavar="", nargs="*", help="List of specific colors to use for plotting tracks", default=None)
-	IO.add_argument('--labels', metavar="", nargs="*", help="Labels for tracks (default: prefix of bigwig)")
-	IO.add_argument('--max-transcripts', metavar="", type=int, help="Set a limit on number of shown transcripts in plot (default: 3)", default=3)
-
-	IO.add_argument('--outdir', metavar="", help="Output folder (default: plottracks_output)", default="plottracks_output")
-	IO = add_logger_args(IO)
-	
-	return(parser)
 
 #--------------------------------------------------------------------------------------------------------#
 def run_tracks(args):

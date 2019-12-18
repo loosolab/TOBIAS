@@ -184,7 +184,6 @@ class RegionList(list):
 			self.append(obj)
 		return(self)
 
-
 	def from_bed(self, bedfile_f):
 		""" Initialize Object from bedfile """
 
@@ -214,8 +213,16 @@ class RegionList(list):
 
 		return(self)
 
+	def from_chrom_lengths(self, chrom_length_dict):
+		""" Initialize regions with dict of chromosome lengths """
+
+		for chrom in sorted(chrom_length_dict):
+			self.append(OneRegion([chrom, 0, chrom_length_dict[chrom]]))
+
+		return(self)
 
 	def as_bed(self, additional=True):
+		""" Return bedfile formatting as string """
 
 		bed = ""
 		for region in self:
@@ -224,7 +231,6 @@ class RegionList(list):
 			bed += line
 
 		return(bed)
-
 
 	def write_bed(self, bed_f):
 		""" Write regions to bedfile """
@@ -239,7 +245,6 @@ class RegionList(list):
 	def count(self):
 		""" Number of regions """
 		return(len(self))
-
 
 	def loc_sort(self, contig_list=[]):
 		""" Sorts list of region objects based on genomic location """

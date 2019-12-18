@@ -14,21 +14,19 @@ import sys
 import argparse
 import numpy as np
 import math
-
 import textwrap
 import logging
+
 import pyBigWig
 import multiprocessing as mp
-from datetime import datetime
 from scipy import stats
 
 #Internal functions and classes
 from tobias.utils.utilities import *
-from tobias.utils.regions import *
+from tobias.utils.regions import OneRegion, RegionList
 from tobias.utils.sequences import *
 from tobias.utils.signals import *
-from tobias.utils.ngs import *
-from tobias.utils.logger import *
+from tobias.utils.logger import TobiasLogger
 
 #-----------------------------------------------------------------#
 def add_scorebigwig_arguments(parser):
@@ -78,7 +76,7 @@ def calculate_scores(regions, args):
 
 	pybw_signal = pyBigWig.open(args.signal) 	#cutsites signal
 	pybw_header = pybw_signal.chroms()			
-	chrom_lengths = {chrom:int(pybw_header[chrom]) for chrom in pybw_header}
+	chrom_lengths = {chrom: int(pybw_header[chrom]) for chrom in pybw_header}
 
 	#Set flank to enable scoring in ends of regions
 	flank = args.region_flank

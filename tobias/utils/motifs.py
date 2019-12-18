@@ -11,6 +11,7 @@ Classes for working with motifs and scanning with moods
 
 import numpy as np
 import copy
+import re
 
 import MOODS.scan
 import MOODS.tools
@@ -24,7 +25,7 @@ from matplotlib.patches import PathPatch
 from matplotlib.font_manager import FontProperties
 
 #Internal
-from tobias.utils.regions import * 
+from tobias.utils.regions import OneRegion, RegionList
 from tobias.utils.utilities import filafy, num 	#filafy for filenames
 
 #----------------------------------------------------------------------------------------#
@@ -171,8 +172,9 @@ class MotifList(list):
 
 		self.moods_scanner = scanner
 
-
 	def scan_sequence(self, seq, region):
+		""" segion is a OneRegion object 
+			seq is a string containing DNA sequence"""
 
 		if self.moods_scanner == None:
 			self.setup_moods_scanner()
@@ -181,7 +183,7 @@ class MotifList(list):
 		results = self.moods_scanner.scan(seq)
 
 		#Convert results to RegionList
-		sites = RegionList()
+		sites = RegionList()	#Empty regionlist
 		for (matrix, name, strand, result) in zip(self.matrices, self.names, self.strands, results):
 			motif_length = len(matrix[0])
 			for match in result:
@@ -189,10 +191,11 @@ class MotifList(list):
 				end = start + motif_length		
 				score = round(match.score, 5)
 
-				site = OneRegion([region.chrom, start, end, name, score, strand])
+				site = OneRegion([region.chrom, start, end, name, score, strand])	#Create OneRegion obj
 				sites.append(site)
 
 		return(sites)
+
 
 #----------------------------------------------------------------------------------------#
 #Contains info on one motif formatted for use in moods
@@ -202,10 +205,10 @@ class OneMotif:
 
 	def __init__(self, motifid="", name="", counts=[[] for _ in range(4)]):
 		
-		self.id = motifid			#must be unique
-		self.name = name	#does not have to be unique
+		self.id = motifid		#should be unique
+		self.name = name		#does not have to be unique
 
-		self.prefix = "" 	#output prefix set in set_prefix
+		self.prefix = "" 		#output prefix set in set_prefix
 		self.counts = counts  	#counts, list of 4 lists (each as long as motif)
 		self.strand = "+"		#default strand is +
 
@@ -217,7 +220,7 @@ class OneMotif:
 		self.bits = None
 
 	def __str__(self):
-
+		""" Used for printing """
 		return("{0}".format(self.__dict__))
 
 	def set_prefix(self, naming="name_id"):
@@ -243,6 +246,7 @@ class OneMotif:
 
 
 	def get_reverse(self):
+		""" Reverse complement motif """
 		if self.pfm is None:
 			self.get_pfm()
 
@@ -264,8 +268,8 @@ class OneMotif:
 		pssm = tuple([tuple(row) for row in pssm])
 		self.pssm = pssm
 
-
 	def get_threshold(self, pvalue):
+		""" Get threshold for moods scanning """
 		if self.pssm is None:
 			self.get_pssmm()
 
@@ -274,7 +278,7 @@ class OneMotif:
 
 
 	def calc_bit_score(self):
-
+		""" """
 		if self.pfm is None:
 			self.get_pfm()
 

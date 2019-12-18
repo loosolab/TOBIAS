@@ -22,34 +22,7 @@ import pandas as pd
 
 #Utils from TOBIAS
 from tobias.utils.utilities import * 
-from tobias.utils.logger import *
-
-#--------------------------------------------------------------------------------#
-
-def add_network_arguments(parser):
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = "Creates a TF-TF gene regulation network from annotated transcription factor binding sites" 
-	parser.description = format_help_description("CreateNetwork", description)
-
-	parser._action_groups.pop()	#pop -h
-	
-	#Required arguments
-	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--TFBS', metavar="", help="File(s) containing TFBS (with annotation) to create network from", nargs="*")
-	required.add_argument('--origin', metavar="", help="File containing mapping of TF <-> origin gene")
-
-	#Optional arguments
-	optional = parser.add_argument_group('Optional arguments')
-	optional.add_argument('--start', metavar="", help="Name of node to start in (default: all nodes)")
-	optional.add_argument('--max-len', metavar="", help="Maximum number of nodes in paths through graph (default: 4)", type=int, default=4)
-	#optional.add_argument('--unique', action='store_true', help="Only include edges once (default: edges can occur multiple times in case of multiple binding sites)")
-	
-	runargs = parser.add_argument_group("Run arguments")
-	runargs.add_argument('--outdir', metavar="", help="Path to output directory (default: tobias_network)", default="tobias_network") 
-	runargs = add_logger_args(runargs)
-
-	return(parser)
+from tobias.utils.logger import TobiasLogger
 
 #--------------------------------------------------------------------------------#
 def dfs(adjacency, path, all_paths = [], options={"max_length":3}):

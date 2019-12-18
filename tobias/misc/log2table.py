@@ -19,23 +19,7 @@ import pandas as pd
 from tobias.utils.utilities import * 
 from tobias.utils.logger import *
 
-
-def add_log2table_arguments(parser):
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = "Log2Table creates tables of footprint depth (FPD) and aggregate correlations from the PlotAggregate logfiles." 
-	parser.description = format_help_description("Log2Table", description)
-
-	parser._action_groups.pop()	#pop -h
-	
-	#Required arguments
-	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--logfiles', nargs="*", metavar="", help="Logfiles from PlotAggregate")
-	required.add_argument('--outdir', metavar="", help="Output directory for tables (default: current dir)", default=".")
-	required.add_argument('--prefix', metavar="", help="Prefix of output files", default="aggregate")
-
-	return(parser)
-
+#------------------------------------------------------------------------------------------------------#
 def run_log2table(args):
 	logger = TobiasLogger("Log2Table")
 	logger.begin()

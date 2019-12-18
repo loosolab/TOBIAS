@@ -24,11 +24,12 @@ from scipy.optimize import curve_fit
 import pysam
 
 #Internal functions and classes
-from tobias.utils.sequences import *
-from tobias.utils.signals import *
-from tobias.utils.ngs import *
+from tobias.utils.sequences import SequenceMatrix, GenomicSequence
+from tobias.utils.signals import fast_rolling_math
 from tobias.utils.utilities import * 
-from tobias.utils.logger import *
+from tobias.utils.regions import OneRegion, RegionList
+from tobias.utils.ngs import OneRead, ReadList
+from tobias.utils.logger import TobiasLogger
 
 #Catch warnings from curve_fit
 import warnings

@@ -18,32 +18,9 @@ import numpy as np
 import itertools
 from matplotlib.backends.backend_pdf import PdfPages
 
+from tobias.parsers import add_plotchanges_arguments
 from tobias.utils.utilities import *
-from tobias.utils.logger import *
-
-#-------------------------------------------------------------------------------------------------#
-def add_plotchanges_arguments(parser):
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
-	description = "PlotChanges is a utility to plot the changes in TF binding across multiple conditions as predicted by TOBIAS BINdetect.\n\n"
-	description += "Example usage:\n$ echo CTCF GATA > TFS.txt\n$ TOBIAS PlotChanges --bindetect <bindetect_results.txt> --TFS TFS.txt\n\n"
-
-	parser.description = format_help_description("PlotChanges", description)
-
-	parser._action_groups.pop()	#pop -h
-
-	required_arguments = parser.add_argument_group('Required arguments')
-	required_arguments.add_argument('--bindetect', metavar="", help='Bindetect_results.txt file from BINDetect run')
-	
-	#All other arguments are optional
-	optional_arguments = parser.add_argument_group('Optional arguments')
-	optional_arguments.add_argument('--TFS', metavar="", help='Text file containing names of TFs to show in plot (one per line)') 
-	optional_arguments.add_argument('--output', metavar="", help='Output file for plot (default: bindetect_changes.pdf)', default="bindetect_changes.pdf")
-	optional_arguments.add_argument('--conditions', metavar="", help="Ordered list of conditions to show (default: conditions are ordered as within the bindetect file)", nargs="*")
-	optional_arguments = add_logger_args(optional_arguments)
-	
-	return(parser)
-
+from tobias.utils.logger import TobiasLogger
 
 #-------------------------------------------------------------------------------------------------#
 def run_plotchanges(args):
@@ -55,7 +32,6 @@ def run_plotchanges(args):
 	check_required(args, ["bindetect"])
 	check_files([args.bindetect, args.TFS], "r")
 	check_files([args.output], "w")
-
 
 	#------------------------------------ Read data ------------------------------------#
 

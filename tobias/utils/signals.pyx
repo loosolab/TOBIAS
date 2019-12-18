@@ -14,7 +14,6 @@ cimport numpy as np
 import math
 import cython
 
-
 #--------------------------------------------------------------------------------------------------#
 def shuffle_array(np.ndarray[np.float64_t, ndim=1] arr, int no_rand, np.ndarray[np.int_t, ndim=1] shift_options):
 	""" Shuffles array of values within the boundaries given in shift """

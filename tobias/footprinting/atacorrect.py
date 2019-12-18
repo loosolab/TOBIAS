@@ -22,13 +22,9 @@ import sys
 import argparse
 import numpy as np
 import multiprocessing as mp
-from datetime import datetime
 from copy import deepcopy
-import gc
 
-import textwrap
 from collections import OrderedDict
-import logging
 import itertools
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -37,66 +33,15 @@ import pyBigWig
 import pysam
 
 #Internal functions and classes
+from tobias.parsers import add_atacorrect_arguments
 from tobias.footprinting.atacorrect_functions import *
 from tobias.utils.utilities import *
-from tobias.utils.regions import *
+from tobias.utils.regions import OneRegion, RegionList
+from tobias.utils.ngs import OneRead, ReadList
 from tobias.utils.sequences import *
-from tobias.utils.ngs import *
-from tobias.utils.logger import *
+from tobias.utils.logger import TobiasLogger
 
 #np.seterr(divide='raise', invalid='raise')
-
-#--------------------------------------------------------------------------------------------------------#
-#----------------------------------------- Argument parser ----------------------------------------------# 
-#--------------------------------------------------------------------------------------------------------#
-
-def add_atacorrect_arguments(parser):
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
-
-	description = "ATACorrect corrects the cutsite-signal from ATAC-seq with regard to the underlying sequence preference of Tn5 transposase.\n\n"
-	description += "Usage:\nTOBIAS ATACorrect --bam <reads.bam> --genome <genome.fa> --peaks <peaks.bed>\n\n"
-	description += "Output files:\n"
-	description += "\n".join(["- <outdir>/<prefix>_{0}.bw".format(track) for track in ["uncorrected", "bias", "expected", "corrected"]]) + "\n"
-	description += "- <outdir>/<prefix>_atacorrect.pdf"
-	parser.description = format_help_description("ATACorrect", description)
-
-	parser._action_groups.pop()	#pop -h
-
-	#Required arguments
-	reqargs = parser.add_argument_group('Required arguments')
-	reqargs.add_argument('-b', '--bam', metavar="<bam>", help="A .bam-file containing reads to be corrected")
-	reqargs.add_argument('-g', '--genome', metavar="<fasta>", help="A .fasta-file containing whole genomic sequence")
-	reqargs.add_argument('-p', '--peaks', metavar="<bed>", help="A .bed-file containing ATAC peak regions")
-
-	#Optional arguments
-	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--regions-in', metavar="<bed>", help="Input regions for estimating bias (default: regions not in peaks.bed)")
-	optargs.add_argument('--regions-out', metavar="<bed>", help="Output regions (default: peaks.bed)")
-	optargs.add_argument('--blacklist', metavar="<bed>", help="Blacklisted regions in .bed-format (default: None)") #file containing blacklisted regions to be excluded from analysis")
-	optargs.add_argument('--extend', metavar="<int>", type=int, help="Extend output regions with basepairs upstream/downstream (default: 100)", default=100)
-	optargs.add_argument('--split-strands', help="Write out tracks per strand", action="store_true")
-	optargs.add_argument('--norm-off', help="Switches off normalization based on number of reads", action='store_true')
-	optargs.add_argument('--track-off', metavar="<track>", help="Switch off writing of individual .bigwig-tracks (uncorrected/bias/expected/corrected)", nargs="*", choices=["uncorrected", "bias", "expected", "corrected"], default=[])
-
-	optargs = parser.add_argument_group('Advanced ATACorrect arguments (no need to touch)')
-	optargs.add_argument('--k_flank', metavar="<int>", help="Flank +/- of cutsite to estimate bias from (default: 12)", type=int, default=12)
-	optargs.add_argument('--read_shift', metavar="<int>", help="Read shift for forward and reverse reads (default: 4 -5)", nargs=2, type=int, default=[4,-5])
-	optargs.add_argument('--bg_shift', metavar="<int>", type=int, help="Read shift for estimation of background frequencies (default: 100)", default=100)
-	optargs.add_argument('--window', metavar="<int>", help="Window size for calculating expected signal (default: 100)", type=int, default=100)
-	optargs.add_argument('--score_mat', metavar="<mat>", help="Type of matrix to use for bias estimation (PWM/DWM) (default: DWM)", choices=["PWM", "DWM"], default="DWM")
-
-	runargs = parser.add_argument_group('Run arguments')
-	runargs.add_argument('--prefix', metavar="<prefix>", help="Prefix for output files (default: same as .bam file)")
-	runargs.add_argument('--outdir', metavar="<directory>", help="Output directory for files (default: current working directory)", default="")
-	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
-	runargs.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	
-	runargs = add_logger_args(runargs)
-
-	
-
-	return(parser)
 
 #--------------------------------------------------------------------------------------------------------#
 #-------------------------------------- Main pipeline function ------------------------------------------# 

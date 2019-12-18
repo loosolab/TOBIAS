@@ -13,7 +13,6 @@ import sys
 import argparse
 import numpy as np
 import multiprocessing as mp
-from datetime import datetime
 import time
 from copy import deepcopy
 import logging
@@ -24,7 +23,7 @@ import pandas as pd
 import sklearn
 from sklearn import mixture
 import scipy
-from scipy.optimize import curve_fit
+#from scipy.optimize import curve_fit
 
 #Plotting
 import matplotlib.pyplot as plt
@@ -32,16 +31,15 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.ticker import NullFormatter
 
 #Bio-specific packages
-import pyBigWig
 import pysam
 
 #Internal functions and classes
+from tobias.parsers import add_bindetect_arguments
 from tobias.footprinting.bindetect_functions import *
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
-from tobias.utils.sequences import *
 from tobias.utils.motifs import *
-from tobias.utils.logger import * 
+from tobias.utils.logger import TobiasLogger
 
 #For warnings from curve_fit
 import warnings
@@ -52,57 +50,12 @@ warnings.simplefilter("ignore", RuntimeWarning)
 
 #--------------------------------------------------------------------------------------------------------------#
 
-def add_bindetect_arguments(parser):
-
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
-	description = "BINDetect takes motifs, signals (footprints) and genome as input to estimate bound transcription factor binding sites and differential binding between conditions. "
-	description += "The underlying method is a modified motif enrichment test to see which motifs have the largest differences in signal across input conditions. "
-	description += "The output is an in-depth overview of global changes as well as the individual binding site signal-differences.\n\n"
-	description += "Usage:\nTOBIAS BINDetect --signals <bigwig1> (<bigwig2> (...)) --motifs <motifs.txt> --genome <genome.fasta> --peaks <peaks.bed>\n\n"
-	description += "Output files:\n- <outdir>/<prefix>_figures.pdf\n- <outdir>/<prefix>_results.{txt,xlsx}\n- <outdir>/<prefix>_distances.txt\n"
-	description += "- <outdir>/<TF>/<TF>_overview.{txt,xlsx} (per motif)\n- <outdir>/<TF>/beds/<TF>_all.bed (per motif)\n"
-	description += "- <outdir>/<TF>/beds/<TF>_<condition>_bound.bed (per motif-condition pair)\n- <outdir>/<TF>/beds/<TF>_<condition>_unbound.bed (per motif-condition pair)\n\n"
-	parser.description = format_help_description("BINDetect", description)
-
-	parser._action_groups.pop()	#pop -h
-	
-	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--signals', metavar="<bigwig>", help="Signal per condition (.bigwig format)", nargs="*")
-	required.add_argument('--peaks', metavar="<bed>", help="Peaks.bed containing open chromatin regions across all conditions")
-	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar format", nargs="*")
-	required.add_argument('--genome', metavar="<fasta>", help="Genome .fasta file")
-
-	optargs = parser.add_argument_group('Optional arguments')
-	optargs.add_argument('--cond-names', metavar="<name>", nargs="*", help="Names of conditions fitting to --signals (default: prefix of --signals)")
-	optargs.add_argument('--peak-header', metavar="<file>", help="File containing the header of --peaks separated by whitespace or newlines (default: peak columns are named \"_additional_<count>\")")
-	#optargs.add_argument('--naming', metavar="<type>", help="Naming convention for TFs ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
-	optargs.add_argument('--motif-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for motif scanning (default: 1e-4)", default=0.0001)
-	optargs.add_argument('--bound-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for bound/unbound split (default: 0.001)", default=0.001)
-	#optargs.add_argument('--volcano-diff-thresh', metavar="<float>", help="", default=0.2)	#not yet implemented
-	#optargs.add_argument('--volcano-p-thresh', metavar="<float>", help="", default=0.05)	#not yet implemented
-	optargs.add_argument('--pseudo', type=float, metavar="<float>", help="Pseudocount for calculating log2fcs (default: estimated from data)", default=None)
-	optargs.add_argument('--time-series', action='store_true', help="Will only compare signals1<->signals2<->signals3 (...) in order of input, and skip all-against-all comparison.")
-	optargs.add_argument('--skip-excel', action='store_true', help="Skip creation of excel files - for large datasets, this will speed up BINDetect considerably")
-
-	runargs = parser.add_argument_group("Run arguments")
-	runargs.add_argument('--outdir', metavar="<directory>", help="Output directory to place TFBS/plots in (default: bindetect_output)", default="bindetect_output")
-	optargs.add_argument('--prefix', metavar="<prefix>", help="Prefix for overview files in --outdir folder (default: bindetect)", default="bindetect")
-	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
-	runargs.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	runargs.add_argument('--debug', help=argparse.SUPPRESS, action='store_true')
-	
-	runargs = add_logger_args(runargs)
-
-	return(parser)
-
-
 def find_nearest_idx(array, value):
     idx = (np.abs(array - value)).argmin()
     return idx
 
 def norm_fit(x, mean, std, scale):
 	return(scale * scipy.stats.norm.pdf(x, mean, std))
-
 
 #----------------------------------------------------------------------------------------------------------------#
 def run_bindetect(args):
@@ -424,7 +377,7 @@ def run_bindetect(args):
 	#Flip over
 	mirrored_x = np.concatenate([leftside_x, np.max(leftside_x) + leftside_x]).flatten()
 	mirrored_pdf = np.concatenate([leftside_pdf, leftside_pdf[::-1]]).flatten()
-	popt, cov = curve_fit(lambda x, std, sc: sc * scipy.stats.norm.pdf(x, mode, std), mirrored_x, mirrored_pdf)
+	popt, cov = scipy.optimize.curve_fit(lambda x, std, sc: sc * scipy.stats.norm.pdf(x, mode, std), mirrored_x, mirrored_pdf)
 	norm_params = (mode, popt[0])
 	logger.debug("Theoretical normal parameters: {0}".format(norm_params))
 

@@ -21,15 +21,16 @@ import cython
 
 
 #--------------------------------------------------------------------------------------------------#
-class OneRead:
+class OneRead():
 	""" OneRead class - takes many attributes from pysam read class"""
 
-	def __init__(self):
+	def __init__(self, read=None):
 
-		#self.read = 
+		if read != None:
+			self.from_read(read)	#initialize with read information
 
 		#New info on read
-		self.cutsite = None		#no cutsite yet
+		self.cutsite = None		#no cutsite position yet
 		self.kmer = []			#kmer in integer nucleotide code around cutsite
 		self.bias = 1  			#value of PSSM scoring for this read (changed during bias assignment)
 		self.weight = 1			#the count-weight of this read (changed during correction)
@@ -52,11 +53,14 @@ class OneRead:
 		self.query_length = read.query_length
 		self.flag = read.flag
 		self.cigartuples = read.cigartuples
+		self.tags = read.get_tags()
 
 		return(self)
 
-	def get_cutsite(self, read_shift):
-		""" Finds the cutsite position from read taking direction & read shift into account """
+	def get_cutsite(self, read_shift=(4,-5)):
+		""" Finds the cutsite position from read taking direction & read shift into account 
+			read_shift is a tuple of (pos_shift, neg_shift) (default (4,-5) for ATAC)
+		"""
 
 		#Full length of read including soft clipped bases
 		pos_shift, neg_shift = read_shift
@@ -71,9 +75,8 @@ class OneRead:
 			self.cutsite = positions[0] + 1 + pos_shift		#.bam start is 0 based, so +1 converts to true genomic coordinates. 
 
 
-
 	def get_kmer(self, genomic_sequence, k_flank):
-		""" Extract kmer from genomic_sequence around cutsite """
+		""" Extract kmer from genomic_sequence object around cutsite """
 
 		seq_start, seq_end = genomic_sequence.region.start, genomic_sequence.region.end		#excluding start, including end
 		cutsite = self.cutsite
@@ -94,7 +97,9 @@ class OneRead:
 			self.kmer = np.array([4] * (k_flank*2 + 1))
 
 	def shift_cutsite(self, bp):
-
+		""" Shift the position of cutsite by bp 
+			Can be used to shift reads to create a background model of reads 
+		"""
 		if self.is_reverse == True:
 			self.cutsite -= bp
 		else:
@@ -115,7 +120,7 @@ class ReadList(list):
 		try:
 			for read in bam_obj.fetch(region.chrom, region.start, region.end):
 				if read.is_unmapped == False and read.is_duplicate == False: 
-					self.append(OneRead().from_read(read))
+					self.append(OneRead(read))
 
 		except:
 			sys.exit("Error reading {0} from bam object".format(region))

@@ -11,66 +11,29 @@ Plot aggregate signals from TFBS across different bigwigs
 import os
 import sys
 import argparse
-import logging
 import numpy as np
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from sklearn import preprocessing
-import copy
+
+#import copy
 
 import itertools
-from datetime import datetime
 import scipy
 import sklearn
+from sklearn import preprocessing
 
 #Bio-stuff
 import pyBigWig
 import pybedtools as pb
 
 #Internal classes
-from tobias.utils.utilities import *
-from tobias.utils.regions import *
-from tobias.utils.logger import *
+from tobias.parsers import add_aggregate_arguments
+from tobias.utils.utilities import check_required, check_files
+from tobias.utils.regions import OneRegion, RegionList
+from tobias.utils.logger import TobiasLogger, add_logger_args
 
-def add_aggregate_arguments(parser):
-
-	#---------------- Parse arguments ---------------#
-	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = ""
-	parser.description = format_help_description("PlotAggregate", description)
-
-	parser._action_groups.pop()	#pop -h
-
-	IO = parser.add_argument_group('Input / output arguments')
-	IO.add_argument('--TFBS', metavar="<bed>", nargs="*", help="TFBS sites (*required)") 						#default is None
-	IO.add_argument('--signals', metavar="<bigwig>", nargs="*", help="Signals in bigwig format (*required)")	#default is None
-	IO.add_argument('--regions', metavar="<bed>", nargs="*", help="Regions to overlap with TFBS (optional)", default=[])
-	IO.add_argument('--whitelist', metavar="<bed>", nargs="*", help="Only plot sites overlapping whitelist (optional)", default=[])
-	IO.add_argument('--blacklist', metavar="<bed>", nargs="*", help="Exclude sites overlapping blacklist (optional)", default=[])
-	IO.add_argument('--output', metavar="", help="Path to output (default: TOBIAS_aggregate.pdf)", default="TOBIAS_aggregate.pdf")
-
-	PLOT = parser.add_argument_group('Plot arguments')
-	PLOT.add_argument('--title', metavar="", help="Title of plot (default: \"Aggregated signals\")", default="Aggregated signals")
-	PLOT.add_argument('--flank', metavar="", help="Flanking basepairs (+/-) to show in plot (counted from middle of the TFBS) (default: 60)", default=60, type=int)
-	PLOT.add_argument('--TFBS-labels', metavar="", help="Labels used for each TFBS file (default: prefix of each --TFBS)", nargs="*")
-	PLOT.add_argument('--signal-labels', metavar="", help="Labels used for each signal file (default: prefix of each --signals)", nargs="*")
-	PLOT.add_argument('--region-labels', metavar="", help="Labels used for each regions file (default: prefix of each --regions)", nargs="*")
-	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable (default: none)", choices=["none", "signals", "sites", "both"], default="none")
-	
-	#Signals / regions
-	PLOT.add_argument('--normalize', action='store_true', help="Normalize the aggregate signal(s) to be between 0-1 (default: the true range of values is shown)")
-	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
-	PLOT.add_argument('--log-transform', help="Log transform the signals before aggregation", action="store_true")
-	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries (Note: estimated from first region in each --TFBS)", action='store_true')
-	PLOT.add_argument('--signal-on-x', help="Show signals on x-axis and TFBSs on y-axis (default: signal is on y-axis)", action='store_true')
-	PLOT.add_argument('--remove-outliers', help="Value between 0-1 indicating the percentile of regions to include, e.g. 0.99 to remove the sites with 1\% highest values (default: 1)", type=lambda x: restricted_float(x, 0, 1), default=1)
-
-	RUN = parser.add_argument_group("Run arguments")
-	RUN = add_logger_args(RUN)
-	
-	return(parser)
-
-
+#----------------------------------------------------------------------------------------------------#
 def run_aggregate(args):
 	""" Function to make aggregate plot given input from args """
 

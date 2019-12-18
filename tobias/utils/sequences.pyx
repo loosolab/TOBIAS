@@ -342,6 +342,7 @@ class DiNucleotideMatrix(SequenceMatrix):
 
 #--------------------------------------------------------------------------------------------------#
 def nuc_to_num(str sequence):
+	""" Convert DNA sequence string to internal number format """
 
 	cdef int length = len(sequence)
 	cdef np.ndarray[np.int_t, ndim=1] num_sequence = np.zeros(length, dtype=int)
@@ -377,7 +378,6 @@ class GenomicSequence:
 		self.length = region.end - region.start
 		self.sequence = np.zeros(self.length, dtype=int) #in number format
 		self.revcomp = np.zeros(self.length, dtype=int)	 #in number format
-
 
 	@cython.boundscheck(False)	#dont check boundaries
 	@cython.wraparound(False) 	#dont deal with negative indices
