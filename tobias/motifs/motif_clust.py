@@ -64,13 +64,13 @@ def add_motifclust_arguments(parser):
     optional = add_logger_args(optional)
 
     visualisation = parser.add_argument_group('Visualisation arguments')
-    visualisation.add_argument("-e", "--type", dest="type", choices= ['png', 'pdf', 'jpg'], help="Plot file type [png, pdf, jpg] (Default: pdf)", default="pdf")
-    visualisation.add_argument("-x", "--width", dest="width", help="Width of Heatmap (Default: autoscaling)", type=int)
-    visualisation.add_argument("-y", "--height", dest="height", help="Height of Heatmap (Default: autoscaling)", type=int)
-    visualisation.add_argument("-d", "--dpi", dest="dpi", help="Dpi for plots (Default: 100)", type=int, default=100)
+    visualisation.add_argument("-e", "--type", metavar="", dest="type", choices= ['png', 'pdf', 'jpg'], help="Plot file type [png, pdf, jpg] (Default: pdf)", default="pdf")
+    visualisation.add_argument("-x", "--width", metavar="", dest="width", help="Width of Heatmap (Default: autoscaling)", type=int)
+    visualisation.add_argument("-y", "--height", metavar="", dest="height", help="Height of Heatmap (Default: autoscaling)", type=int)
+    visualisation.add_argument("-d", "--dpi", metavar="", dest="dpi", help="Dpi for plots (Default: 100)", type=int, default=100)
     #visualisation.add_argument("-ncc", "--no_col_clust", dest="ncc", help="No column clustering", action="store_true")
     #visualisation.add_argument("-nrc", "--no_row_clust", dest="nrc", help="No row clustering", action="store_true")
-    visualisation.add_argument("-c", "--color_palette", dest="color", help="Color palette (All possible paletts: https://python-graph-gallery.com/197-available-color-palettes-with-matplotlib/. Add '_r' to reverse palette.)", default="YlOrRd_r")
+    visualisation.add_argument("-c", "--color_palette", metavar="", dest="color", help="Color palette (All possible paletts: https://python-graph-gallery.com/197-available-color-palettes-with-matplotlib/. Add '_r' to reverse palette.)", default="YlOrRd_r")
 
     return parser
 
@@ -411,7 +411,7 @@ def write_yaml(clusters, yml_out):
 
 
 #--------------------------------------------------------------------------------------------------------#
-def plot_dendrogram(label, linkage, font_size, out, title, threshold, y, dpi, t):
+def plot_dendrogram(label, linkage, font_size, out, title, threshold, dpi):
     """Plot dendrogram with highlighted threshold 
 
     Parameter:
@@ -428,22 +428,23 @@ def plot_dendrogram(label, linkage, font_size, out, title, threshold, y, dpi, t)
         Plot title
     threshold : float
         dendrogram cluster threshold
-    y : int
-        yaxis size of plot
     dpi : int
         dpi of plot
-    t : string
-        type of plot file
     """
 
-    plt.figure(figsize=(20, y))
+    x = 10.0
+    y = x * len(label)/(x*3)    #ensure good aspect ratio
+                                #set cap on y axis (prevent errors from too large figure)
+
+    plt.figure(figsize=(x, y))
     plt.title(title, fontsize=20)
     plt.axvline(x=threshold, color="red")
     dendrogram(linkage, color_threshold=threshold, labels=label, leaf_font_size=font_size, orientation="right")
     try:
-        plt.savefig(out + "." + t, dpi=dpi)
+        plt.savefig(out, dpi=dpi)
+
     except ValueError as e:
-        print("Skipped ploting of Heatmap.")
+        print("Skipped plotting of dendrogram.")
         print("Error: " + str(e))
 
 
@@ -580,7 +581,7 @@ def consensus_motif_out_wrapper(consensus_motifs, out_prefix, img_out, cons_form
 
 
 #--------------------------------------------------------------------------------------------------------#
-def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_name, y_name, color, col_clust, row_clust, zscore):
+def plot_heatmap(similarity_matrix, out, col_linkage, row_linkage, dpi, x_name, y_name, color, col_clust, row_clust, zscore):
     """Plots clustered similarity matrix as a heatmap
 
     Parameter:
@@ -589,10 +590,6 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
         a DataTable contaning the similarity score
     out : string
         Prefix to output file
-    x : int
-        width for heatmap plot
-    y : int
-        height for heatmap plot
     col_linkage : ndarray
         The hierarchical clustering of cols encoded as a linkage matrix.
     row_linkage : ndarray
@@ -620,6 +617,12 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
         zs = None
         vmin, vmax = 0, 1
 
+    #Establish figsize
+    x_len = len(similarity_matrix.columns)
+    y_len = len(similarity_matrix.index.values)
+    x = 30  
+    y = x * y_len/x_len    #Ensure correct aspect ratio
+    
     try:
         plot = sns.clustermap(similarity_matrix,
             row_linkage=row_linkage,
@@ -628,21 +631,24 @@ def plot_heatmap(similarity_matrix, out, x, y, col_linkage, row_linkage, dpi, x_
             row_cluster= not row_clust,
             z_score=zs,
             cmap=color,
-            vmin=vmin, vmax=vmax,
+            vmin=vmin, 
+            vmax=vmax,
             xticklabels=similarity_matrix.columns,
             yticklabels=similarity_matrix.index.values,
             figsize=(x,y))
         plot.ax_heatmap.set_xlabel(x_name)
         plot.ax_heatmap.set_ylabel(y_name)
         plot.savefig(out, bbox_inches='tight', dpi=dpi)
+
     except ValueError as e:
-        print("Skipped ploting of Heatmap.")
+        print("Skipped plotting of Heatmap.")
         print("Error: " + str(e))
 
 
 #--------------------------------------------------------------------------------------------------------#
 def create_consensus_per_cluster(clusters, motif_list):
     """Assigns a consensus motif in pwm format for each cluster.
+
     Parameter:
     ----------
     clusters : dict
@@ -686,25 +692,28 @@ def create_consensus_from_list(motif_list):
         gimmemotif object
     """
 
+    # Make copy of motif_list before going through
+    motif_list_cp = copy.deepcopy(motif_list)
+
     if len(motif_list) > 1:
         consensus_found = False
         mc = MotifComparer()
 
         #Initialize score_dict
-        score_dict = mc.get_all_scores(motif_list, motif_list, match = "total", metric = "pcc", combine = "mean")
+        score_dict = mc.get_all_scores(motif_list_cp, motif_list_cp, match = "total", metric = "pcc", combine = "mean")
 
         while not consensus_found:
 
             #Which motifs to merge?
-            best_similarity_motifs = sorted(find_best_pair(motif_list, score_dict))   #indices of most similar motifs in cluster_motifs
+            best_similarity_motifs = sorted(find_best_pair(motif_list_cp, score_dict))   #indices of most similar motifs in cluster_motifs
 
             #Merge
-            new_motif = merge_motifs(motif_list[best_similarity_motifs[0]], motif_list[best_similarity_motifs[1]]) 
+            new_motif = merge_motifs(motif_list_cp[best_similarity_motifs[0]], motif_list_cp[best_similarity_motifs[1]]) 
 
-            del(motif_list[best_similarity_motifs[1]])
-            motif_list[best_similarity_motifs[0]] = new_motif
+            del(motif_list_cp[best_similarity_motifs[1]])
+            motif_list_cp[best_similarity_motifs[0]] = new_motif
 
-            if len(motif_list) == 1:    #done merging
+            if len(motif_list_cp) == 1:    #done merging
                 consensus_found = True
 
             else:   #Update score_dict
@@ -712,10 +721,11 @@ def create_consensus_from_list(motif_list):
                 #add the comparison of the new motif to the score_dict
                 score_dict[new_motif.id] = score_dict.get(new_motif.id, {})
 
-                for m in motif_list:
+                for m in motif_list_cp:
                     score_dict[new_motif.id][m.id] = mc.compare_motifs(new_motif, m, metric= "pcc")
                     score_dict[m.id][new_motif.id] = mc.compare_motifs(m, new_motif, metric = "pcc")
-    return(motif_list[0])
+
+    return(motif_list_cp[0])
 
 
 #--------------------------------------------------------------------------------------------------------#
@@ -809,10 +819,9 @@ def run_motifclust(args):
         sub_motif_list = get_motifs(f, motif_format)
         logger.stats("- Read {0} motifs from {1} (format: {2})".format(len(sub_motif_list), f, motif_format))
 
+        motif_dict[f] = sub_motif_list
         motif_list.extend(sub_motif_list)
-        motif_dict[f] = copy.deepcopy(sub_motif_list)
-
-
+    
     #---------------------------------------- Generating similarity matrix ----------------------------------#
     
     logger.info("Generating similarity matrix")
@@ -841,10 +850,10 @@ def run_motifclust(args):
     write_motif_stats(motifs_stats, full_motifs_out)
 
     # Get motif stats only for dissimilar motifs
-    dissimilar_motifs_out = out_prefix + "_dissimilar_motifs.txt"
-    dissimilar_motifs = get_dissimilar_motifs(similarity_matrix, args.threshold)
-    stats_dissimilar_motifs = dict((k, motifs_stats[k]) for k in dissimilar_motifs)
-    write_motif_stats(stats_dissimilar_motifs, dissimilar_motifs_out)
+    #dissimilar_motifs_out = out_prefix + "_dissimilar_motifs.txt"
+    #dissimilar_motifs = get_dissimilar_motifs(similarity_matrix, args.threshold)
+    #stats_dissimilar_motifs = dict((k, motifs_stats[k]) for k in dissimilar_motifs)
+    #write_motif_stats(stats_dissimilar_motifs, dissimilar_motifs_out)
     
 
     #---------------------------------------- Motif clustering ----------------------------------------------#
@@ -854,38 +863,17 @@ def run_motifclust(args):
     clust_linkage, clusters = cluster_motifs(similarity_matrix, args.threshold, args.clust_method)
     logger.stats("- Identified {0} clusters".format(len(clusters)))
 
-    # Scaling for plots
-    y_len = len(similarity_matrix.index.values)
-    x_len = len(similarity_matrix.columns)
-
-    y = args.height if args.height else y_len*scaling(y_len)
-    x = args.width if args.width else x_len*scaling(x_len)
-
     cluster_f = out_prefix + "_" + "clusters.yml"
-    dendrogram_f = out_prefix + "_" + "dendrogram"
+    logger.info("- Writing clusters to {0}".format(cluster_f))
+    write_yaml(clusters, cluster_f)     #Write out clusters
 
-    #Write out clusters and plot dendrogram
-    write_yaml(clusters, cluster_f)
-    plot_dendrogram(similarity_matrix.columns, clust_linkage, 12, dendrogram_f, dendrogram_f, args.threshold, x, args.dpi, args.type)
+    # Scaling for plots
+    logger.info("Plotting clustering dendrogram")
+
+    #Plot dendrogram
+    dendrogram_f = out_prefix + "_" + "dendrogram." + args.type     #plot format pdf/png
+    plot_dendrogram(similarity_matrix.columns, clust_linkage, 12, dendrogram_f, dendrogram_f, args.threshold, args.dpi)
     
-    #IDEA: Plot dendrogram for each input file individually?
-    """
-    if args.merge or not args.motifs2:
-        if not args.ncc or not args.nrc:
-            if args.motifs2:
-                filename_1 = os.path.splitext(os.path.basename(args.motifs1))[0] + "_" + os.path.splitext(os.path.basename(args.motifs2))[0]
-                f_name_2 = filename_1
-
-    if args.motifs2 and not args.merge:
-        filename_2 = os.path.splitext(os.path.basename(args.motifs2))[0]
-        f_name_2 = filename_2
-        if not args.nrc: # if false skip writing yaml file and dendrogram for row clustering
-            write_yaml(row_cluster, out_prefix + "_" + filename_2)
-            plot_dendrogram(similarity_matrix.index.values, row_linkage, 12, args.outdir, args.prefix + "_" + filename_2, args.threshold, y, args.dpi, args.type)
-        if not args.ncc:
-            write_yaml(col_cluster, out_prefix + "_" + filename_1)
-            plot_dendrogram(similarity_matrix.columns, col_linkage, 12, args.outdir, args.prefix + "_" + filename_1, args.threshold, y, args.dpi, args.type)        
-    """
 
     #---------------------------------------- Consensus motif -----------------------------------------------#
 
@@ -893,32 +881,14 @@ def run_motifclust(args):
 
     cluster_consensus_motifs = create_consensus_per_cluster(clusters, motif_list)
 
-    #file writing
+    #Round all counts
+    for key in cluster_consensus_motifs:
+    	cluster_consensus_motifs[key].pwm = [[round(f, 5) for f in l] for l in cluster_consensus_motifs[key].pwm]
+
+    #Write out consensus motifs to file/images
     consensus_motif_out_wrapper(cluster_consensus_motifs, out_prefix, out_cons_img, args.cons_format, args.type)
 
-
     #IDEA: Cluster and build consensus motif for each input file individually?
-
-    """
-    # Generate output depending on set parameters
-    if args.merge or not args.motifs2: # col and row are identical
-        if not args.ncc or not args.nrc:
-            # Generate consensus motifs for each column cluster 
-            cons = generate_consensus_motifs(motif_list, col_cluster, score_dict)
-            # Save output
-            consesus_motif_out_wrapper(cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type)
-    else: # col and row differ
-        if not args.ncc:
-            # Generate consensus motifs for each column cluster 
-            col_cons = generate_consensus_motifs(motif_list, col_cluster, score_dict)
-            # Save output
-            consesus_motif_out_wrapper(col_cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type, os.path.splitext(os.path.basename(args.motifs1))[0])
-        if not args.nrc:
-            # Generate consensus motifs for each row cluster 
-            row_cons = generate_consensus_motifs(motif_list, row_cluster, score_dict)
-            # Save output
-            consesus_motif_out_wrapper(row_cons, out_prefix, out_cons_img, args.cons_format, args.name, args.type, os.path.splitext(os.path.basename(args.motifs2))[0])
-    """
 
     #---------------------------------------- Plot heatmap --------------------------------------------------#
 
@@ -927,17 +897,18 @@ def run_motifclust(args):
     args.ncc = False
     args.zscore = "None"
 
-    pdf_out = out_prefix + "_heatmap_all." + args.type
+    heatmap_out = out_prefix + "_heatmap_all." + args.type
     x_label = "All motifs"
     y_label = "All motifs"
-    plot_heatmap(similarity_matrix, pdf_out, x, y, clust_linkage, clust_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
+
+    plot_heatmap(similarity_matrix, heatmap_out, clust_linkage, clust_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
     
     # Plot heatmaps for each combination of motif files
     comparisons = itertools.combinations(args.motifs, 2)
     for i, (motif_file_1, motif_file_2) in enumerate(comparisons):
         
-        pdf_out = out_prefix + "_heatmap" + str(i) +"." + args.type
-        logger.info("Plotting the heatmap to the file " + str(pdf_out))
+        heatmap_out = out_prefix + "_heatmap" + str(i+1) +"." + args.type
+        logger.info("Plotting the heatmap between {0} and {1} to the file {2}".format(motif_file_1, motif_file_2, heatmap_out))
 
         x_label, y_label = motif_file_1, motif_file_2
 
@@ -951,7 +922,7 @@ def run_motifclust(args):
         row_clust_linkage = linkage(ssd.squareform(m2_matrix))
 
         #Plot similarity heatmap between file1 and file2
-        plot_heatmap(similarity_matrix_sub, pdf_out, x, y, col_clust_linkage, row_clust_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
+        plot_heatmap(similarity_matrix_sub, heatmap_out, col_clust_linkage, row_clust_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
     
     # ClusterMotifs finished
     logger.end()
