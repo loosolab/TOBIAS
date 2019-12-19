@@ -55,12 +55,12 @@ def add_motifclust_arguments(parser):
     required.add_argument("-m", "--motifs", required=True, help="One or more motif files to compare and cluster", nargs="*", metavar="")
     
     optional = parser.add_argument_group('Optional arguments')
-    optional.add_argument("-t", "--threshold", help="Clustering threshold (Default = 0.5)", type=float, default=0.5)  
-    optional.add_argument('--dist_method', help="Method for calculating similarity between motifs (default: pcc)", choices=["pcc", "seqcor", "ed", "distance", "wic", "chisq", "akl", "sdd"], default="pcc")
-    optional.add_argument('--clust_method', help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average", choices=["single","complete","average","weighted","centroid","median","ward"])
-    optional.add_argument("-a", "--cons_format", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: pfm)", default="pfm")
-    optional.add_argument("-p", "--prefix", help="Output prefix (Default: ‘motif_comparison’)", default="motif_comparison")
-    optional.add_argument("-o", "--outdir", help="Output directory (Default: ‘./ClusterMotifs‘)", default="ClusterMotifs")
+    optional.add_argument("-t", "--threshold", metavar="", help="Clustering threshold (Default = 0.5)", type=float, default=0.5)  
+    optional.add_argument('--dist_method', metavar="", help="Method for calculating similarity between motifs (default: pcc)", choices=["pcc", "seqcor", "ed", "distance", "wic", "chisq", "akl", "sdd"], default="pcc")
+    optional.add_argument('--clust_method', metavar="", help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average", choices=["single","complete","average","weighted","centroid","median","ward"])
+    optional.add_argument("-a", "--cons_format", metavar="", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: pfm)", default="pfm")
+    optional.add_argument("-p", "--prefix", metavar="", help="Output prefix (Default: ‘motif_comparison’)", default="motif_comparison")
+    optional.add_argument("-o", "--outdir", metavar="", help="Output directory (Default: ‘./ClusterMotifs‘)", default="ClusterMotifs")
     optional = add_logger_args(optional)
 
     visualisation = parser.add_argument_group('Visualisation arguments')
