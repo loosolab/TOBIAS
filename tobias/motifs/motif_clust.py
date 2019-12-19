@@ -58,7 +58,7 @@ def add_motifclust_arguments(parser):
     optional.add_argument("-t", "--threshold", help="Clustering threshold (Default = 0.5)", type=float, default=0.5)  
     optional.add_argument('--dist_method', help="Method for calculating similarity between motifs (default: pcc)", choices=["pcc", "seqcor", "ed", "distance", "wic", "chisq", "akl", "sdd"], default="pcc")
     optional.add_argument('--clust_method', help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average", choices=["single","complete","average","weighted","centroid","median","ward"])
-    optional.add_argument("-a", "--cons_format", choices= ['transfac', 'meme', 'pwm'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’] (Default: pwm)", default="pwm")
+    optional.add_argument("-a", "--cons_format", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: pfm)", default="pfm")
     optional.add_argument("-p", "--prefix", help="Output prefix (Default: ‘motif_comparison’)", default="motif_comparison")
     optional.add_argument("-o", "--outdir", help="Output directory (Default: ‘./ClusterMotifs‘)", default="ClusterMotifs")
     optional = add_logger_args(optional)
@@ -497,9 +497,52 @@ def convert_motif(motif, f):
         motif = motif.to_pwm()
     elif f == "transfac":
         motif = motif.to_transfac()
+    elif f == "jaspar" or f == "pfm":
+        motif = convert_to_jaspar(motif, f)
     else:
         raise ValueError("Format " + f + " is not supported")
     return motif
+
+
+#--------------------------------------------------------------------------------------------------------#
+def convert_to_jaspar(motif, f):
+    """Converts gimmemotif instance to jaspar format as string
+
+    Parameters:
+    motif : gimmemotif instance
+    f : string
+        format: jaspar or pfm
+
+    Returns:
+    jaspar_motif : string
+        string containing motif with jaspar or pfm format
+    """
+
+    motif_false_pfm = motif.to_pfm()
+
+    if f == "jaspar":
+        a_string, c_string, g_string, t_string = "A [ ", "C [ ", "G [ ", "T [ "
+    else:
+        a_string, c_string, g_string, t_string = "", "", "", ""
+
+    single_scores = motif_false_pfm.split()
+    header = single_scores[0]
+    del single_scores[0]
+    for i in range(0, len(single_scores), 4):
+        a_string += single_scores[i] + " "
+        c_string += single_scores[i+1] + " "
+        g_string += single_scores[i+2] + " "
+        t_string += single_scores[i+3] + " "
+
+    if f == "jaspar":
+        a_string += "]"
+        c_string += "]"
+        g_string += "]"
+        t_string += "]"
+
+    jaspar_motif = "\n".join([header, a_string, c_string, g_string, t_string])
+
+    return jaspar_motif
 
 
 #--------------------------------------------------------------------------------------------------------#
@@ -630,6 +673,7 @@ def create_consensus_per_cluster(clusters, motif_list):
     return cluster_consensus_motifs
 
 
+#--------------------------------------------------------------------------------------------------------#
 def create_consensus_from_list(motif_list):
     """Creats a consensus motif from list of motifs
 
@@ -672,6 +716,7 @@ def create_consensus_from_list(motif_list):
                     score_dict[new_motif.id][m.id] = mc.compare_motifs(new_motif, m, metric= "pcc")
                     score_dict[m.id][new_motif.id] = mc.compare_motifs(m, new_motif, metric = "pcc")
     return(motif_list[0])
+
 
 #--------------------------------------------------------------------------------------------------------#
 def merge_motifs(motif_1, motif_2):
@@ -722,6 +767,7 @@ def find_best_pair(cluster_motifs, score_dict):
                     best_similarity_motifs = [i, j] #index of the most similar motifs in cluster_motifs
 
     return best_similarity_motifs
+
 
 #--------------------------------------------------------------------------------------------------------#
 def run_motifclust(args):
@@ -899,10 +945,10 @@ def run_motifclust(args):
         motif_names_1 = [motif.id for motif in motif_dict[motif_file_1]]
         motif_names_2 = [motif.id for motif in motif_dict[motif_file_2]]
 
-        sub_1_vector, sub_2_vector, similarity_matrix_sub = subset_matrix(similarity_matrix,  motif_names_1, motif_names_2)
+        m1_matrix, m2_matrix, similarity_matrix_sub = subset_matrix(similarity_matrix,  motif_names_1, motif_names_2)
 
-        col_clust_linkage = linkage(ssd.squareform(sub_1_vector))
-        row_clust_linkage = linkage(ssd.squareform(sub_2_vector))
+        col_clust_linkage = linkage(ssd.squareform(m1_matrix))
+        row_clust_linkage = linkage(ssd.squareform(m2_matrix))
 
         #Plot similarity heatmap between file1 and file2
         plot_heatmap(similarity_matrix_sub, pdf_out, x, y, col_clust_linkage, row_clust_linkage, args.dpi, x_label, y_label, args.color, args.ncc, args.nrc, args.zscore)
