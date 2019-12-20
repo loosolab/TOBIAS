@@ -122,8 +122,15 @@ $ TOBIAS FormatMotifs --input test_data/example_motifs.txt --format pfm --task s
 Filter a larger motif file using TF names:
 ```
 $ echo 'MAFK CTCF JUNB' > TF_names.txt
-$ FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt --filter TF_names.txt
+$ TOBIAS FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt --filter TF_names.txt
 ```
+
+Filter fragments from a .bam-file using a .bed-file of regions:
+```
+$ TOBIAS FilterFragments 
+
+```
+
 
 Snakemake pipeline
 ------------

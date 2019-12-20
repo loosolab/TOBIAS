@@ -451,3 +451,24 @@ def add_log2table_arguments(parser):
 	required.add_argument('--prefix', metavar="", help="Prefix of output files", default="aggregate")
 
 	return(parser)
+
+
+#----------------------------------------------------------------------------------------#
+def add_filterfragments_arguments(parser):
+
+	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
+	description = "FilterFragments can filter out fragments from a .bam-file of paired-end reads based on the overlap with regions in the given .bed-file."
+	parser.description = format_help_description("FilterFragments", description)
+
+	parser._action_groups.pop()	#pop -h
+
+	IO = parser.add_argument_group('Input / output arguments')
+	IO.add_argument('--bam', metavar="", help=".bam-file to filter")
+	IO.add_argument('--regions', metavar="", help=".bed-file containing regions to filter fragments from")
+	IO.add_argument('--mode', help="Mode 1: Remove fragment if both reads overlap .bed-regions. Mode 2: Remove whole fragment if one read is overlapping .bed-regions (default: 1)", choices=[1,2], default=1)
+	IO.add_argument('--output', metavar="", help="Path to the filtered .bam-file (default: <prefix of --bam>_filtered.bam)")
+	IO.add_argument('--threads', metavar="", help="Number of threads used for decompressing/compressing bam (default: 10)", default=10)
+
+	IO = add_logger_args(IO)
+
+	return(parser)

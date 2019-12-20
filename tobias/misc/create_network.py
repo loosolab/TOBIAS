@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 #Utils from TOBIAS
+from tobias.parsers import add_network_arguments
 from tobias.utils.utilities import * 
 from tobias.utils.logger import TobiasLogger
 
