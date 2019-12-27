@@ -1,3 +1,7 @@
+## 0.10.0 (2019-12-27)
+- Added ClusterMotifs and FilterFragments to tools
+- Restructured backend organization of parsers to speed up commandline 'TOBIAS'
+
 ## 0.9.0 (2019-11-21)
 - Added PlotTracks to tools
 - Fixed smaller bug with flank estimation in footprint calculation

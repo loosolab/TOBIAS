@@ -114,7 +114,7 @@ Join individual motif files to one:
 $ TOBIAS FormatMotifs --input test_data/individual_motifs/* --format pfm --task join --output example_motifs.txt
 ```
 
-Split a motif file containing several motifs:    
+Split a motif file containing several motifs:  
 ```
 $ TOBIAS FormatMotifs --input test_data/example_motifs.txt --format pfm --task split --output split_motifs
 ```
@@ -125,10 +125,9 @@ $ echo 'MAFK CTCF JUNB' > TF_names.txt
 $ TOBIAS FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt --filter TF_names.txt
 ```
 
-Filter fragments from a .bam-file using a .bed-file of regions:
+**Filter fragments from a .bam-file using a .bed-file of regions:**
 ```
-$ TOBIAS FilterFragments 
-
+$ TOBIAS FilterFragments --bam test_data/Bcell_chr4.bam --regions test_data/peaks.bed
 ```
 
 
