@@ -46,7 +46,7 @@ def main():
 							{
 							"TFBScan": {"help":"Identify positions of TFBS given sequence and motifs", "add_arguments": add_tfbscan_arguments, "function": "tobias.motifs.tfbscan.run_tfbscan"},
 							"FormatMotifs": {"help": "Utility to deal with motif files", "add_arguments": add_formatmotifs_arguments, "function": "tobias.motifs.format_motifs.run_formatmotifs"},
-							#"ClusterMotifs": {"help": "Cluster motifs by similarity", "add_arguments": add_motifclust_arguments, "function": "tobias.motifs.motifclust.run_motifclust", "space":"\t"},
+							"ClusterMotifs": {"help": "Cluster motifs by similarity", "add_arguments": add_motifclust_arguments, "function": "tobias.motifs.motifclust.run_motifclust", "space":"\t"},
 							"ScoreBed": {"help":"Score .bed-file with signal from .bigwig-file(s)", "add_arguments": add_scorebed_arguments, "function": "tobias.motifs.score_bed.run_scorebed"},
 							},
 
