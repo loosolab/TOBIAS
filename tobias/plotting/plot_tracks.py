@@ -15,8 +15,8 @@ import argparse
 import numpy as np
 
 from PyPDF2 import PdfFileMerger, PdfFileReader
-#import matplotlib
-from matplotlib import font_manager
+import matplotlib
+from matplotlib import font_manager, textpath
 import matplotlib.colors as mcolors
 
 #Bio-stuff
@@ -25,6 +25,7 @@ import pybedtools as pb
 import svist4get as sv4g
 
 from tobias.utils.utilities import *
+from tobias.parsers import add_tracks_arguments
 
 #--------------------------------------------------------------------------------------------------------#
 def svist4get_defaults():
@@ -49,9 +50,9 @@ def svist4get_defaults():
 	c["num_of_digits_after_the_dot"] = 2
 
 	#Get fonts
-	available_fonts = font_manager.findSystemFonts()
-	c["mono_font"] = [font for font in available_fonts if "NotoMono-Regular.ttf" in font][0]
-	c["regular_font"] = [font for font in available_fonts if "DejaVuSans.ttf" in font][0]
+	data_dir = os.path.join(os.path.dirname(sv4g.__file__), "svist4get_data")	#data dir of the svist4get module
+	c["mono_font"] = os.path.join(data_dir, "fonts", "iosevka-regular.ttf")
+	c["regular_font"] = os.path.join(data_dir, "fonts", "Lato-Regular.ttf")
 
 	#Page parameters
 	c["page_width"] = 8

@@ -1,3 +1,6 @@
+## 0.10.1 (2020-01-08)
+- Fixed error reading parser and fonts for PlotTracks
+
 ## 0.10.0 (2019-12-27)
 - Added ClusterMotifs and FilterFragments to tools
 - Restructured backend organization of parsers to speed up commandline 'TOBIAS'
