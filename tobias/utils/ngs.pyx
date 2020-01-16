@@ -11,7 +11,6 @@ Classes to work with NGS data (reads, readlists, etc.)
 import pysam
 from collections import Counter
 
-from tobias.utils.regions import *
 import time
 import sys
 
@@ -118,24 +117,23 @@ class ReadList(list):
 
 	def from_bam(self, bam_obj, region):
 		try:
-			for read in bam_obj.fetch(region.chrom, region.start, region.end):
-				if read.is_unmapped == False and read.is_duplicate == False: 
-					self.append(OneRead(read))
+			read_list = bam_obj.fetch(region.chrom, region.start, region.end)
+			self = ReadList([OneRead(read) for read in read_list if read.is_unmapped == False and read.is_duplicate == False])
 
 		except:
 			sys.exit("Error reading {0} from bam object".format(region))
 
 		return(self)
-		
+
 
 	def split_strands(self):
+		""" Split ReadList into forward/reverse reads """
+		
+		for_reads = [read for read in self if read.is_reverse == False]
+		rev_reads = [read for read in self if read.is_reverse == True]
 
-		strand_reads = [ReadList(), ReadList()] 	#forward and reverse
-		for read_obj in self:
-			if read_obj.is_reverse == True:
-				strand_reads[1].append(read_obj)
-			else:
-				strand_reads[0].append(read_obj)
+		strand_reads = [ReadList(for_reads), ReadList(rev_reads)] 	#forward and reverse
+
 		return(strand_reads)
 
 
@@ -144,7 +142,6 @@ class ReadList(list):
 
 		insert_sizes = Counter({})
 		for read in self:
-
 			size = abs(read.template_length) - 9
 			insert_sizes[size] = insert_sizes.get(size, 0) + 1
 

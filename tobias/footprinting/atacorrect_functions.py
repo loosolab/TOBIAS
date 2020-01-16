@@ -127,6 +127,7 @@ def bias_estimation(regions_list, params):
 			#Split reads forward/reverse
 			for_lst, rev_lst = read_lst.split_strands()
 			read_lst_strand = {"forward": for_lst, "reverse": rev_lst} 
+			logger.spam("Region: {0}. Forward reads: {1}. Reverse reads: {2}".format(region, len(for_lst), len(rev_lst)))
 
 			for strand in strands:
 
@@ -138,6 +139,7 @@ def bias_estimation(regions_list, params):
 						if first_tuple[0] == 0 and first_tuple[1] > params.k_flank + max(np.abs(params.read_shift)):	#Only include non-clipped reads
 							read_per_pos[read.cutsite] = read_per_pos.get(read.cutsite, []) + [read]
 
+				#Get kmer for each position
 				for cutsite in read_per_pos:
 					if cutsite > region.start and cutsite < region.end:  	#only reads within borders
 						read = read_per_pos[cutsite][0] 					#use first read in list to establish kmer
@@ -146,8 +148,8 @@ def bias_estimation(regions_list, params):
 						read.get_kmer(sequence_obj, k_flank)
 
 						bias_obj.bias[strand].add_sequence(read.kmer, no_cut)
-						read.shift_cutsite(-bg_shift)	#upstream of read; ensures that bg is not within fragment
-						read.get_kmer(sequence_obj, k_flank)
+						read.shift_cutsite(-bg_shift)			#upstream of read; ensures that bg is not within fragment
+						read.get_kmer(sequence_obj, k_flank)	#kmer updated to kmer for shifted read
 						bias_obj.bias[strand].add_background(read.kmer, no_cut)
 
 						bias_obj.no_reads += no_cut

@@ -125,6 +125,11 @@ $ echo 'MAFK CTCF JUNB' > TF_names.txt
 $ TOBIAS FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt --filter TF_names.txt
 ```
 
+**Cluster Motifs: Cluster motifs and create consensus motifs based on similarity**
+```
+$ TOBIAS ClusterMotifs --motifs test_data/example_motifs.txt
+```
+
 **Filter fragments from a .bam-file using a .bed-file of regions:**
 ```
 $ TOBIAS FilterFragments --bam test_data/Bcell_chr4.bam --regions test_data/peaks.bed

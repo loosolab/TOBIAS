@@ -1,5 +1,7 @@
-## 0.10.1 (2020-01-08)
+## 0.10.1 (2020-01-16)
 - Fixed error reading parser and fonts for PlotTracks
+- Restructure of motifclust-functions to be included in OneMotif and MotifList classes
+- Smaller bugfixes
 
 ## 0.10.0 (2019-12-27)
 - Added ClusterMotifs and FilterFragments to tools

@@ -12,21 +12,52 @@ Classes for working with motifs and scanning with moods
 import numpy as np
 import copy
 import re
+import os
+#import matplotlib as mpl
+#mpl.use('Agg')
+#import matplotlib.pyplot as plt
+#from matplotlib.text import TextPath
+#from matplotlib.patches import PathPatch
+#from matplotlib.font_manager import FontProperties
+import pandas as pd
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
+import scipy.spatial.distance as ssd
+
+#Bio-specific packages
+from Bio import motifs
+from gimmemotifs.motif import Motif,read_motifs
+from gimmemotifs.comparison import MotifComparer
+
 
 import MOODS.scan
 import MOODS.tools
 import MOODS.parsers
 
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib.text import TextPath
-from matplotlib.patches import PathPatch
-from matplotlib.font_manager import FontProperties
-
 #Internal
 from tobias.utils.regions import OneRegion, RegionList
 from tobias.utils.utilities import filafy, num 	#filafy for filenames
+
+"""
+def biomotif_to_gimmemotif(biomotif):
+
+	motif_rows = list()
+
+	for pos_id in range(bio_motif.length-1):
+		row = list() # each row represents one motif index ( A C G T )
+		for letter in range(4):
+			row.append(bio_motif.counts[letter][pos_id])
+			motif_rows.append(row)
+
+		gimme_motif = Motif(motif_rows) 	# generate gimmemotif motif instance
+		
+		# Add motif name
+		if format == "minimal":
+			gimme_motif.id = name_list[i]
+		else:
+			gimme_motif.id = bio_motif.name
+		gimme_motif_list.append(gimme_motif)
+"""
+
 
 #----------------------------------------------------------------------------------------#
 #List of OneMotif objects
@@ -50,17 +81,27 @@ class MotifList(list):
 	def __str__(self):
 		return("\n".join([str(onemotif) for onemotif in self]))
 
+
 	def from_file(self, path):
+		"""
+		Read a file of motifs to MotifList format
+		"""
 		
-		content = open(path).read()
+		biopython_formats = ["jaspar"]
+		gimmemotif_formats = ["pwm", "transfac", "xxmotif", "align"]
 
 		#Establish format of motif
+		content = open(path).read()
 		file_format = get_motif_format(content)
 
-		lines = content.split("\n")
+		#For biopython reading
+		if file_format == "pfm":
+			file_format = "jaspar"
 
 		#Read motifs
 		if file_format == "meme":
+			
+			lines = content.split("\n")
 			for idx, line in enumerate(lines):
 				columns = line.strip().split()
 
@@ -86,27 +127,21 @@ class MotifList(list):
 							for i, col in enumerate(columns):
 								self[-1].counts[i].append(num(col))
 
-		elif file_format in ["pfm", "jaspar"]:
-																				
-			for line in lines:
-				m = re.match(".*?([\d]+[\d\.\s]+).*?", line)
-				
-				if line.startswith(">"):
-					self.append(OneMotif(counts=[])) #create new motif
-					self[-1].input_format = file_format
+		elif file_format in biopython_formats:
+			
+			with open(path) as f:
+				for m in motifs.parse(f, file_format):
+					self.append(OneMotif(motifid=m.matrix_id, name=m.name, counts=[m.counts[base] for base in ["A", "C", "G", "T"]]))
+					self[-1].biomotifs_obj = m		#biopython motif object	
 
-					columns = line[1:].strip().split()		#[1:] to remove > from header
-					if len(columns) > 1: #ID, NAME
-						motif_id, name = columns[0], columns[1]
-					elif len(columns) == 1: #>ID
-						motif_id, name = columns[0], ""	#name not given
+		elif file_format in gimmemotif_formats:
+			gimme_motif_list = read_motifs(infile = path, fmt = file_format)
+			for gimmemotif in gimme_motif_list:
+				onemotif_obj = gimmemotif_to_onemotif(gimmemotif)
+				self.append(onemotif_obj)	#add OneMotif object to list
 
-					self[-1].id = motif_id
-					self[-1].name = name	
-						
-				elif m:
-					columns = [num(field) for field in m.group(1).rstrip().split()]
-					self[-1].counts.append(columns)
+		else:
+			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
 
 		#Check correct format of pfms
 		for motif in self:
@@ -118,8 +153,73 @@ class MotifList(list):
 		#Estimate widths and n_sites
 		for motif in self:
 			motif.n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
-				
+			motif.length = len(motif.counts[0])
+		
+		#Convert to gimmemotif
+		for motif in self:
+			motif.get_gimmemotif()	#fill in gimmemotif object
+
 		return(self)
+
+	def to_file(self, path, fmt="pfm"):
+		"""
+		Write MotifList to motif file
+
+		Parameter:
+		----------
+		path : string
+			Output path
+		fmt : string
+			Format of motif file
+		"""
+
+		#Create string format
+		bases = ["A", "C", "G", "T"]
+		out_string = ""
+
+		#Establish which output format
+		if fmt in ["pfm", "jaspar"]:
+			for motif in self:
+				out_string += ">{0}\t{1}\n".format(motif.id, motif.name)
+				for i, base_counts in enumerate(motif.counts):
+					base_counts_string = ["{0:.5f}".format(element) for element in base_counts]
+					out_string += "{0} [ {1} ] \n".format(bases[i], "\t".join(base_counts_string)) if fmt == "jaspar" else "\t".join(base_counts_string) + "\n"
+				out_string += "\n"
+
+		elif fmt == "meme":
+			
+			meme_header = "MEME version 4\n\n"
+			meme_header += "ALPHABET=ACGT\n\n"
+			meme_header += "strands: + -\n\n"
+			meme_header += "Background letter frequencies\nA 0.25 C 0.25 G 0.25 T 0.25\n\n"
+			out_string += meme_header
+
+			for motif in self:
+				out_string += "MOTIF\t{0}\t{1}\n".format(motif.id, motif.name)
+				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.w, motif.n)
+
+				for i in range(motif.w):
+					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
+					n_sites = round(sum(row), 0)
+					row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
+					out_string += "  ".join(row_freq) + "\n"
+				
+				out_string += "\n"	
+	
+		elif fmt == "transfac":
+			for motif in self:
+				out_string += motif.to_transfac()
+
+		else:
+			raise ValueError("Format " + fmt + " is not supported")
+
+		#Write to output file
+		f = open(path, "w")
+		f.write(out_string)
+		f.close()
+
+		return(self)
+
 
 	def as_string(self, output_format="pfm"):
 
@@ -196,6 +296,187 @@ class MotifList(list):
 
 		return(sites)
 
+	#---------------- Functions for motif clustering ----------------------#
+	def cluster(self, threshold=0.5, metric = "pcc", clust_method="average"):
+		""" 
+
+		Returns:
+		----------
+		dict
+			A dictionary with keys=cluster names and values=MotifList objects
+		"""
+
+		motif_list = [motif.gimme_obj for motif in self]	#list of gimmemotif objects
+
+		#Similarities between all motifs
+		mc = MotifComparer()
+		score_dict = mc.get_all_scores(motif_list, motif_list, match = "total", metric = metric, combine = "mean")   #metric can be: seqcor, pcc, ed, distance, wic, chisq, akl or ssd
+		self.similarity_matrix = generate_similarity_matrix(score_dict)
+
+		# Clustering
+		vector = ssd.squareform(self.similarity_matrix.to_numpy())
+		self.linkage_mat = linkage(vector, method=clust_method)
+
+		# Flatten clusters
+		fclust_labels = fcluster(self.linkage_mat, threshold, criterion="distance")			#cluster membership per motif
+		formatted_labels = ["Cluster_{0}".format(label) for label in fclust_labels]
+
+		# Extract motifs belonging to each cluster
+		cluster_dict = {label: MotifList() for label in formatted_labels}	#initialize dictionary
+		for i, cluster_label in enumerate(formatted_labels):
+			cluster_dict[cluster_label].append(self[i])
+
+		return cluster_dict
+
+	def create_consensus(self):
+		""" Create consensus motif from MotifList """
+
+		motif_list = [motif.gimme_obj for motif in self]	#list of gimmemotif objects
+
+		if len(motif_list) > 1:
+			consensus_found = False
+			mc = MotifComparer()
+
+			#Initialize score_dict
+			score_dict = mc.get_all_scores(motif_list, motif_list, match = "total", metric = "pcc", combine = "mean")
+
+			while not consensus_found:
+
+				#Which motifs to merge?
+				best_similarity_motifs = sorted(find_best_pair(motif_list, score_dict))   #indices of most similar motifs in cluster_motifs
+
+				#Merge
+				new_motif = merge_motifs(motif_list[best_similarity_motifs[0]], motif_list[best_similarity_motifs[1]]) 
+
+				del(motif_list[best_similarity_motifs[1]])
+				motif_list[best_similarity_motifs[0]] = new_motif
+
+				if len(motif_list) == 1:    #done merging
+					consensus_found = True
+
+				else:   #Update score_dict
+
+					#add the comparison of the new motif to the score_dict
+					score_dict[new_motif.id] = score_dict.get(new_motif.id, {})
+
+					for m in motif_list:
+						score_dict[new_motif.id][m.id] = mc.compare_motifs(new_motif, m, metric= "pcc")
+						score_dict[m.id][new_motif.id] = mc.compare_motifs(m, new_motif, metric = "pcc")
+	
+		#Round pwm values
+		gimmemotif_consensus = motif_list[0]
+		gimmemotif_consensus.pwm = [[round(f, 5) for f in l] for l in gimmemotif_consensus.pwm]
+
+		#Convert back to OneMotif obj
+		onemotif_consensus = gimmemotif_to_onemotif(gimmemotif_consensus)
+		onemotif_consensus.gimme_obj = gimmemotif_consensus	
+
+		#Control the naming of the new motif
+		all_names = [motif.name for motif in self]
+		onemotif_consensus.name = ",".join(all_names[:3])
+		onemotif_consensus.name += "(...)" if len(all_names) > 3 else ""
+
+		return(onemotif_consensus)
+
+#--------------------------------------------------------------------------------------------------------#
+def gimmemotif_to_onemotif(gimmemotif_obj):
+	""" Convert gimmemotif object to OneMotif object """
+
+	length = len(gimmemotif_obj.pwm)
+
+	onemotif_obj = OneMotif(motifid=gimmemotif_obj.id)
+	for pos in range(length):
+		for base in range(4):
+			onemotif_obj.counts[base].append(gimmemotif_obj.pfm[pos][base])
+
+	return(onemotif_obj)
+
+
+#--------------------------------------------------------------------------------------------------------#
+def generate_similarity_matrix(score_dict):
+	"""Generate a similarity matrix from the output of get_all_scores()
+
+	Parameter:
+	----------
+	score_dict : dict
+		a dictionary of dictionarys containing a list of similarity scores
+
+	Returns:
+	--------
+	DataFrame
+		a DataFrame (Pandas) with motif 1 a columns and motif 2 as rows
+	"""
+
+	m1_keys = list(score_dict.keys())
+	m2_keys = list(score_dict.values())[0].keys()   #should be similar to m1_keys
+
+	m1_labels = [s.replace('\t', ' ') for s in m1_keys] # replacing tabs with whitespace
+	m2_labels = [s.replace('\t', ' ') for s in m2_keys]
+	
+	#Make sure similarity dict is symmetrical:
+	similarity_dict = {m:{} for m in m1_labels}  #initialize dict
+	for i, m1 in enumerate(m1_keys):
+		for j, m2 in enumerate(m2_keys):    
+			score = round(1 - np.mean([score_dict[m1][m2][0], score_dict[m2][m1][0]]), 3)
+			
+			similarity_dict[m1_labels[i]][m2_labels[j]] = score
+			similarity_dict[m2_labels[j]][m1_labels[i]] = score
+
+	#Format similarity dict to dataframe
+	similarity_dict_format = {m1: [similarity_dict[m1][m2] for m2 in m2_labels] for m1 in m1_labels}
+	dataframe = pd.DataFrame(similarity_dict_format, index = m2_labels).replace(-0, 0)
+
+	return dataframe
+
+#--------------------------------------------------------------------------------------------------------#
+def merge_motifs(motif_1, motif_2):
+	"""Creates the consensus motif from two provided motifs, using the pos and orientation calculated by gimmemotifs get_all_scores()
+
+	Parameter:
+	----------
+	motif_1 : Object of class Motif
+		First gimmemotif object to create the consensus.
+	motif_2 : Object of class Motif
+		Second gimmemotif object to create consensus.
+	Returns:
+	--------
+	consensus : Object of class Motif
+		Consensus of both motifs with id composed of ids of motifs it was created.
+	"""
+
+	mc = MotifComparer()
+	_, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric= "pcc")
+	consensus = motif_1.average_motifs(motif_2, pos = pos, orientation = orientation)
+	consensus.id = motif_1.id + "+" + motif_2.id
+
+	return consensus
+
+#--------------------------------------------------------------------------------------------------------#
+def find_best_pair(cluster_motifs, score_dict):
+	"""Finds the best pair of motifs based on the best similarity between them im comparison to other motifs in the list.
+	Parameter:
+	----------
+	clusters_motifs : list
+		List of motifs assigned to the current cluster.
+	score_dict : dict
+		Dictionary conatining list of [similarity_score, pos, strand] as values and motif names as keys.
+	Returns:
+	--------
+	best_similarity_motifs : list of two elements
+		List of the best pair of motifs found based on the similarity.
+	"""
+
+	best_similarity = 0
+	for i, m in enumerate(cluster_motifs):
+		for j, n in enumerate(cluster_motifs):
+			if m.id is not n.id: 
+				this_similarity = score_dict[m.id][n.id][0]
+				if this_similarity > best_similarity:
+					best_similarity = this_similarity
+					best_similarity_motifs = [i, j] #index of the most similar motifs in cluster_motifs
+
+	return best_similarity_motifs
+
 
 #----------------------------------------------------------------------------------------#
 #Contains info on one motif formatted for use in moods
@@ -203,21 +484,23 @@ class OneMotif:
 
 	bases = ["A", "C", "G", "T"]
 
-	def __init__(self, motifid="", name="", counts=[[] for _ in range(4)]):
+
+	def __init__(self, motifid=None, name=None, counts=None):
 		
-		self.id = motifid		#should be unique
-		self.name = name		#does not have to be unique
+		self.id = motifid if motifid != None else ""		#should be unique
+		self.name = name if name != None else "" 			#does not have to be unique
 
 		self.prefix = "" 		#output prefix set in set_prefix
-		self.counts = counts  	#counts, list of 4 lists (each as long as motif)
+		self.counts = counts if counts != None else [[] for _ in range(4)] 	#counts, list of 4 lists (A,C,G,T) (each as long as motif)
 		self.strand = "+"		#default strand is +
+		self.length = 0			#length of motif
 
 		#Set later
 		self.pfm = None
 		self.bg = np.array([0.25,0.25,0.25,0.25]) 	#background set to equal by default
 		self.pssm = None 							#pssm calculated from get_pssm
 		self.threshold = None 						#threshold calculated from get_threshold
-		self.bits = None
+		self.gimme_obj = None						#gimmemotif obj
 
 	def __str__(self):
 		""" Used for printing """
@@ -240,24 +523,47 @@ class OneMotif:
 		self.prefix = filafy(prefix)
 		return(self)
 
-
 	def get_pfm(self):
 		self.pfm = self.counts / np.sum(self.counts, axis=0)
 
+	def get_gimmemotif(self):
+		""" Get gimmemotif object for motif 
+			Reads counts from self.counts """
+		
+		self.length = len(self.counts[0])
+
+		motif_rows = []
+		for pos_id in range(self.length):
+			row = [self.counts[letter][pos_id] for letter in range(4)] 	# each row represents one position in motif ( A C G T )
+			motif_rows.append(row)
+
+		self.gimme_obj = Motif(motif_rows) 	# generate gimmemotif motif instance
+		self.gimme_obj.id = self.id + " " + self.name
+
+		return(self)
+		
+	def get_biomotif(self):
+		""" Get biomotif object for motif """
+
+		self.biomotif_obj = ""
 
 	def get_reverse(self):
 		""" Reverse complement motif """
 		if self.pfm is None:
 			self.get_pfm()
 
-		reverse_motif = copy.deepcopy(self)
-		reverse_motif.strand = "-"
-		reverse_motif.pfm = MOODS.tools.reverse_complement(self.pfm,4)
+		#Create reverse motif obj
+		reverse_motif = OneMotif()	#empty
+		for att in ["id", "name", "prefix", "strand", "length"]:
+			setattr(reverse_motif, att, getattr(self, att))
+
+		reverse_motif.strand = "-" if self.strand == "+" else "+"
+		reverse_motif.pfm = MOODS.tools.reverse_complement(self.pfm, 4)
 		return(reverse_motif)	#OneMotif object
 
-
 	def get_pssm(self, ps=0.01):
-		""" """
+		""" Calculate pssm from pfm """
+
 		if self.pfm is None:
 			self.get_pfm()
 
@@ -276,9 +582,8 @@ class OneMotif:
 		self.threshold = MOODS.tools.threshold_from_p(self.pssm, self.bg, pvalue, 4)
 		return(self)
 
-
 	def calc_bit_score(self):
-		""" """
+		""" Bits for logo plots (?) """
 		if self.pfm is None:
 			self.get_pfm()
 
@@ -291,64 +596,33 @@ class OneMotif:
 		info_content = 2 - (- np.sum(entro, axis=0))		#information content per position in motif
 		self.bits = self.pfm * info_content	
 
+	def logo_to_file(self, filename):
+		""" Plots the motif to pdf/png/jpg file """
 
-	def plot_logo(self):
+		ext = os.path.splitext(filename)[-1]
 
-		LETTERS = { "T" : TextPath((-0.305, 0), "T", size=1, prop=fp),
-						"G" : TextPath((-0.384, 0), "G", size=1, prop=fp),
-						"A" : TextPath((-0.35, 0), "A", size=1, prop=fp),
-						"C" : TextPath((-0.366, 0), "C", size=1, prop=fp) }
-		COLOR_SCHEME = {'G': 'orange', 
-							 'A': "#CC0000", 
-							 'C': 'mediumblue', 
-							 'T': 'darkgreen'}
+		#Currently only working with pdf
+		filename = filename.replace(ext, ".pdf")	#hack
 
-		def add_letter(base, x, y, scale, ax):
-			""" Add letter to axis at positions x/y"""
-			
-			text = LETTERS[base]
-			t = mpl.transforms.Affine2D().scale(1*globscale, scale*globscale) + \
-				mpl.transforms.Affine2D().translate(x,y) + ax.transData
-			p = PathPatch(text, lw=0, fc=COLOR_SCHEME[base], transform=t)
-			if ax != None:
-				ax.add_artist(p)
-			return p
+		if ext == "jpg" :
+			filename[-3:] = "png"
+			warnings.warn("The 'jpg' format is not supported for motif image. Type is set tp 'png'")
 
-		self.calc_bit_score()
-		self.length = self.bits.shape[1]
+		self.gimme_obj.to_img(filename)
 
-		fp = FontProperties(family='sans-serif', weight="bold") 
-		globscale = 1.35
-	
-		#Plot logo
-		fig, ax = plt.subplots(figsize=(10,3))	
-		max_y = 0
-		for position in range(self.length):	#0-based positions
-
-			base_bit_tups = zip(OneMotif.bases, self.bits[:,position])
-			
-			#Go through bases sorted from lowest to highest bit score
-			y = 0	#position to place letter
-			for (base, score) in sorted(base_bit_tups, key=lambda tup: tup[1]):
-				add_letter(base, position+1, y, score, ax)
-				y += score
-			max_y = max(max_y, y)
-
-		plt.xticks(range(1,self.length+1))
-		plt.xlim((0.2, self.length+0.8)) 
-		plt.ylim((0, max_y)) 
-		plt.tight_layout()  	
-		
-		return(fig, ax)	
+	def logo_to_ax(self):
+		ax = None
+		#René TODO
+		pass
+		return(ax)
 
 
 ###########################################################
 
 def get_motif_format(content):
-
-	#Estimate input format
-	motif_format = "unknown"
+	""" Get motif format from string of content """
 	
+	#Estimate input format
 	if re.match("MEME version.+", content, re.DOTALL) is not None: # MOTIF\s.+letter-probability matrix.+[\d\.\s]+", content, re.MULTILINE) is not None:
 		motif_format = "meme"
 
@@ -360,8 +634,14 @@ def get_motif_format(content):
 
 	elif re.match("AC\s.+", content, re.DOTALL) is not None:
 		motif_format = "transfac"
+	
+	else:
+		motif_format = "unknown"
 
 	return(motif_format)
+
+
+
 
 
 ###########################################################
