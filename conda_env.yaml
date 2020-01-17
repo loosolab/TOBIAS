@@ -17,6 +17,8 @@ dependencies:
   - pypdf2
   - scikit-learn
   - gimmemotifs
+  - pyaml
+  - boto3
   - pip
   - pip: 
     - adjustText

@@ -64,24 +64,12 @@ Output files:
 Command-line examples
 -------------
 These examples use the test data provided in the [TOBIAS/test_data](https://github.com/loosolab/TOBIAS/tree/master/test_data) 
-directory, so please make sure you are in the upper TOBIAS/ directory when running the commands.
-The large test files are stored on our S3-storage. To get the files, please execute the download script. 
+directory, so please make sure you are in the upper TOBIAS/ directory when running the commands. Larger files such as .bigwig and .bam-files are stored on an S3-storage server, which you get access to by using the download script provided in S3_downloader/. NOTE: This download script requires "boto3" and "pyyaml" libraries, which are available in the supplied [conda environment](https://github.com/loosolab/TOBIAS/blob/dev/conda_env.yaml) or can be downloaded using pip (``` $ pip install boto3 pyyaml ```). 
 
-**Get Test data**
-
-First install the required librarys.
-
+Run the script with the config file to obtain the data:
 ```
-  $ pip install boto3 pyyaml
-```
-
-Run the script with the config file.
-
-```
-  $ cd S3_downloader
-  $ python S3_Downloader.py --yaml s3_config_example.yaml
-  $ mv S3_download/data-tobias-2019/test_data/* ../test_data/
-  $ cd ../
+$ python S3_downloader/S3_Downloader.py --yaml S3_downloader/s3_tobias_data_config.yaml
+$ mv S3_download/data-tobias-2019/test_data/* test_data/
 ```
 
 **ATACorrect: Bias correction of ATAC-seq reads in open chromatin**     
