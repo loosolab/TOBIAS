@@ -64,7 +64,7 @@ Output files:
 Command-line examples
 -------------
 These examples use the test data provided in the [TOBIAS/test_data](https://github.com/loosolab/TOBIAS/tree/master/test_data) 
-directory, so please make sure you are in the upper TOBIAS/ directory when running the commands. Larger files such as .bigwig and .bam-files are stored on an S3-storage server, which you get access to by using the download script provided in S3_downloader/. NOTE: This download script requires "boto3" and "pyyaml" libraries, which are available in the supplied [conda environment](https://github.com/loosolab/TOBIAS/blob/dev/conda_env.yaml) or can be downloaded using pip (``` $ pip install boto3 pyyaml ```). 
+directory, so please make sure you are in the upper TOBIAS/ directory when running the commands. Larger files such as .bigwig and .bam-files are stored on an S3-storage server, which you get access to by using the download script provided in [S3_downloader](https://github.com/loosolab/TOBIAS/tree/dev/S3_downloader). NOTE: This download script requires "boto3" and "pyyaml" libraries, which are available in the supplied [conda environment](https://github.com/loosolab/TOBIAS/blob/dev/conda_env.yaml) or can be downloaded using pip (```$ pip install boto3 pyyaml```). 
 
 Run the script with the config file to obtain the data:
 ```
