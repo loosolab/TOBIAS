@@ -47,7 +47,7 @@ First install the required librarys.
 Run the script with the config file.
 
 ```
-  $ cd S3_download
+  $ cd S3_downloader
   $ python S3_Downloader.py --yaml s3_config_example.yaml
 ```
 
