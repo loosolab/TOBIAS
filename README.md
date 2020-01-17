@@ -35,6 +35,23 @@ $ python setup.py install
 ```
 Please see the [installation](https://github.com/loosolab/TOBIAS/wiki/installation) page for more info.
 
+Get Test data
+------------
+The test data is storte on our S3-storage to get the files please run the download script. 
+First install the required librarys.
+
+```
+  $ pip install boto3 pyyaml
+```
+
+Run the script with the config file.
+
+```
+  $ python S3_Downloader.py --yaml s3_config_example.yaml
+```
+
+You will find the files under S3_download/data-tobias-2019/.
+
 Usage
 ------------
 All tools are available through the command-line as ```TOBIAS <TOOLNAME>```, for example:
