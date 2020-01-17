@@ -35,24 +35,6 @@ $ python setup.py install
 ```
 Please see the [installation](https://github.com/loosolab/TOBIAS/wiki/installation) page for more info.
 
-Get Test data
-------------
-The test data is storte on our S3-storage to get the files please run the download script. 
-First install the required librarys.
-
-```
-  $ pip install boto3 pyyaml
-```
-
-Run the script with the config file.
-
-```
-  $ cd S3_downloader
-  $ python S3_Downloader.py --yaml s3_config_example.yaml
-```
-
-You will find the files under S3_download/data-tobias-2019/.
-
 Usage
 ------------
 All tools are available through the command-line as ```TOBIAS <TOOLNAME>```, for example:
@@ -81,8 +63,26 @@ Output files:
 
 Command-line examples
 -------------
+These examples use the test data provided in the [TOBIAS/test_data](https://github.com/loosolab/TOBIAS/tree/master/test_data) 
+directory, so please make sure you are in the upper TOBIAS/ directory when running the commands.
+The large test files are stored on our S3-storage. To get the files, please execute the download script. 
 
-These examples use the test data provided in the [TOBIAS/test_data](https://github.com/loosolab/TOBIAS/tree/master/test_data) directory, so please make sure you are in the upper TOBIAS/ directory when running the commands.
+**Get Test data**
+
+First install the required librarys.
+
+```
+  $ pip install boto3 pyyaml
+```
+
+Run the script with the config file.
+
+```
+  $ cd S3_downloader
+  $ python S3_Downloader.py --yaml s3_config_example.yaml
+  $ mv S3_download/data-tobias-2019/test_data/* ../test_data/
+  $ cd ../
+```
 
 **ATACorrect: Bias correction of ATAC-seq reads in open chromatin**     
 ```
