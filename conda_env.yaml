@@ -17,7 +17,7 @@ dependencies:
   - pypdf2
   - scikit-learn
   - gimmemotifs
-  - pyaml
+  - pyyaml
   - boto3
   - pip
   - pip: 
