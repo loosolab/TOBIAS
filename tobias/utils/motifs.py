@@ -382,7 +382,7 @@ class MotifList(list):
 		return(onemotif_consensus)
 
 
-	def plot_motifs(self, nrow, ncol, output="motif_plot.png", figsize=None, formation = "row"):
+	def plot_motifs(self, nrow=None, ncol=None, output="motif_plot.png", figsize=None, formation = "row"):
 		""" Plot list of motifs to one figure """
 
 		counts_list = [motif.counts for motif in self]
@@ -519,6 +519,17 @@ def find_best_pair(cluster_motifs, score_dict):
 #--------------------------------------------------------------------------------------------------------#
 def get_formation(formation, ncol, nrow, nmotifs):
 	""" check formation or set formation to one of the existing options """
+
+	# if ncol and/or nrow is missing automatically set fitting parameters 
+	if formation != "alltoone":
+		if ncol is None and nrow is None:
+			half_nmotifs = math.ceil(math.sqrt(nmotifs))
+			ncol, nrow = half_nmotifs, half_nmotifs
+		else:
+			if ncol is None:
+				ncol = math.ceil(nmotifs/nrow)
+			if nrow is None:
+				nrow = math.ceil(nmotifs/ncol)
 
 	if isinstance(formation, str):
 		
