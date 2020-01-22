@@ -417,6 +417,21 @@ class MotifList(list):
 		return fig
 
 
+	def make_unique(self):
+		""" Make motif ids unique for MotifList """
+
+		seen = {}
+
+		for motif in self:
+			m_id = motif.id
+			if m_id not in seen:
+				seen[m_id] = 1
+			else:
+				new_id = motif.id + "_" + str(seen[m_id])
+				motif.set_id(new_id)
+				seen[m_id] += 1
+
+
 #--------------------------------------------------------------------------------------------------------#
 def gimmemotif_to_onemotif(gimmemotif_obj):
 	""" Convert gimmemotif object to OneMotif object """
@@ -648,6 +663,9 @@ class OneMotif:
 
 		self.prefix = filafy(prefix)
 		return(self)
+
+	def set_id(self, id):
+		self.id = id
 
 	def get_pfm(self):
 		self.pfm = self.counts / np.sum(self.counts, axis=0)
