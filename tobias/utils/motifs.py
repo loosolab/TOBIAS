@@ -385,32 +385,32 @@ class MotifList(list):
 	def plot_motifs(self, nrow=None, ncol=None, output="motif_plot.png", figsize=None, formation = "row"):
 		""" Plot list of motifs to one figure """
 
-		counts_list = [motif.counts for motif in self]
+		n_motifs = len(self)
 
 		# check formation or set default value
-		formation, nrow, ncol = get_formation(formation, ncol, nrow, len(counts_list))
+		formation, nrow, ncol = get_formation(formation, ncol, nrow, n_motifs)
 
 		# Check if motifs fit into grid
-		if nrow * ncol < len(counts_list):
+		if nrow * ncol < n_motifs:
 			sys.exit("ERROR: Insufficient space in grid. Please add more rows or columns. Number of motifs: "
-					+ str(len(counts_list)) 
+					+ str(n_motifs) 
 					+ ", Number of spaces: " 
 					+ str(ncol*nrow))
 
 		# Get longest motif
-		longest_motif = max([len(i[0]) for i in counts_list])
+		longest_motif = max([len(i[0]) for i in [motif.counts for motif in self]])
 
 		if figsize is None:
 			figsize=(longest_motif*0.55*ncol, nrow*3)
 
 		fig = plt.subplots(squeeze=False, figsize=figsize)
 
-		for x, count in enumerate(counts_list):
+		for x, motif in enumerate(self):
 
 			# create axes object for specified position
 			ax = plt.subplot2grid((nrow, ncol), formation[x])
 			#plot logo to axes object
-			create_logo(count, ax, longest_motif)
+			motif.create_logo(ax, longest_motif)
 
 		plt.savefig(output)
 
@@ -594,30 +594,6 @@ def get_formation(formation, ncol, nrow, nmotifs):
 
 	return formation, nrow, ncol
 
-#--------------------------------------------------------------------------------------------------------#
-def create_logo(counts, ax, max_x):
-    """ Creates motif logo in axes object """
-
-    # convert to pandas dataframe
-    df = pd.DataFrame(counts).transpose()
-    df.columns = ["A", "C", "G", "T"]
-
-    # transform matrix to information based values
-    info_df = logomaker.transform_matrix(df, from_type="counts", to_type="information")
-
-    # create Logo object
-    logo = logomaker.Logo(info_df, ax = ax)
-
-    # style
-    logo.style_xticks(rotation=0, fmt='%d', anchor=0)
-    logo.ax.set_ylim(0, 2)
-    logo.ax.set_xlim(-0.5,max_x-0.5)
-    logo.ax.set_yticks([0, 0.5, 1, 1.5, 2], minor=False)
-    logo.ax.xaxis.set_ticks_position('none')
-    logo.ax.xaxis.set_tick_params(pad=-1)
-
-    return logo
-
 
 #----------------------------------------------------------------------------------------#
 #Contains info on one motif formatted for use in moods
@@ -754,11 +730,29 @@ class OneMotif:
 
 		self.gimme_obj.to_img(filename)
 
-	def logo_to_ax(self):
-		ax = None
-		#René TODO
-		pass
-		return(ax)
+
+	def create_logo(self, ax, max_x):
+		""" Creates motif logo in axes object """
+
+		# convert to pandas dataframe
+		df = pd.DataFrame(self.counts).transpose()
+		df.columns = ["A", "C", "G", "T"]
+
+		# transform matrix to information based values
+		info_df = logomaker.transform_matrix(df, from_type="counts", to_type="information")
+
+		# create Logo object
+		logo = logomaker.Logo(info_df, ax = ax)
+
+		# style
+		logo.style_xticks(rotation=0, fmt='%d', anchor=0)
+		logo.ax.set_ylim(0, 2)
+		logo.ax.set_xlim(-0.5,max_x-0.5)
+		logo.ax.set_yticks([0, 0.5, 1, 1.5, 2], minor=False)
+		logo.ax.xaxis.set_ticks_position('none')
+		logo.ax.xaxis.set_tick_params(pad=-1)
+
+		return logo
 
 
 ###########################################################
