@@ -731,12 +731,15 @@ class OneMotif:
 		self.gimme_obj.to_img(filename)
 
 
-	def create_logo(self, ax, max_x):
+	def create_logo(self, ax, motif_len=None):
 		""" Creates motif logo in axes object """
 
 		# convert to pandas dataframe
 		df = pd.DataFrame(self.counts).transpose()
 		df.columns = ["A", "C", "G", "T"]
+
+		if not motif_len:
+			motif_len = df.shape[0]
 
 		# transform matrix to information based values
 		info_df = logomaker.transform_matrix(df, from_type="counts", to_type="information")
@@ -747,7 +750,7 @@ class OneMotif:
 		# style
 		logo.style_xticks(rotation=0, fmt='%d', anchor=0)
 		logo.ax.set_ylim(0, 2)
-		logo.ax.set_xlim(-0.5,max_x-0.5)
+		logo.ax.set_xlim(-0.5,motif_len-0.5)
 		logo.ax.set_yticks([0, 0.5, 1, 1.5, 2], minor=False)
 		logo.ax.xaxis.set_ticks_position('none')
 		logo.ax.xaxis.set_tick_params(pad=-1)
