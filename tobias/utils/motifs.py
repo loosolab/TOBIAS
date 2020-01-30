@@ -13,15 +13,18 @@ import numpy as np
 import copy
 import re
 import os
+import sys
+import math
 #import matplotlib as mpl
 #mpl.use('Agg')
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 #from matplotlib.text import TextPath
 #from matplotlib.patches import PathPatch
 #from matplotlib.font_manager import FontProperties
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 import scipy.spatial.distance as ssd
+import logomaker
 
 #Bio-specific packages
 from Bio import motifs
@@ -378,6 +381,57 @@ class MotifList(list):
 
 		return(onemotif_consensus)
 
+
+	def plot_motifs(self, nrow=None, ncol=None, output="motif_plot.png", figsize=None, formation = "row"):
+		""" Plot list of motifs to one figure """
+
+		n_motifs = len(self)
+
+		# check formation or set default value
+		formation, nrow, ncol = get_formation(formation, ncol, nrow, n_motifs)
+
+		# Check if motifs fit into grid
+		if nrow * ncol < n_motifs:
+			sys.exit("ERROR: Insufficient space in grid. Please add more rows or columns. Number of motifs: "
+					+ str(n_motifs) 
+					+ ", Number of spaces: " 
+					+ str(ncol*nrow))
+
+		# Get longest motif
+		longest_motif = max([len(i[0]) for i in [motif.counts for motif in self]])
+
+		if figsize is None:
+			figsize=(longest_motif*0.55*ncol, nrow*3)
+
+		fig = plt.subplots(squeeze=False, figsize=figsize)
+
+		for x, motif in enumerate(self):
+
+			# create axes object for specified position
+			ax = plt.subplot2grid((nrow, ncol), formation[x])
+			#plot logo to axes object
+			motif.create_logo(ax, longest_motif)
+
+		plt.savefig(output)
+
+		return fig
+
+
+	def make_unique(self):
+		""" Make motif ids unique for MotifList """
+
+		seen = {}
+
+		for motif in self:
+			m_id = motif.id
+			if m_id not in seen:
+				seen[m_id] = 1
+			else:
+				new_id = motif.id + "_" + str(seen[m_id])
+				motif.set_id(new_id)
+				seen[m_id] += 1
+
+
 #--------------------------------------------------------------------------------------------------------#
 def gimmemotif_to_onemotif(gimmemotif_obj):
 	""" Convert gimmemotif object to OneMotif object """
@@ -477,6 +531,69 @@ def find_best_pair(cluster_motifs, score_dict):
 
 	return best_similarity_motifs
 
+#--------------------------------------------------------------------------------------------------------#
+def get_formation(formation, ncol, nrow, nmotifs):
+	""" check formation or set formation to one of the existing options """
+
+	# if ncol and/or nrow is missing automatically set fitting parameters 
+	if formation != "alltoone":
+		if ncol is None and nrow is None:
+			half_nmotifs = math.ceil(math.sqrt(nmotifs))
+			ncol, nrow = half_nmotifs, half_nmotifs
+		else:
+			if ncol is None:
+				ncol = math.ceil(nmotifs/nrow)
+			if nrow is None:
+				nrow = math.ceil(nmotifs/ncol)
+
+	if isinstance(formation, str):
+		
+		if formation == "row":
+
+			# fill plot left to right
+
+			formation = list()
+			rows = list(range(nrow))
+			for row in rows:
+				for col in range(ncol):
+					formation.append((row,col))
+
+		elif formation == "col":
+
+			# fill plot top to bottom
+
+			formation = list()
+			rows = list(range(nrow))
+			for col in range(ncol):
+				for row in rows:
+					formation.append((row,col))
+
+		elif formation == "alltoone":
+
+			# fill first column execpt for one motif
+			# ignores parameter ncol and nrow
+
+			formation = list()
+			rows = list(range(nmotifs-1))
+			for row in rows:
+				formation.append((row,0))
+			formation.append((math.ceil(len(rows)/2)-1, 1))
+
+			ncol = 2
+			nrow = len(rows)
+
+		else:
+			sys.exit("ERROR: Unknown formation setting.")
+	else:
+
+		# Check if formation fits to grid
+		formation_max_row = max([i[0] for i in formation])
+		formation_max_col = max([i[1] for i in formation])
+		if nrow < formation_max_row or ncol < formation_max_col:
+			sys.exit("ERROR: Grid is to small for specified formation")
+
+	return formation, nrow, ncol
+
 
 #----------------------------------------------------------------------------------------#
 #Contains info on one motif formatted for use in moods
@@ -522,6 +639,9 @@ class OneMotif:
 
 		self.prefix = filafy(prefix)
 		return(self)
+
+	def set_id(self, id):
+		self.id = id
 
 	def get_pfm(self):
 		self.pfm = self.counts / np.sum(self.counts, axis=0)
@@ -610,11 +730,32 @@ class OneMotif:
 
 		self.gimme_obj.to_img(filename)
 
-	def logo_to_ax(self):
-		ax = None
-		#René TODO
-		pass
-		return(ax)
+
+	def create_logo(self, ax, motif_len=None):
+		""" Creates motif logo in axes object """
+
+		# convert to pandas dataframe
+		df = pd.DataFrame(self.counts).transpose()
+		df.columns = ["A", "C", "G", "T"]
+
+		if not motif_len:
+			motif_len = df.shape[0]
+
+		# transform matrix to information based values
+		info_df = logomaker.transform_matrix(df, from_type="counts", to_type="information")
+
+		# create Logo object
+		logo = logomaker.Logo(info_df, ax = ax)
+
+		# style
+		logo.style_xticks(rotation=0, fmt='%d', anchor=0)
+		logo.ax.set_ylim(0, 2)
+		logo.ax.set_xlim(-0.5,motif_len-0.5)
+		logo.ax.set_yticks([0, 0.5, 1, 1.5, 2], minor=False)
+		logo.ax.xaxis.set_ticks_position('none')
+		logo.ax.xaxis.set_tick_params(pad=-1)
+
+		return logo
 
 
 ###########################################################
