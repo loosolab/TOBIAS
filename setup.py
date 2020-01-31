@@ -78,7 +78,8 @@ setup(name='tobias',
 			'pyBigWig',
 			'MOODS-python',
 			'svist4get',
-			'gimmemotifs'
+			'gimmemotifs',
+			'logomaker'
 		],
 		scripts=["tobias/utils/filter_important_factors.py"],
 		classifiers=[

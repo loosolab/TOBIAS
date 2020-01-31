@@ -237,6 +237,20 @@ def run_bindetect(args):
 		make_directory(os.path.join(args.outdir, TF, "plots"))
 
 
+	#-------------------------------------------------------------------------------------------------------------#	
+	#----------------------------------------- Plot logos for all motifs -----------------------------------------#
+	#-------------------------------------------------------------------------------------------------------------#
+
+	make_directory(os.path.join(args.outdir, "motif_logos"))
+	plus_motifs = [motif for motif in motif_list if motif.strand == "+"]
+	logo_filenames = {motif.prefix: os.path.join(args.outdir, "motif_logos", motif.prefix + ".png") for motif in plus_motifs}
+
+	logger.info("Plotting sequence logos for each motif to {0}".format(os.path.join(args.outdir, "motif_logos")))
+	task_list = [pool.apply_async(OneMotif.logo_to_file, (motif, logo_filenames[motif.prefix], )) for motif in plus_motifs]
+	monitor_progress(task_list, logger)
+	results = [task.get() for task in task_list]
+	logger.comment("")
+
 	#-------------------------------------------------------------------------------------------------------------#
 	#--------------------- Motif scanning: Find binding sites and match to footprint scores ----------------------#
 	#-------------------------------------------------------------------------------------------------------------#
@@ -515,6 +529,7 @@ def run_bindetect(args):
 	matrix_out = os.path.join(args.outdir, args.prefix + "_distances.txt")
 	clustering.write_distance_mat(matrix_out)
 
+
 	#-------------------------------------------------------------------------------------------------------------#	
 	#----------------------------------------- Write all_bindetect file ------------------------------------------#
 	#-------------------------------------------------------------------------------------------------------------#
@@ -533,6 +548,9 @@ def run_bindetect(args):
 	info_table.insert(0, "output_prefix", info_table.index)
 	info_table.insert(1, "name", names)
 	info_table.insert(2, "motif_id", ids)
+
+	#relative_logo_filenames = 
+	info_table.insert(3, "motif_logo", [os.path.join("motif_logos", os.path.basename(logo_filenames[prefix])) for prefix in info_table["output_prefix"]])	#add relative path to logo
 	
 	#Add cluster to info_table
 	cluster_names = []

@@ -722,7 +722,7 @@ class OneMotif:
 		ext = os.path.splitext(filename)[-1]
 
 		#Currently only working with pdf
-		filename = filename.replace(ext, ".pdf")	#hack
+		#filename = filename.replace(ext, ".pdf")	#hack
 
 		if ext == "jpg" :
 			filename[-3:] = "png"
