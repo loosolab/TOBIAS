@@ -247,10 +247,18 @@ class RegionList(list):
 		return(len(self))
 
 	def loc_sort(self, contig_list=[]):
-		""" Sorts list of region objects based on genomic location """
+		""" 
+		Sorts list of region objects based on genomic location. 
+		contig_list gives the correct order of contigs; else normal sort is applied
+		"""
+
+		#Get all chroms of list; join with contig_list to prevent key error during sort
+		#all_chroms = self.get_chroms()
+
+		#Sort
 		if len(contig_list) > 0:
 			order_dict = dict(zip(contig_list, range(len(contig_list))))
-			self.sort(key=lambda region: (order_dict.get(region.chrom, region.chrom), region.start, region.end, region.name))
+			self.sort(key=lambda region: (order_dict.get(region.chrom, -1), region.start, region.end, region.name))
 		else:
 			self.sort(key=lambda region: (region.chrom, region.start, region.end, region.name))
 
@@ -336,8 +344,11 @@ class RegionList(list):
 				no -= 1
 			else:
 				i += 1
+		
+		return(self)
 
 	def keep_chroms(self, chromlist):
+		""" Keep only regions within chromlist chromosomes """
 		no = self.count()
 		i = 0
 		while i < no:
@@ -346,6 +357,8 @@ class RegionList(list):
 				no -= 1
 			else:
 				i += 1
+		
+		return(self)
 
 	def subset(self, no):
 		""" Take no-size subset of regions from RegionList """

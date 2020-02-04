@@ -28,6 +28,7 @@ from cycler import cycler
 from matplotlib.lines import Line2D
 from adjustText import adjust_text
 from scipy.optimize import curve_fit
+import json
 
 #Bio-specific packages
 import pyBigWig
@@ -657,22 +658,125 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 
 	return(fig)
 
-"""
-def multi_annotate(ax, s, xy_arr=[], *args, **kwargs):
-	ans = []
-	an = ax.annotate(s, xy_arr[0], *args, **kwargs)
-	ans.append(an)
-	d = {}
-	try:
-		d['xycoords'] = kwargs['xycoords']
-	except KeyError:
-    pass
-	  try:
-    d['arrowprops'] = kwargs['arrowprops']
-  except KeyError:
-    pass
-  for xy in xy_arr[1:]:
-    an = ax.annotate(s, xy, alpha=0.0, xytext=(0,0), textcoords=an, **d)
-    ans.append(an)
-  return ans
-"""
+def plot_interactive_bindetect(motifs, comparison, html_out):
+	""" """
+
+	cond1, cond2 = comparison
+	
+	#Setup html string
+	header = """
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/export-data.js"></script>
+<script src="https://code.highcharts.com/modules/accessibility.js"></script>
+
+<div id="volc" style="width: 600px; height: 600px; padding: 0px"></div>
+
+<script language="javascript">
+document.addEventListener('DOMContentLoaded', function () {
+	var myChart = Highcharts.chart('volc', 
+	{
+	credits: {
+			enabled: false
+		},
+chart: {
+	type: 'scatter',
+	zoomType: 'xy',
+	marginBottom: 100
+},
+accessibility: {
+	description: ''
+},
+title: {
+	text: 'BINDetect Volcano Plot'
+},
+			"""
+
+	header += "subtitle: {{\n\t\ttext: \'{0}\'\n}},".format(" / ".join(comparison))
+	header += """
+			xAxis: {title: 
+					{enabled: true, 
+					text: 'Differential binding score'},
+					startOnTick: true,
+					endOnTick: true,
+					showLastLabel: true
+					},
+			yAxis: {
+				title: {
+					text: '-log10(pvalue)'
+				}
+			},
+			legend: {
+				align: 'center',
+				verticalAlign: 'bottom',
+				x: 0,
+				y: 0,
+				floating: true,
+				backgroundColor: Highcharts.defaultOptions.chart.backgroundColor,
+				borderWidth: 1
+			},
+			plotOptions: {
+				series: {
+					point: {
+						events: {
+							mouseOver: function() {
+								var chart = this.series.chart;
+									if (!chart.lbl) {
+										chart.renderer.image(this.base,60,350,150,150).add()
+									}
+								}
+					}
+				}
+				},
+				scatter: {
+					marker: {
+						radius: 2,
+						symbol: 'circle',
+						states: {
+							hover: {
+								enabled: true,
+								lineColor: 'rgb(100,100,100)'
+							}
+						}
+					},
+					states: {
+						hover: {
+							marker: {
+								enabled: false
+							}
+						}
+					},
+					tooltip: {
+						headerFormat: '<b>{series.name}</b><br>',
+						pointFormat: '{point.name}'
+					}
+				}
+			},
+			"""
+
+	#Add data from groups
+	groups = [cond1 + "_up", cond2 + "_up", "n.s."]
+	colors = ["\'rgba(51, 204, 51, .5)\'", "\'rgba(223, 83, 83, .5)\'", "\'rgba(128, 128, 128, .5)\'"]
+	series = []
+	for i, group in enumerate(groups):
+		group_motifs = [motif for motif in motifs if motif.group == group]
+		series.append({"turboThreshold":0,
+						  		"name": "\'" + group + "\'",
+						  		"color": colors[i],
+						  		"data":[]})
+
+		#Make cond_up group points larger
+		if i < 2:
+			series[-1]["marker"] = {"radius": 4}
+
+		#Add data
+		for motif in group_motifs:
+			series[-1]["data"].append({"x": motif.change, "y": motif.logpvalue, "name": "\'" + motif.name + "\'", "base": "'data:image/png;base64," + motif.base + "'"})
+
+	#Format data and add to header
+	series_str = "[" + ",\n".join([json.dumps(group, indent=4) for group in series]) + "]"
+	series_str = series_str.replace("\"", "")
+	
+	html_str = header + "series: " + series_str + "\n});});</script>"
+
+	with open(html_out, "w") as f:
+		f.write(html_str)

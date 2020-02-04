@@ -243,13 +243,20 @@ def run_bindetect(args):
 
 	make_directory(os.path.join(args.outdir, "motif_logos"))
 	plus_motifs = [motif for motif in motif_list if motif.strand == "+"]
-	logo_filenames = {motif.prefix: os.path.join(args.outdir, "motif_logos", motif.prefix + ".png") for motif in plus_motifs}
+	logo_filenames = {motif.prefix: os.path.join(args.outdir, motif.prefix, motif.prefix + ".png") for motif in plus_motifs}
 
 	logger.info("Plotting sequence logos for each motif to {0}".format(os.path.join(args.outdir, "motif_logos")))
 	task_list = [pool.apply_async(OneMotif.logo_to_file, (motif, logo_filenames[motif.prefix], )) for motif in plus_motifs]
 	monitor_progress(task_list, logger)
 	results = [task.get() for task in task_list]
 	logger.comment("")
+
+	logger.debug("Getting base64 strings per motif")
+	for motif in motif_list:
+		if motif.strand == "+":
+			motif.get_base()
+			with open(logo_filenames[motif.prefix], "rb") as png:
+				motif.base = base64.b64encode(png.read()).decode("utf-8") 
 
 	#-------------------------------------------------------------------------------------------------------------#
 	#--------------------- Motif scanning: Find binding sites and match to footprint scores ----------------------#
@@ -595,7 +602,7 @@ def run_bindetect(args):
 	bindetect_out = os.path.join(args.outdir, args.prefix + "_results.txt")
 	info_table.to_csv(bindetect_out, sep="\t", index=False, header=True, na_rep="NA")
 
-
+	
 	#-------------------------------------------------------------------------------------------------------------#	
 	#------------------------------------------- Make BINDetect plot ---------------------------------------------#	
 	#-------------------------------------------------------------------------------------------------------------#	
@@ -609,16 +616,39 @@ def run_bindetect(args):
 			logger.info("- {0} / {1}".format(cond1, cond2))
 			base = cond1 + "_" + cond2
 
+			#Define which motifs to show
+			xvalues = info_table[base + "_change"].astype(float)
+			yvalues = info_table[base + "_pvalue"].astype(float)
+			y_min = np.percentile(yvalues[yvalues > 0], 5)	#5% smallest pvalues
+			x_min, x_max = np.percentile(xvalues, [5, 95])	#5% smallest and largest changes
+
 			#Make copy of motifs and fill in with metadata
-			comparison_motifs = motif_list 	#copy.deepcopy(motif_list) - swig pickle error, just overwrite motif_list
+			comparison_motifs = [motif for motif in motif_list if motif.strand == "+"] 	#copy.deepcopy(motif_list) - swig pickle error, just overwrite motif_list
 			for motif in comparison_motifs:
 				name = motif.prefix
 				motif.change = float(info_table.at[name, base + "_change"])
 				motif.pvalue = float(info_table.at[name, base + "_pvalue"])
+				motif.logpvalue = -np.log10(motif.pvalue) if motif.pvalue > 0 else -np.log10(1e-308)
+
+				#Assign each motif to group
+				if motif.change < x_min or motif.change > x_max or motif.pvalue < y_min:
+					if motif.change < 0:
+						motif.group = cond2 + "_up"
+					if motif.change > 0:
+						motif.group = cond1 + "_up"
+				else:
+					motif.group = "n.s."
 
 			#Bindetect plot
 			fig = plot_bindetect(comparison_motifs, clustering, [cond1, cond2], args)
 			figure_pdf.savefig(fig, bbox_inches='tight')
+
+			#Interactive BINDetect plot
+			html_out = os.path.join(args.outdir, "bindetect_" + base + ".html")
+			plot_interactive_bindetect(comparison_motifs, [cond1, cond2], html_out)
+			
+
+
 
 
 	#-------------------------------------------------------------------------------------------------------------#

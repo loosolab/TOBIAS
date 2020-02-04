@@ -25,6 +25,8 @@ import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 import scipy.spatial.distance as ssd
 import logomaker
+import base64
+import io
 
 #Bio-specific packages
 from Bio import motifs
@@ -716,6 +718,7 @@ class OneMotif:
 		info_content = 2 - (- np.sum(entro, axis=0))		#information content per position in motif
 		self.bits = self.pfm * info_content	
 
+
 	def logo_to_file(self, filename):
 		""" Plots the motif to pdf/png/jpg file """
 
@@ -730,8 +733,19 @@ class OneMotif:
 
 		self.gimme_obj.to_img(filename)
 
+	def get_base(self):
+		""" Get base64 string for plotting in HTML """
 
-	def create_logo(self, ax, motif_len=None):
+		image = io.BytesIO()
+
+		logo = self.create_logo()
+		logo.fig.savefig(image)
+		self.base = base64.encodestring(image.getvalue()).decode("utf-8") 
+		self.base = self.base.replace("\n", "")	#replace automatic \n
+
+		return(self)
+
+	def create_logo(self, ax = None, motif_len=None):
 		""" Creates motif logo in axes object """
 
 		# convert to pandas dataframe
@@ -780,8 +794,6 @@ def get_motif_format(content):
 		motif_format = "unknown"
 
 	return(motif_format)
-
-
 
 
 

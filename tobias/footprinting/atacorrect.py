@@ -133,11 +133,13 @@ def run_atacorrect(args):
 
 	bam_references = bamfile.references 	#chromosomes in correct order
 	bam_chrom_info = dict(zip(bamfile.references, bamfile.lengths))
+	logger.debug("bam_chrom_info: {0}".format(bam_chrom_info))
 	bamfile.close()
 
 	logger.info("Reading info from .fasta file")
 	fastafile = pysam.FastaFile(args.genome)
 	fasta_chrom_info = dict(zip(fastafile.references, fastafile.lengths))
+	logger.debug("fasta_chrom_info: {0}".format(fasta_chrom_info))
 	fastafile.close()
 
 	#Compare chrom lengths
@@ -150,6 +152,13 @@ def run_atacorrect(args):
 			logger.warning("(Bamfile)\t{0} has length {1}".format(chrom, bam_chrom_info[chrom]))
 			sys.exit("Error: .bam and .fasta have different chromosome lengths. Please make sure the genome file is similar to the one used in mapping.")
 
+	#Subset bam_references to those for which there are sequences in fasta
+	chrom_not_in_fasta = set(bam_references) - set(fasta_chrom_info.keys())
+	if chrom_not_in_fasta > 1:
+		logger.warning("The following contigs in --bam did not have sequences in --fasta: {0}. NOTE: These contigs will be skipped in calculation and output.".format(chrom_not_in_fasta))
+
+	bam_references = [ref for ref in bam_references if ref in fasta_chrom_info]
+	chrom_in_common = [ref for ref in chrom_in_common if ref in bam_references]
 
 	#----------------------------------------------------------------------------------------------------#
 	# Read regions from bedfiles

@@ -176,12 +176,19 @@ def run_scorebigwig(args):
 	logger.info("- Getting output regions ready")
 	if args.regions:
 		regions = RegionList().from_bed(args.regions)
+
+		#Check whether regions are available in input bigwig
+		not_in_bigwig = list(set(regions.get_chroms()) - set(chrom_info.keys()))
+		if len(not_in_bigwig) > 0:
+			logger.warning("Contigs {0} were found in input --regions, but were not found in input --signal. These regions cannot be scored and will therefore be excluded from output.".format(not_in_bigwig))
+			regions = regions.remove_chroms(not_in_bigwig)
+		
 		regions.apply_method(OneRegion.extend_reg, args.extend)
 		regions.merge()
 		regions.apply_method(OneRegion.check_boundary, chrom_info, "cut")
 
 	else:
-		regions = RegionList().from_list([OneRegion([chrom, 0, chrom_info[chrom]]) for chrom in chrom_info])	
+		regions = RegionList().from_chrom_lengths(chrom_info)
 
 	#Set flank to enable scoring in ends of regions
 	if args.score == "sum":

@@ -73,8 +73,9 @@ def count_reads(regions_list, params):
 	read_count = 0
 	logger.spam("Started counting region_chunk ({0} -> {1})".format("_".join([str(element) for element in regions_list[0]]), "_".join([str(element) for element in regions_list[-1]])))
 	for region in regions_list:
+		logger.spam("- {0}".format(region))
 		read_lst = ReadList().from_bam(bam_obj, region)
-		
+		logger.spam("- {0} reads".format(len(read_lst)))
 		for read in read_lst:  
 			read.get_cutsite(read_shift)
 			if read.cutsite > region.start and read.cutsite < region.end:  #only reads within borders
