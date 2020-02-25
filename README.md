@@ -141,6 +141,10 @@ $ TOBIAS ClusterMotifs --motifs test_data/example_motifs.txt
 $ TOBIAS FilterFragments --bam test_data/Bcell_chr4.bam --regions test_data/peaks.bed
 ```
 
+**Create TF-TF binding network from annotated TFBS:**
+```
+$ TOBIAS CreateNetwork --TFBS test_data/annotated_tfbs/* --origin test_data/motif2gene_mapping.txt
+```
 
 Snakemake pipeline
 ------------
