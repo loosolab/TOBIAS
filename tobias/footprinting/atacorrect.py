@@ -312,6 +312,10 @@ def run_atacorrect(args):
 		bias_obj.bias[strand].prepare_mat()
 		figure_pdf.savefig(plot_pssm(bias_obj.bias[strand].pssm, "Tn5 insertion bias of reads ({0})".format(strand)))
 	
+	#Write bias motif to pickle
+	out_f = os.path.join(args.outdir, "bias_obj.pickle")
+	bias_obj.to_pickle(out_f)
+	
 	#----------------------------------------------------------------------------------------------------#
 	# Correct read bias and write to bigwig
 	#----------------------------------------------------------------------------------------------------#

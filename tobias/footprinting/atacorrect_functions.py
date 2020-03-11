@@ -19,6 +19,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy.optimize import curve_fit
+import pickle
 
 #Bio-specific packages
 import pysam
@@ -55,6 +56,24 @@ class AtacBias:
 		self.bias["reverse"].add_counts(obj.bias["reverse"])
 		self.bias["both"].add_counts(obj.bias["both"])
 		self.no_reads += obj.no_reads
+
+	def to_pickle(self, f):
+		""" Pickle an AtacBias object to a .pickle file """
+
+		handle = open(f, "wb")
+		pickle.dump(self, handle)
+		handle.close()
+
+		return(self)
+
+	def from_pickle(self, f):
+		""" Read an AtacBias object from a .pickle file """
+
+		handle = open(f, "rb")
+		self = pickle.load(handle)
+		return(self)
+
+		
 
 
 #--------------------------------------------------------------------------------------------------#
