@@ -4,6 +4,7 @@
 - Added @PG-line to FilterFragments output bam
 - Added interactive html plots with motifs to BINDetect
 - Adding --smooth function to PlotAggregate
+- Added .pickle output of ATACorrect bias object to use in other applications
 
 ## 0.10.1 (2020-01-16)
 - Fixed error reading parser and fonts for PlotTracks
