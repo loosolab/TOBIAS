@@ -18,6 +18,37 @@ import numpy as np
 cimport numpy as np
 import cython
 
+#--------------------------------------------------------------------------------------------------#
+def index_bam(bam_obj, logger=None):
+	""" 
+	Function to index a bam file if the index does not exist
+
+	Parameters
+	-----------
+	bam_obj : pysam.AlignmentFile object
+		bam_obj with/without associated
+	Returns
+	-----------
+	bam_obj : pysam.Alignment object
+		bam_obj with index
+	"""
+
+	filename = bam_obj.filename.decode('utf-8')
+
+	try:
+		bam_obj.check_index()
+	except AttributeError:
+		logger.error("Alignment file <{0}> is in SAM format. Please convert this file into BAM format and try again.".format(filename))
+		sys.exit()
+	except ValueError:
+		logger.warn("Alignment file <{0}> has no .bai-index. Creating one now.".format(filename))
+
+		pysam.index(filename, filename + ".bai")
+		logger.info("Succesfully created index: {0}".format(filename + ".bai"))
+
+		bam_obj = pysam.AlignmentFile(filename)	#open bam again to include index 
+
+	return(bam_obj)
 
 #--------------------------------------------------------------------------------------------------#
 class OneRead():

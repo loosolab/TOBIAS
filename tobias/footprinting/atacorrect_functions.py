@@ -72,13 +72,13 @@ def count_reads(regions_list, params):
 	#Count per region
 	read_count = 0
 	logger.spam("Started counting region_chunk ({0} -> {1})".format("_".join([str(element) for element in regions_list[0]]), "_".join([str(element) for element in regions_list[-1]])))
+	
 	for region in regions_list:
-		logger.spam("- {0}".format(region))
 		read_lst = ReadList().from_bam(bam_obj, region)
-		logger.spam("- {0} reads".format(len(read_lst)))
+		logger.spam("- {0} ({1} reads)".format(region, len(read_lst)))
 		for read in read_lst:  
 			read.get_cutsite(read_shift)
-			if read.cutsite > region.start and read.cutsite < region.end:  #only reads within borders
+			if read.cutsite > region.start and read.cutsite <= region.end:  #only reads within borders
 				read_count += 1
 				
 	logger.spam("Finished counting region_chunk ({0} -> {1})".format("_".join([str(element) for element in regions_list[0]]), "_".join([str(element) for element in regions_list[-1]])))
@@ -212,6 +212,7 @@ def bias_correction(regions_list, params, bias_obj):
 		read_lst = ReadList().from_bam(bam_obj, region_obj) 
 		for read in read_lst:
 			read.get_cutsite(read_shift)
+		logger.spam("Read {0} reads from region {1}".format(len(read_lst), region_obj))
 
 		#Exclude reads with cutsites outside region
 		read_lst = ReadList([read for read in read_lst if read.cutsite > region_obj.start and read.cutsite < region_obj.end])

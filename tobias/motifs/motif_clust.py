@@ -136,9 +136,9 @@ def write_yaml(dictionary, yml_out):
 	Parameter:
 	----------
 	dictionary : dict
-		dictionary containing information to be written
+		Dictionary containing information to be written
 	yml_out : string
-		path for outfile
+		Path to outfile
 	"""
 
 	with open(yml_out, 'w') as outfile:
@@ -308,7 +308,7 @@ def run_motifclust(args):
 	cluster_dict = {cluster_id: [motif.gimme_obj.id for motif in clusters[cluster_id]] for cluster_id in clusters}
 	cluster_f = out_prefix + "_" + "clusters.yml"
 	logger.info("- Writing clustering to {0}".format(cluster_f))
-	write_yaml(cluster_dict , cluster_f)
+	write_yaml(cluster_dict, cluster_f)
 
 	# Save similarity matrix to file
 	matrix_out = out_prefix + "_matrix.txt"

@@ -32,6 +32,7 @@ from tobias.parsers import add_aggregate_arguments
 from tobias.utils.utilities import check_required, check_files
 from tobias.utils.regions import OneRegion, RegionList
 from tobias.utils.logger import TobiasLogger, add_logger_args
+from tobias.utils.signals import fast_rolling_math
 
 #----------------------------------------------------------------------------------------------------#
 def run_aggregate(args):
@@ -205,8 +206,8 @@ def run_aggregate(args):
 
 			#Exclude outlier rows 
 			max_values = np.max(signalmat, axis=1)
-			upper_limit = np.percentile(np.max(signalmat, axis=1), [100*args.remove_outliers])[0]	#remove-outliers is a fraction
-			logical = np.max(signalmat, axis=1) <= upper_limit 
+			upper_limit = np.percentile(max_values, [100*args.remove_outliers])[0]	#remove-outliers is a fraction
+			logical = max_values <= upper_limit 
 			logger.debug("{0}:{1}\tUpper limit: {2} (regions removed: {3})".format(signal_name, region_name, upper_limit, len(signalmat) - sum(logical)))
 			signalmat = signalmat[logical]
 						
@@ -222,6 +223,11 @@ def run_aggregate(args):
 			#normalize between 0-1
 			if args.normalize:
 				aggregate = preprocessing.minmax_scale(aggregate)
+
+			if args.smooth > 1:
+				aggregate_extend = np.pad(aggregate, args.smooth, "edge")
+				aggregate_smooth = fast_rolling_math(aggregate_extend.astype('float64'), args.smooth, "mean")
+				aggregate = aggregate_smooth[args.smooth:-args.smooth]
 
 			aggregate_dict[signal_name][region_name] = aggregate
 			signalmat = None	#free up space
@@ -301,6 +307,7 @@ def run_aggregate(args):
 	
 	#Define whether signal is on x/y
 	if args.signal_on_x:
+		
 		#x-axis
 		n_cols = n_signals
 		col_compare = signal_compare

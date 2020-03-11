@@ -14,6 +14,52 @@ cimport numpy as np
 import math
 import cython
 
+class SignalMatrix(np.ndarray):
+
+	def __new__(cls):
+		pass
+
+	def __init__(self, matrix=None, name=""):
+
+		self.aggregate = ""
+		self.name = name
+		self.mat = matrix
+		self.n = 0 #n regions
+
+	def from_regions(self, regions, bigwig):
+		""" 
+			Read from regions and bigwig 
+			Assumes .signal in regions
+		"""
+		pass
+	
+	def filter_outliers(self, lower=0.0, upper=1.0):
+		""" Filter rows based on outlier values """
+
+		#Exclude outlier rows 
+		max_values = np.max(self.mat, axis=1)
+		upper_limit = np.percentile(max_values, [100*upper])[0]	#remove-outliers is a fraction
+		logical = max_values <= upper_limit 
+
+		#logger.debug("{0}:\tUpper limit: {1} (regions removed: {2})".format(self.name, upper_limit, self.n - sum(logical)))
+		#signalmat = signalmat[logical]
+
+	def aggregate(self, normalize=False, smooth=1):
+		""" Makes aggregate across all rows """
+
+		self.aggregate = ""
+		return(self.aggregate)
+
+	def correlate():
+		""" """
+		pass
+
+
+	def footprint():
+		""" """
+		pass
+
+
 #--------------------------------------------------------------------------------------------------#
 def shuffle_array(np.ndarray[np.float64_t, ndim=1] arr, int no_rand, np.ndarray[np.int_t, ndim=1] shift_options):
 	""" Shuffles array of values within the boundaries given in shift """

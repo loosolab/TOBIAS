@@ -251,15 +251,16 @@ def add_aggregate_arguments(parser):
 	PLOT.add_argument('--TFBS-labels', metavar="", help="Labels used for each TFBS file (default: prefix of each --TFBS)", nargs="*")
 	PLOT.add_argument('--signal-labels', metavar="", help="Labels used for each signal file (default: prefix of each --signals)", nargs="*")
 	PLOT.add_argument('--region-labels', metavar="", help="Labels used for each regions file (default: prefix of each --regions)", nargs="*")
-	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable (default: none)", choices=["none", "signals", "sites", "both"], default="none")
+	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share-y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable (default: none)", choices=["none", "signals", "sites", "both"], default="none")
 	
 	#Signals / regions
 	PLOT.add_argument('--normalize', action='store_true', help="Normalize the aggregate signal(s) to be between 0-1 (default: the true range of values is shown)")
 	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
+	PLOT.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by taking the mean of <smooth> bp windows (default: 1 (no smooth)", default=1)
 	PLOT.add_argument('--log-transform', help="Log transform the signals before aggregation", action="store_true")
 	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries (Note: estimated from first region in each --TFBS)", action='store_true')
 	PLOT.add_argument('--signal-on-x', help="Show signals on x-axis and TFBSs on y-axis (default: signal is on y-axis)", action='store_true')
-	PLOT.add_argument('--remove-outliers', help="Value between 0-1 indicating the percentile of regions to include, e.g. 0.99 to remove the sites with 1\% highest values (default: 1)", type=lambda x: restricted_float(x, 0, 1), default=1)
+	PLOT.add_argument('--remove-outliers', metavar="<float>", help="Value between 0-1 indicating the percentile of regions to include, e.g. 0.99 to remove the sites with 1%% highest values (default: 1)", type=lambda x: restricted_float(x, 0, 1), default=1)
 
 	RUN = parser.add_argument_group("Run arguments")
 	RUN = add_logger_args(RUN)
@@ -467,7 +468,7 @@ def add_filterfragments_arguments(parser):
 	IO.add_argument('--regions', metavar="", help=".bed-file containing regions to filter fragments from")
 	IO.add_argument('--mode', help="Mode 1: Remove fragment if both reads overlap .bed-regions. Mode 2: Remove whole fragment if one read is overlapping .bed-regions (default: 1)", choices=[1,2], default=1)
 	IO.add_argument('--output', metavar="", help="Path to the filtered .bam-file (default: <prefix of --bam>_filtered.bam)")
-	IO.add_argument('--threads', metavar="", help="Number of threads used for decompressing/compressing bam (default: 10)", default=10)
+	IO.add_argument('--threads', metavar="", type=int, help="Number of threads used for decompressing/compressing bam (default: 10)", default=10)
 
 	IO = add_logger_args(IO)
 

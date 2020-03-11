@@ -193,7 +193,8 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		
 		#Check whether region is within boundaries
 		if region.end >= chrom_boundaries[region.chrom]:
-			print("ERROR IN REGION: {0}".format(region))
+			#print("ERROR IN REGION: {0}".format(region))
+			pass
 
 		#Random positions for sampling
 		reglen = region.get_length()
@@ -349,7 +350,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		except Exception as e:
 			print("Error writing excelfile for TF {0}".format(TF_name))
 			print(e)
-			sys.exit()
+			#sys.exit()
 
 	etime_excel = datetime.now()
 	etime = datetime.now()
@@ -418,6 +419,12 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			sample_mean, sample_std = np.mean(sample), np.std(sample)
 			sample_change = (sample_mean - bg_mean) / np.mean([sample_std, bg_std])
 			sample_changes.append(sample_change)
+
+		#Write out differential scores
+		if args.debug:
+			f = open(os.path.join(args.outdir, TF_name, "sampled_differential_scores.txt"), "w")
+			f.write("\n".join([str(val) for val in sample_changes]))
+			f.close()
 
 		#Estimate p-value by comparing sampling to observed mean
 		ttest = scipy.stats.ttest_1samp(sample_changes, info_table.at[TF_name, base + "_change"])

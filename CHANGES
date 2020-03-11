@@ -1,3 +1,10 @@
+## 0.10.2 ()
+- Fixed smaller bug in bigwig writer for one-region output
+- Added check for samtools in SubsampleBam
+- Added @PG-line to FilterFragments output bam
+- Added interactive html plots with motifs to BINDetect
+- Adding --smooth function to PlotAggregate
+
 ## 0.10.1 (2020-01-16)
 - Fixed error reading parser and fonts for PlotTracks
 - Restructure of motifclust-functions to be included in OneMotif and MotifList classes
@@ -12,7 +19,7 @@
 - Fixed smaller bug with flank estimation in footprint calculation
 - Fixed rescale to original sum in ATACorrect
 - Added option to exclude outliers from aggregate plots
- 
+
 ## 0.8.0 (2019-09-04)
 - Added CreateNetwork to tools
 - Smaller bugfixes

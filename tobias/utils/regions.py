@@ -125,13 +125,14 @@ class OneRegion(list):
 				elif action == "remove":
 					self = None
 
-			#Check end
-			if self.end > int(boundaries_dict[chrom]):
-				if action == "cut":
-					self.end = int(boundaries_dict[chrom])
+			#Check end if chrom in boundaries dict
+			if chrom in boundaries_dict:
+				if self.end > int(boundaries_dict[chrom]):
+					if action == "cut":
+						self.end = int(boundaries_dict[chrom])
 
-				elif action == "remove":
-					self = None
+					elif action == "remove":
+						self = None
 
 			if self.get_length() < 0:
 				self = None

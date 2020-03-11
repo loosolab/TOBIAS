@@ -96,10 +96,12 @@ class TobiasLogger(logging.Logger):
 		""" Begin logging by writing comments about the current run """
 		from tobias import __version__ as TOBIAS_VERSION
 
+		self.cmd = "TOBIAS " + " ".join(sys.argv[1:])
+
 		#Print info on run
 		self.comment("# TOBIAS {0} {1} (run started {2})".format(TOBIAS_VERSION, self.tool_name, self.begin_time))
 		self.comment("# Working directory: {0}".format(os.getcwd()))
-		self.comment("# Command line call: {0}\n".format(" ".join(sys.argv)))
+		self.comment("# Command line call: {0}\n".format(self.cmd))
 
 	def stop(self):
 		""" Stop without printing status """

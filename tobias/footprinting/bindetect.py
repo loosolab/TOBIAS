@@ -18,6 +18,7 @@ from copy import deepcopy
 import logging
 import itertools
 import pandas as pd
+import seaborn as sns
 
 #Machine learning and statistics
 import sklearn
@@ -160,8 +161,8 @@ def run_bindetect(args):
 	peak_chroms = peaks.get_chroms()
 	peak_columns = len(peaks[0]) #number of columns
 
-	if args.debug:
-		peaks = RegionList(peaks[:1000])
+	#if args.debug:
+	#	peaks = RegionList(peaks[:1000])
 
 	#Header
 	if args.peak_header != None:
@@ -241,11 +242,10 @@ def run_bindetect(args):
 	#----------------------------------------- Plot logos for all motifs -----------------------------------------#
 	#-------------------------------------------------------------------------------------------------------------#
 
-	make_directory(os.path.join(args.outdir, "motif_logos"))
 	plus_motifs = [motif for motif in motif_list if motif.strand == "+"]
 	logo_filenames = {motif.prefix: os.path.join(args.outdir, motif.prefix, motif.prefix + ".png") for motif in plus_motifs}
 
-	logger.info("Plotting sequence logos for each motif to {0}".format(os.path.join(args.outdir, "motif_logos")))
+	logger.info("Plotting sequence logos for each motif")
 	task_list = [pool.apply_async(OneMotif.logo_to_file, (motif, logo_filenames[motif.prefix], )) for motif in plus_motifs]
 	monitor_progress(task_list, logger)
 	results = [task.get() for task in task_list]
@@ -254,7 +254,7 @@ def run_bindetect(args):
 	logger.debug("Getting base64 strings per motif")
 	for motif in motif_list:
 		if motif.strand == "+":
-			motif.get_base()
+			#motif.get_base() 
 			with open(logo_filenames[motif.prefix], "rb") as png:
 				motif.base = base64.b64encode(png.read()).decode("utf-8") 
 
@@ -478,6 +478,10 @@ def run_bindetect(args):
 			plt.ylabel("Density")
 			if args.debug:
 				figure_pdf.savefig(fig, bbox_inches='tight')
+
+				f = open(os.path.join(args.outdir, "{0}_{1}_log2fcs.txt".format(bigwig1, bigwig2)), "w")
+				f.write("\n".join([str(val) for val in log2fcs]))
+				f.close()
 			plt.close()			
 			
 	background = None	 #free up space 
@@ -642,13 +646,55 @@ def run_bindetect(args):
 			#Bindetect plot
 			fig = plot_bindetect(comparison_motifs, clustering, [cond1, cond2], args)
 			figure_pdf.savefig(fig, bbox_inches='tight')
+			plt.close(fig)
 
 			#Interactive BINDetect plot
 			html_out = os.path.join(args.outdir, "bindetect_" + base + ".html")
 			plot_interactive_bindetect(comparison_motifs, [cond1, cond2], html_out)
 			
 
+	#-------------------------------------------------------------------------------------------------------------#	
+	#----------------------------- Make heatmap across conditions (for debugging)---------------------------------#	
+	#-------------------------------------------------------------------------------------------------------------#	
 
+	if args.debug:
+
+		mean_columns = [cond + "_mean_score" for cond in args.cond_names]
+		heatmap_table = info_table[mean_columns]
+		heatmap_table.index = info_table["output_prefix"]
+
+		#Decide fig size
+		rows, cols = heatmap_table.shape
+		figsize = (7 + cols, max(10, rows/8.0))
+		cm = sns.clustermap(heatmap_table,
+							figsize = figsize, 
+							z_score = 0,		 	#zscore for rows
+							col_cluster = False,	#do not cluster condition columns
+							yticklabels = True, 		#show all row annotations
+							xticklabels = True,
+							cbar_pos = (0, 0, .4, .005),
+							dendrogram_ratio = (0.3,0.01),
+							cbar_kws = {"orientation": "horizontal", 'label': 'Row z-score'},
+							method = "single"
+							)
+							
+		#Adjust width of columns
+		#hm = cm.ax_heatmap.get_position()
+		#cm.ax_heatmap.set_position([hm.x0, hm.y0, cols * 3 * hm.height / rows, hm.height]) 	#aspect should be equal
+
+		plt.setp(cm.ax_heatmap.get_xticklabels(), fontsize=8, rotation=45, ha="right")
+		plt.setp(cm.ax_heatmap.get_yticklabels(), fontsize=5)
+		
+		cm.ax_col_dendrogram.set_title('Mean scores across conditions', fontsize=20)
+		cm.ax_heatmap.set_ylabel("Transcription factor motifs", fontsize=15, rotation=270)
+		#cm.ax_heatmap.set_title('Conditions')
+		#cm.fig.suptitle('Mean scores across conditions')
+		#cm.cax.set_visible(False)
+
+		#Save to output pdf
+		plt.tight_layout()
+		figure_pdf.savefig(cm.fig, bbox_inches='tight')
+		plt.close(cm.fig)	
 
 
 	#-------------------------------------------------------------------------------------------------------------#

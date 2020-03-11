@@ -154,7 +154,7 @@ def run_atacorrect(args):
 
 	#Subset bam_references to those for which there are sequences in fasta
 	chrom_not_in_fasta = set(bam_references) - set(fasta_chrom_info.keys())
-	if chrom_not_in_fasta > 1:
+	if len(chrom_not_in_fasta) > 1:
 		logger.warning("The following contigs in --bam did not have sequences in --fasta: {0}. NOTE: These contigs will be skipped in calculation and output.".format(chrom_not_in_fasta))
 
 	bam_references = [ref for ref in bam_references if ref in fasta_chrom_info]

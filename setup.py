@@ -79,7 +79,8 @@ setup(name='tobias',
 			'MOODS-python',
 			'svist4get',
 			'gimmemotifs',
-			'logomaker'
+			'logomaker',
+			'seaborn>=0.9.1'
 		],
 		scripts=["tobias/utils/filter_important_factors.py"],
 		classifiers=[

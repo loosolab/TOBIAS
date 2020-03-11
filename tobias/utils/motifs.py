@@ -33,7 +33,6 @@ from Bio import motifs
 from gimmemotifs.motif import Motif,read_motifs
 from gimmemotifs.comparison import MotifComparer
 
-
 import MOODS.scan
 import MOODS.tools
 import MOODS.parsers
@@ -114,6 +113,7 @@ class MotifList(list):
 					self.append(OneMotif()) 				#create new motif
 					self[-1].input_format = file_format
 					self[-1].counts = [[] for _ in range(4)]
+					self[-1].n = 1 #preliminarily 1
 
 					#Get id/name of motif
 					if len(columns) > 2: #MOTIF, ID, NAME
@@ -131,6 +131,17 @@ class MotifList(list):
 						if re.match("^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
 							for i, col in enumerate(columns):
 								self[-1].counts[i].append(num(col))
+						elif re.match("^letter-probability", line):
+							#example: "letter-probability matrix: alength= 4 w= 6 nsites= 24 E= 0"
+
+							m = re.search("nsites= ([0-9]+)", line)
+							if m is not None:
+								self[-1].n = int(m.group(1))
+
+			#Multiply all counts with number of sequences
+			for motif in self:
+				for i, nuc_counts in enumerate(motif.counts):
+					motif.counts[i] = [pos * motif.n for pos in nuc_counts]
 
 		elif file_format in biopython_formats:
 			
@@ -155,14 +166,12 @@ class MotifList(list):
 			if nuc != 4:
 				sys.exit("ERROR: Motif {0} has an unexpected format and could not be read".format(motif))
 
-		#Estimate widths and n_sites
-		for motif in self:
-			motif.n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
-			motif.length = len(motif.counts[0])
-		
-		#Convert to gimmemotif
-		for motif in self:
-			motif.get_gimmemotif()	#fill in gimmemotif object
+		#Fill in motifs with additional parameters; Estimate widths and n_sites
+		for i, motif in enumerate(self):
+			self[i].n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
+			self[i].length = len(motif.counts[0])
+
+			self[i].get_gimmemotif() #fill in gimmemotif object
 
 		return(self)
 
@@ -430,7 +439,7 @@ class MotifList(list):
 				seen[m_id] = 1
 			else:
 				new_id = motif.id + "_" + str(seen[m_id])
-				motif.set_id(new_id)
+				motif.id = new_id
 				seen[m_id] += 1
 
 
@@ -612,7 +621,7 @@ class OneMotif:
 		self.prefix = "" 		#output prefix set in set_prefix
 		self.counts = counts if counts != None else [[] for _ in range(4)] 	#counts, list of 4 lists (A,C,G,T) (each as long as motif)
 		self.strand = "+"		#default strand is +
-		self.length = 0			#length of motif
+		self.length = len(counts[0]) if counts != None else None	#length of motif
 
 		#Set later
 		self.pfm = None
@@ -641,9 +650,6 @@ class OneMotif:
 
 		self.prefix = filafy(prefix)
 		return(self)
-
-	def set_id(self, id):
-		self.id = id
 
 	def get_pfm(self):
 		self.pfm = self.counts / np.sum(self.counts, axis=0)
@@ -716,8 +722,8 @@ class OneMotif:
 		entro = pfm_arr * np.log2(pfm_arr)
 		entro[np.isnan(entro)] = 0
 		info_content = 2 - (- np.sum(entro, axis=0))		#information content per position in motif
+		self.ic = info_content
 		self.bits = self.pfm * info_content	
-
 
 	def logo_to_file(self, filename):
 		""" Plots the motif to pdf/png/jpg file """
