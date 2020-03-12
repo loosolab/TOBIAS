@@ -1,10 +1,11 @@
-## 0.10.2 ()
+## 0.11.0 ()
 - Fixed smaller bug in bigwig writer for one-region output
 - Added check for samtools in SubsampleBam
 - Added @PG-line to FilterFragments output bam
 - Added interactive html plots with motifs to BINDetect
 - Adding --smooth function to PlotAggregate
 - Added .pickle output of ATACorrect bias object to use in other applications
+- Fixed bugs in PlotTracks due to svist4get update; pinned >1.2.21 to setup.py
 
 ## 0.10.1 (2020-01-16)
 - Fixed error reading parser and fonts for PlotTracks

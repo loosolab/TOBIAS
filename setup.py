@@ -77,7 +77,7 @@ setup(name='tobias',
 			'adjustText',
 			'pyBigWig',
 			'MOODS-python',
-			'svist4get',
+			'svist4get>=1.2.21',
 			'gimmemotifs',
 			'logomaker',
 			'seaborn>=0.9.1'

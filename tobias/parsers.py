@@ -191,13 +191,13 @@ def add_formatmotifs_arguments(parser):
 
 	#Required arguments
 	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--input', metavar="", nargs="*", help="One or more input motif files")			
-	required.add_argument('--format', metavar="", help="Desired motif output format (pfm, jaspar, meme) (default: \"jaspar\")", choices=["pfm", "jaspar", "meme"], default="jaspar")
-	required.add_argument('--task', metavar="", help="Which task to perform on motif files (join/split) (default: join)", choices=["join", "split"], default="join")
-	required.add_argument('--filter', metavar="", help="File containing list of motif names/ids to filter on. Only motifs fitting entries in filter will be output.")
-	required.add_argument('--output', metavar="", help="If task == join, output is the joined output file; if task == split, output is a directory")
+	required.add_argument('--input', metavar="", nargs="*", help="One or more input motif files (required)")			
+	required.add_argument('--output', metavar="", help="If task == join, output is the joined output file; if task == split, output is a directory (required)")
 	
 	additional = parser.add_argument_group('Additional arguments')
+	additional.add_argument('--format', metavar="", help="Desired motif output format (pfm, jaspar, meme) (default: \"jaspar\")", choices=["pfm", "jaspar", "meme"], default="jaspar")
+	additional.add_argument('--task', metavar="", help="Which task to perform on motif files (join/split) (default: join)", choices=["join", "split"], default="join")
+	additional.add_argument('--filter', metavar="", help="File containing list of motif names/ids to filter on. Only motifs fitting entries in filter will be output.")
 	additional = add_logger_args(additional)
 
 	return(parser)
@@ -498,7 +498,7 @@ def add_motifclust_arguments(parser):
     optional.add_argument("-t", "--threshold", metavar="", help="Clustering threshold (Default = 0.3)", type=float, default=0.3)  
     optional.add_argument('--dist_method', metavar="", help="Method for calculating similarity between motifs (default: pcc)", choices=["pcc", "seqcor", "ed", "distance", "wic", "chisq", "akl", "sdd"], default="pcc")
     optional.add_argument('--clust_method', metavar="", help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average", choices=["single","complete","average","weighted","centroid","median","ward"])
-    optional.add_argument("-a", "--cons_format", metavar="", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: pfm)", default="pfm")
+    optional.add_argument("-a", "--cons_format", metavar="", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: jaspar)", default="jaspar")
     optional.add_argument("-p", "--prefix", metavar="", help="Output prefix (Default: ‘motif_comparison’)", default="motif_comparison")
     optional.add_argument("-o", "--outdir", metavar="", help="Output directory (Default: ‘./ClusterMotifs‘)", default="ClusterMotifs")
     optional = add_logger_args(optional)

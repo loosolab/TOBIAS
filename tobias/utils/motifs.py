@@ -63,6 +63,28 @@ def biomotif_to_gimmemotif(biomotif):
 """
 
 
+def float_to_int(afloat):
+	""" Converts integer floats (e.g. 1.0000) to integers """
+
+	elements = str(afloat).split(".")
+	
+	if len(elements) == 1:	#already int, do nothing
+		return(afloat)
+	elif len(elements) == 2:
+
+		if float(elements[1]) == 0:	#float is int
+			return(int(afloat))
+		else:
+			return(afloat)
+	else:
+		pass #if afloat is a string with multiple "."'s
+
+def num_to_str(list_of_lists):
+	""" """
+
+#	for ro
+	pass
+
 #----------------------------------------------------------------------------------------#
 #List of OneMotif objects
 class MotifList(list):
@@ -144,7 +166,6 @@ class MotifList(list):
 					motif.counts[i] = [pos * motif.n for pos in nuc_counts]
 
 		elif file_format in biopython_formats:
-			
 			with open(path) as f:
 				for m in motifs.parse(f, file_format):
 					self.append(OneMotif(motifid=m.matrix_id, name=m.name, counts=[m.counts[base] for base in ["A", "C", "G", "T"]]))
@@ -161,11 +182,17 @@ class MotifList(list):
 
 		#Check correct format of pfms
 		for motif in self:
-			nuc, pos = np.array(motif.counts).shape
-			motif.w = pos
+			nuc, length = np.array(motif.counts).shape
+			motif.length = length
 			if nuc != 4:
 				sys.exit("ERROR: Motif {0} has an unexpected format and could not be read".format(motif))
 
+		#Convert float to ints
+		for motif in self:
+			for r in range(4):
+				for c in range(motif.length):
+					motif.counts[r][c] = float_to_int(motif.counts[r][c])
+	
 		#Fill in motifs with additional parameters; Estimate widths and n_sites
 		for i, motif in enumerate(self):
 			self[i].n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
@@ -184,48 +211,10 @@ class MotifList(list):
 		path : string
 			Output path
 		fmt : string
-			Format of motif file
+			Format of motif file (pfm/jaspar/meme/transfac)
 		"""
 
-		#Create string format
-		bases = ["A", "C", "G", "T"]
-		out_string = ""
-
-		#Establish which output format
-		if fmt in ["pfm", "jaspar"]:
-			for motif in self:
-				out_string += ">{0}\t{1}\n".format(motif.id, motif.name)
-				for i, base_counts in enumerate(motif.counts):
-					base_counts_string = ["{0:.5f}".format(element) for element in base_counts]
-					out_string += "{0} [ {1} ] \n".format(bases[i], "\t".join(base_counts_string)) if fmt == "jaspar" else "\t".join(base_counts_string) + "\n"
-				out_string += "\n"
-
-		elif fmt == "meme":
-			
-			meme_header = "MEME version 4\n\n"
-			meme_header += "ALPHABET=ACGT\n\n"
-			meme_header += "strands: + -\n\n"
-			meme_header += "Background letter frequencies\nA 0.25 C 0.25 G 0.25 T 0.25\n\n"
-			out_string += meme_header
-
-			for motif in self:
-				out_string += "MOTIF\t{0}\t{1}\n".format(motif.id, motif.name)
-				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.w, motif.n)
-
-				for i in range(motif.w):
-					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
-					n_sites = round(sum(row), 0)
-					row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
-					out_string += "  ".join(row_freq) + "\n"
-				
-				out_string += "\n"	
-	
-		elif fmt == "transfac":
-			for motif in self:
-				out_string += motif.to_transfac()
-
-		else:
-			raise ValueError("Format " + fmt + " is not supported")
+		out_string = self.as_string(fmt)
 
 		#Write to output file
 		f = open(path, "w")
@@ -234,8 +223,10 @@ class MotifList(list):
 
 		return(self)
 
-
 	def as_string(self, output_format="pfm"):
+		"""
+		Returns the MotifList as a string in the given output_format
+		"""
 
 		bases = ["A", "C", "G", "T"]
 		out_string = ""
@@ -244,9 +235,19 @@ class MotifList(list):
 		if output_format in ["pfm", "jaspar"]:
 			for motif in self:
 				out_string += ">{0}\t{1}\n".format(motif.id, motif.name)
-				for i, base_counts in enumerate(motif.counts):
-					base_counts_string = ["{0:.5f}".format(element) for element in base_counts]
-					out_string += "{0} [ {1} ] \n".format(bases[i], "\t".join(base_counts_string)) if output_format == "jaspar" else "\t".join(base_counts_string) + "\n"
+
+				#Convert counts to string
+				counts_type = float if float in [type(element) for element in motif.counts[0]] else int	#Estimate from first base counts
+				if counts_type == float:
+					counts_string = [["{0:.5f}".format(element) for element in row_counts] for row_counts in motif.counts]
+				else:
+					counts_string = [[str(element) for element in row_counts] for row_counts in motif.counts]
+					element_width = max(sum([[len(element) for element in row_counts] for row_counts in counts_string], []))	#Length of longest element to align to
+					counts_string = [[" " * (element_width - len(element)) + element for element in row_counts] for row_counts in counts_string]
+
+				#Write out to format
+				for i, base_counts in enumerate(counts_string):
+					out_string += "{0} [ {1} ]\n".format(bases[i], "  ".join(base_counts)) if output_format == "jaspar" else "  ".join(base_counts) + "\n"
 				out_string += "\n"
 
 		elif output_format == "meme":
@@ -259,15 +260,22 @@ class MotifList(list):
 
 			for motif in self:
 				out_string += "MOTIF\t{0}\t{1}\n".format(motif.id, motif.name)
-				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.w, motif.n)
+				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.length, motif.n)
 
-				for i in range(motif.w):
+				for i in range(motif.length):
 					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
 					n_sites = round(sum(row), 0)
 					row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
 					out_string += "  ".join(row_freq) + "\n"
 				
-				out_string += "\n"	
+				out_string += "\n"
+
+		elif fmt == "transfac":
+			for motif in self:
+				out_string += motif.to_transfac()
+
+		else:
+			raise ValueError("Format " + fmt + " is not supported")	
 
 		return(out_string)			
 

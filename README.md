@@ -76,16 +76,19 @@ $ mv S3_download/data-tobias-2019/test_data/* test_data/
 ```
 $ TOBIAS ATACorrect --bam test_data/Bcell_chr4.bam --genome test_data/genome_chr4.fa.gz --peaks test_data/merged_peaks.bed --blacklist test_data/blacklist_chr4.bed --outdir atacorrect_test --prefix Bcell --cores 8
 ```
+_~ 3 minutes_ 
 
 **FootprintScores: Calculate footprint scores from corrected cutsites**
 ```
 $ TOBIAS FootprintScores --signal test_data/Bcell_corrected.bw --regions test_data/merged_peaks.bed --output Bcell_footprints.bw --cores 8
 ```
+_~ 1 minute_
 
 **BINDetect: Estimation of differentially bound motifs based on scores, sequence and motifs**   
 ```
-$ TOBIAS BINDetect --motifs test_data/example_motifs.txt --signals test_data/Bcell_footprints.bw test_data/Tcell_footprints.bw --genome test_data/genome_chr4.fa.gz --peaks test_data/annotated_peaks.bed --peak_header test_data/annotated_peaks_header.txt --outdir bindetect_output --cond_names Bcell Tcell --cores 8
+$ TOBIAS BINDetect --motifs test_data/example_motifs.jaspar --signals test_data/Bcell_footprints.bw test_data/Tcell_footprints.bw --genome test_data/genome_chr4.fa.gz --peaks test_data/annotated_peaks.bed --peak_header test_data/annotated_peaks_header.txt --outdir bindetect_output --cond_names Bcell Tcell --cores 8
 ```
+_~ 1 minute (two conditions, 7500 peaks, 86 motifs)_
 
 **PlotAggregate: Plot aggregated ATAC-seq signals in combinations of .bed/.bw to visualize footprints**  
 
@@ -93,54 +96,62 @@ Visualize the difference in footprints between two conditions for all accessible
 ```
 $ TOBIAS PlotAggregate --TFBS test_data/BATFJUN_all.bed  --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_footprint_comparison_all.pdf --share_y both --plot_boundaries
 ```
+_~ 3 seconds_
 
 Visualize the difference in footprints between two conditions exclusively for bound sites:   
 ```
 $ TOBIAS PlotAggregate --TFBS test_data/BATFJUN_Bcell_bound.bed test_data/BATFJUN_Tcell_bound.bed --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_footprint_comparison_subsets.pdf --share_y both --plot_boundaries
 ```
+_~ 5 seconds_
 
 Visualize the split of bound/unbound sites for one condition:   
 ```
 $ TOBIAS PlotAggregate --TFBS test_data/IRF1_all.bed test_data/IRF1_bound.bed test_data/IRF1_unbound.bed --signals test_data/Bcell_uncorrected.bw test_data/Bcell_expected.bw test_data/Bcell_corrected.bw --output IRF1_footprint.pdf  --share_y sites --plot_boundaries
 ```
+_~ 8 seconds_
 
 **PlotHeatmap: Plot heatmaps and aggregates of ATAC-seq signals in combinations of .bed/.bw to visualize footprints**   
 ```
-$ TOBIAS PlotHeatmap --TFBS test_data/BATFJUN_Bcell_bound.bed test_data/BATFJUN_Bcell_unbound.bed --TFBS test_data/BATFJUN_Tcell_bound.bed test_data/BATFJUN_Tcell_unbound.bed --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_heatmap.pdf --signal_labels Bcell Tcell --share_colorbar
+$ TOBIAS PlotHeatmap --TFBS test_data/BATFJUN_Bcell_bound.bed test_data/BATFJUN_Bcell_unbound.bed --TFBS test_data/BATFJUN_Tcell_bound.bed test_data/BATFJUN_Tcell_unbound.bed --signals test_data/Bcell_corrected.bw test_data/Tcell_corrected.bw --output BATFJUN_heatmap.pdf --signal_labels Bcell Tcell --share_colorbar --sort_by -1
 ```
+_~ 6 seconds_
 
 **PlotTracks: Plot IGV-style genomic signals such as cutsites and footprints across a selection of regions**
 ```
 $ TOBIAS PlotTracks --bigwigs test_data/*_corrected.bw --bigwigs test_data/*_footprints.bw --regions test_data/plot_regions.bed --sites test_data/binding_sites.bed --highlight test_data/binding_sites.bed --gtf test_data/transcripts_chr4.gtf --colors red darkblue red darkblue
 ```
+_~ 10 seconds_
 
 **FormatMotifs: A utility to convert and join/split across different motif-file formats**    
 Join individual motif files to one:    
 ```
-$ TOBIAS FormatMotifs --input test_data/individual_motifs/* --format pfm --task join --output example_motifs.txt
+$ TOBIAS FormatMotifs --input test_data/individual_motifs/* --task join --output example_motifs.txt
 ```
+_~ < 1 second_ 
 
 Split a motif file containing several motifs:  
 ```
-$ TOBIAS FormatMotifs --input test_data/example_motifs.txt --format pfm --task split --output split_motifs
+$ TOBIAS FormatMotifs --input test_data/example_motifs.jaspar --format meme --task split --output split_motifs
 ```
-
+_~ < 1 second
 Filter a larger motif file using TF names:
 ```
 $ echo 'MAFK CTCF JUNB' > TF_names.txt
-$ TOBIAS FormatMotifs --input test_data/example_motifs.txt --output filtered_motifs.txt --filter TF_names.txt
+$ TOBIAS FormatMotifs --input test_data/example_motifs.jaspar --output filtered_motifs.txt --filter TF_names.txt
 ```
+_~ < 1 second_
 
 **Cluster Motifs: Cluster motifs and create consensus motifs based on similarity**
 ```
-$ TOBIAS ClusterMotifs --motifs test_data/example_motifs.txt
+$ TOBIAS ClusterMotifs --motifs test_data/example_motifs.jaspar
 ```
+_~ 1 minute_
 
 **Filter fragments from a .bam-file using a .bed-file of regions:**
 ```
-$ TOBIAS FilterFragments --bam test_data/Bcell_chr4.bam --regions test_data/peaks.bed
+$ TOBIAS FilterFragments --bam test_data/Bcell_chr4.bam --regions test_data/merged_peaks.bed
 ```
-
+_~ 30 seconds_
 
 Snakemake pipeline
 ------------

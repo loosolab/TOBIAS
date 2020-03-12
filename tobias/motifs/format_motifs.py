@@ -43,7 +43,6 @@ def run_formatmotifs(args):
 	### Read motifs from files ###
 	logger.info("Reading input files...")
 	motif_list = MotifList()
-	converted_content = ""
 	for f in motif_files:
 		logger.debug("- {0}".format(f))
 		motif_list.extend(MotifList().from_file(f))

@@ -66,10 +66,10 @@ def svist4get_defaults():
 	c["c_vgrid"] = "blue"
 
 	#Highlight settings
-	c["c_fill_hframe"] = "blue"
-	c["c_fill_hframe_alpha"] = 0.2
-	c["c_stroke_hframe"] = "blue"
-	c["c_stroke_hframe_alpha"] = 0.7
+	c["c_fill_hframe"] = "grey"
+	c["c_fill_hframe_alpha"] = 0.5
+	c["c_stroke_hframe"] = "grey"
+	c["c_stroke_hframe_alpha"] = 0
 	c["c_text_hframe"] = "black"
 	c["hframe_font_size"] = 5
 
@@ -82,6 +82,7 @@ def svist4get_defaults():
 	c["c_bedgraph_label_alpha"] = 0.65
 	c["c_bedgraph_tracks"] = ["purple","green","blue","pink","yellow","orange","brown","red"] 	#default, can be overwritten
 	c["c_bedgraph_alpha"] = 1
+	c['bedgraph_label_position'] = "right"
 	c["bedgraph_axis_tics"] = "auto"
 	c["bedgraph_axis_tics_step"] = 0   
 	c["bedgraph_upper_limit"] = "auto"
@@ -290,6 +291,11 @@ def run_tracks(args):
 			gtf = sv4g.data_processing.Gtf_helper(pa.config['gtf_file'])
 			transcripts = gtf.extract_transcripts_from_widnow(*pa.config['window'])
 			data_from_gtf = (gtf.extract_data_about_transcripts(transcripts))
+			
+			#Add gene_id to the annotation dicts with no annotation; hack for error
+			for anno in data_from_gtf['for_transcript']:
+				if "gene_id" not in anno:
+					anno["gene_id"] = ""
 
 			#Set maximum on transcripts to minimize showing transcript 1-100 for the same gene
 			if len(data_from_gtf["for_transcript"]) > args.max_transcripts:
@@ -306,7 +312,6 @@ def run_tracks(args):
 			tracks += sv4g.manager.Title_tracks_maker(pa).create_tracks()
 			tracks += sv4g.manager.Axis_tics_tracks_maker(pa).create_tracks()
 			tracks += sv4g.manager.Transcript_struct_tracks_maker(pa).create_tracks()
-			
 			tracks += sv4g.manager.Bedgraph_tracks_maker(pa).create_tracks()
 
 			#Handle plotting of genomic intervals such as TFBS
