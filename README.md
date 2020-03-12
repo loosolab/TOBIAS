@@ -134,6 +134,7 @@ Split a motif file containing several motifs:
 $ TOBIAS FormatMotifs --input test_data/example_motifs.jaspar --format meme --task split --output split_motifs
 ```
 ~_1 second_
+
 Filter a larger motif file using TF names:
 ```
 $ echo 'MAFK CTCF JUNB' > TF_names.txt
