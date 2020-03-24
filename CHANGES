@@ -4,8 +4,18 @@
 - Added @PG-line to FilterFragments output bam
 - Added interactive html plots with motifs to BINDetect
 - Adding --smooth function to PlotAggregate
+- Fixed bug with overlapping figure labels in PlotAggregate
 - Added .pickle output of ATACorrect bias object to use in other applications
-- Fixed bugs in PlotTracks due to svist4get update; pinned >1.2.21 to setup.py
+- Fixed bugs in PlotTracks due to svist4get update; pinned =1.2.21 to setup.py
+- Pinned gimmemotifs<=0.14.1 due to KeyError with "params" for higher versions
+- Split internal structure of package into tools/utils/scripts
+- Fixed bug in BINDetect cutting off last column of _bound/_unbound files.
+- Added --naming to BINDetect
+- Added DownloadData tool to enable download of test_data/ directory from s3
+- Changed default --outdir's to be <toolname>_output
+- Fixed one-off error in MaxPos
+- Updated README with links to wiki
+- Additional bugfixes
 
 ## 0.10.1 (2020-01-16)
 - Fixed error reading parser and fonts for PlotTracks

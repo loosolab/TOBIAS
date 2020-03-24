@@ -14,7 +14,13 @@ cimport numpy as np
 import math
 import cython
 
-class SignalMatrix(np.ndarray):
+#--------------------------------------------------------------------------------------------------#
+class OneSignal(np.ndarray):
+	""" Work in progress; placeholder for future development """
+
+#--------------------------------------------------------------------------------------------------#
+class SignalList(list):
+	""" Work in progress; placeholder for future development """
 
 	def __new__(cls):
 		pass
@@ -40,7 +46,6 @@ class SignalMatrix(np.ndarray):
 		max_values = np.max(self.mat, axis=1)
 		upper_limit = np.percentile(max_values, [100*upper])[0]	#remove-outliers is a fraction
 		logical = max_values <= upper_limit 
-
 		#logger.debug("{0}:\tUpper limit: {1} (regions removed: {2})".format(self.name, upper_limit, self.n - sum(logical)))
 		#signalmat = signalmat[logical]
 
@@ -54,11 +59,9 @@ class SignalMatrix(np.ndarray):
 		""" """
 		pass
 
-
 	def footprint():
 		""" """
 		pass
-
 
 #--------------------------------------------------------------------------------------------------#
 def shuffle_array(np.ndarray[np.float64_t, ndim=1] arr, int no_rand, np.ndarray[np.int_t, ndim=1] shift_options):

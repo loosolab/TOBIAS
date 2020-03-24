@@ -77,12 +77,14 @@ setup(name='tobias',
 			'adjustText',
 			'pyBigWig',
 			'MOODS-python',
-			'svist4get>=1.2.21',
-			'gimmemotifs',
+			'svist4get==1.2.21',	#pin due to changes in API
+			'gimmemotifs<=0.14.1',	#pin due to KeyErrors with "params" 	
 			'logomaker',
-			'seaborn>=0.9.1'
+			'seaborn>=0.9.1',
+			'boto3',
+			'pyyaml>5.1'	#requirement for norns full_load
 		],
-		scripts=["tobias/utils/filter_important_factors.py"],
+		scripts=["tobias/scripts/filter_important_factors.py"],
 		classifiers=[
 			'License :: OSI Approved :: MIT License',
 			'Intended Audience :: Science/Research',

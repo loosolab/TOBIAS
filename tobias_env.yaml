@@ -1,0 +1,24 @@
+name: TOBIAS_ENV
+
+channels:
+  - bioconda
+  - conda-forge
+
+dependencies:
+  - python>=3
+  - pysam
+  - pybigwig
+  - moods
+  - pybedtools
+  - cython
+  - matplotlib>=2
+  - numpy
+  - scipy
+  - pypdf2
+  - scikit-learn
+  - gimmemotifs=0.14.1
+  - svist4get>=1.2.21
+  - pyaml=19.4.1
+  - boto3
+  - adjustText
+  - pip
