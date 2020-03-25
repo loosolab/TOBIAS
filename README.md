@@ -3,7 +3,6 @@ TOBIAS - Transcription factor Occupancy prediction By Investigation of ATAC-seq 
 
 [![PyPI Version](https://img.shields.io/pypi/v/tobias.svg?style=plastic)](https://pypi.org/project/tobias/)
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=plastic)](http://bioconda.github.io/recipes/tobias/README.html)
-[![Anaconda-Server Badge](https://anaconda.org/bioconda/tobias/badges/downloads.svg?style=plastic)](https://anaconda.org/bioconda/tobias)
 [![bioRxiv badge](https://img.shields.io/badge/bioRxiv-10.1101%2F869560-blue?style=plastic)](https://www.biorxiv.org/content/10.1101/869560v2)
 
 Introduction 
@@ -81,13 +80,13 @@ Pipelines
 ----------------
 While each TOBIAS tool can be run independently, they are developed to be run as part of an analysis pipeline. We provide ready-made pipelines for performing bias-correction, footprinting, differential binding and visualization for multiple conditions automatically.
 
-### Snakemake pipeline
+**Snakemake pipeline**  
 We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
 
-### Nextflow pipeline
+**Nextflow pipeline**  
 You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow can be found [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
 
-### Nextflow kubernetes/de.NBI cloud aware pipeline
+**Nextflow kubernetes/de.NBI cloud aware pipeline**  
 We also provide the TOBIAS nextflow pipeline for a cloud computing environment. One version utilizes a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_S3), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_NGINX).
 
 
