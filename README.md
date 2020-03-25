@@ -71,7 +71,7 @@ Overview and command-line examples
 * [PlotHeatmap](https://github.com/loosolab/TOBIAS/wiki/PlotHeatmap): Plot heatmaps and aggregates of ATAC-seq signals in combinations of .bed/.bw to visualize footprints
 * [PlotTracks](https://github.com/loosolab/TOBIAS/wiki/PlotTracks): Plot IGV-style genomic signals such as cutsites and footprints across a selection of regions
 * [FormatMotifs](https://github.com/loosolab/TOBIAS/wiki/FormatMotifs): A utility to convert and join/split across different motif-file formats
-* [ClusterMotifs](https://github.com/loosolab/TOBIAS/wiki/ClusterNetwork) : Cluster motifs and create consensus motifs based on similarity
+* [ClusterMotifs](https://github.com/loosolab/TOBIAS/wiki/Additional) : Cluster motifs and create consensus motifs based on similarity
 * [CreateNetwork](https://github.com/loosolab/TOBIAS/wiki/CreateNetwork): Create TF-TF binding network from annotated TFBS
 * [FilterFragments](https://github.com/loosolab/TOBIAS/wiki/Additional): Filter fragments from a .bam-file using a .bed-file of regions
 * [Additional utility tools](https://github.com/loosolab/TOBIAS/wiki/Additional)
@@ -81,13 +81,13 @@ Pipelines
 ----------------
 While each TOBIAS tool can be run independently, they are developed to be run as part of an analysis pipeline. We provide ready-made pipelines for performing bias-correction, footprinting, differential binding and visualization for multiple conditions automatically.
 
-## Snakemake pipeline
+### Snakemake pipeline
 We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
 
-## Nextflow pipeline
+### Nextflow pipeline
 You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow can be found [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
 
-## Nextflow kubernetes/de.NBI cloud aware pipeline
+### Nextflow kubernetes/de.NBI cloud aware pipeline
 We also provide the TOBIAS nextflow pipeline for a cloud computing environment. One version utilizes a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_S3), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_NGINX).
 
 
