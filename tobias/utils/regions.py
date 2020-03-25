@@ -125,13 +125,14 @@ class OneRegion(list):
 				elif action == "remove":
 					self = None
 
-			#Check end
-			if self.end > int(boundaries_dict[chrom]):
-				if action == "cut":
-					self.end = int(boundaries_dict[chrom])
+			#Check end if chrom in boundaries dict
+			if chrom in boundaries_dict:
+				if self.end > int(boundaries_dict[chrom]):
+					if action == "cut":
+						self.end = int(boundaries_dict[chrom])
 
-				elif action == "remove":
-					self = None
+					elif action == "remove":
+						self = None
 
 			if self.get_length() < 0:
 				self = None
@@ -196,7 +197,7 @@ class RegionList(list):
 				continue
 
 			#Test line format
-			if re.match("[^\s]+\t\d+\t\d+.", line) == None:
+			if re.match(r"[^\s]+\t\d+\t\d+.", line) == None:
 				print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
 				sys.exit()
 
@@ -247,10 +248,18 @@ class RegionList(list):
 		return(len(self))
 
 	def loc_sort(self, contig_list=[]):
-		""" Sorts list of region objects based on genomic location """
+		""" 
+		Sorts list of region objects based on genomic location. 
+		contig_list gives the correct order of contigs; else normal sort is applied
+		"""
+
+		#Get all chroms of list; join with contig_list to prevent key error during sort
+		#all_chroms = self.get_chroms()
+
+		#Sort
 		if len(contig_list) > 0:
 			order_dict = dict(zip(contig_list, range(len(contig_list))))
-			self.sort(key=lambda region: (order_dict.get(region.chrom, region.chrom), region.start, region.end, region.name))
+			self.sort(key=lambda region: (order_dict.get(region.chrom, -1), region.start, region.end, region.name))
 		else:
 			self.sort(key=lambda region: (region.chrom, region.start, region.end, region.name))
 
@@ -336,8 +345,11 @@ class RegionList(list):
 				no -= 1
 			else:
 				i += 1
+		
+		return(self)
 
 	def keep_chroms(self, chromlist):
+		""" Keep only regions within chromlist chromosomes """
 		no = self.count()
 		i = 0
 		while i < no:
@@ -346,6 +358,8 @@ class RegionList(list):
 				no -= 1
 			else:
 				i += 1
+		
+		return(self)
 
 	def subset(self, no):
 		""" Take no-size subset of regions from RegionList """
@@ -362,7 +376,7 @@ class RegionList(list):
 		prev_chrom, prev_start, prev_end, prev_strand = "", 0, 0, ""
 		unique = RegionList()
 
-		for i, region in enumerate(self):
+		for region in self:
 
 			curr_chrom, curr_start, curr_end, curr_strand = region.chrom, region.start, region.end, region.strand
 
@@ -659,7 +673,6 @@ class RegionCluster:
 
 				### Code to assign a specific name to clusters
 				members_idx = self.clusters[cluster]["member_idx"]
-				members_names = self.clusters[cluster]["member_names"]
 				distances = {}
 				for member in members_idx:
 					distances[member] = np.sum(self.distance_mat[member,:])	#0 if member is one-member cluster

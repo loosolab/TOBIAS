@@ -118,17 +118,18 @@ def add_bindetect_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('--signals', metavar="<bigwig>", help="Signal per condition (.bigwig format)", nargs="*")
 	required.add_argument('--peaks', metavar="<bed>", help="Peaks.bed containing open chromatin regions across all conditions")
-	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar format", nargs="*")
+	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar/meme format", nargs="*")
 	required.add_argument('--genome', metavar="<fasta>", help="Genome .fasta file")
 
 	optargs = parser.add_argument_group('Optional arguments')
 	optargs.add_argument('--cond-names', metavar="<name>", nargs="*", help="Names of conditions fitting to --signals (default: prefix of --signals)")
 	optargs.add_argument('--peak-header', metavar="<file>", help="File containing the header of --peaks separated by whitespace or newlines (default: peak columns are named \"_additional_<count>\")")
-	#optargs.add_argument('--naming', metavar="<type>", help="Naming convention for TFs ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
+	optargs.add_argument('--naming', metavar="<string>", help="Naming convention for TF output files ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
 	optargs.add_argument('--motif-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for motif scanning (default: 1e-4)", default=0.0001)
 	optargs.add_argument('--bound-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for bound/unbound split (default: 0.001)", default=0.001)
 	#optargs.add_argument('--volcano-diff-thresh', metavar="<float>", help="", default=0.2)	#not yet implemented
 	#optargs.add_argument('--volcano-p-thresh', metavar="<float>", help="", default=0.05)	#not yet implemented
+
 	optargs.add_argument('--pseudo', type=float, metavar="<float>", help="Pseudocount for calculating log2fcs (default: estimated from data)", default=None)
 	optargs.add_argument('--time-series', action='store_true', help="Will only compare signals1<->signals2<->signals3 (...) in order of input, and skip all-against-all comparison.")
 	optargs.add_argument('--skip-excel', action='store_true', help="Skip creation of excel files - for large datasets, this will speed up BINDetect considerably")
@@ -191,13 +192,13 @@ def add_formatmotifs_arguments(parser):
 
 	#Required arguments
 	required = parser.add_argument_group('Required arguments')
-	required.add_argument('--input', metavar="", nargs="*", help="One or more input motif files")			
-	required.add_argument('--format', metavar="", help="Desired motif output format (pfm, jaspar, meme) (default: \"jaspar\")", choices=["pfm", "jaspar", "meme"], default="jaspar")
-	required.add_argument('--task', metavar="", help="Which task to perform on motif files (join/split) (default: join)", choices=["join", "split"], default="join")
-	required.add_argument('--filter', metavar="", help="File containing list of motif names/ids to filter on. Only motifs fitting entries in filter will be output.")
-	required.add_argument('--output', metavar="", help="If task == join, output is the joined output file; if task == split, output is a directory")
+	required.add_argument('--input', metavar="", nargs="*", help="One or more input motif files (required)")			
+	required.add_argument('--output', metavar="", help="If task == join, output is the joined output file; if task == split, output is a directory (required)")
 	
 	additional = parser.add_argument_group('Additional arguments')
+	additional.add_argument('--format', metavar="", help="Desired motif output format (pfm, jaspar, meme) (default: \"jaspar\")", choices=["pfm", "jaspar", "meme"], default="jaspar")
+	additional.add_argument('--task', metavar="", help="Which task to perform on motif files (join/split) (default: join)", choices=["join", "split"], default="join")
+	additional.add_argument('--filter', metavar="", help="File containing list of motif names/ids to filter on. Only motifs fitting entries in filter will be output.")
 	additional = add_logger_args(additional)
 
 	return(parser)
@@ -251,15 +252,16 @@ def add_aggregate_arguments(parser):
 	PLOT.add_argument('--TFBS-labels', metavar="", help="Labels used for each TFBS file (default: prefix of each --TFBS)", nargs="*")
 	PLOT.add_argument('--signal-labels', metavar="", help="Labels used for each signal file (default: prefix of each --signals)", nargs="*")
 	PLOT.add_argument('--region-labels', metavar="", help="Labels used for each regions file (default: prefix of each --regions)", nargs="*")
-	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share_y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable (default: none)", choices=["none", "signals", "sites", "both"], default="none")
+	PLOT.add_argument('--share-y', metavar="", help="Share y-axis range across plots (none/signals/sites/both). Use \"--share-y signals\" if bigwig signals have similar ranges. Use \"--share_y sites\" if sites per bigwig are comparable, but bigwigs themselves aren't comparable (default: none)", choices=["none", "signals", "sites", "both"], default="none")
 	
 	#Signals / regions
 	PLOT.add_argument('--normalize', action='store_true', help="Normalize the aggregate signal(s) to be between 0-1 (default: the true range of values is shown)")
 	PLOT.add_argument('--negate', action='store_true', help="Negate overlap with regions")
+	PLOT.add_argument('--smooth', metavar="<int>", type=int, help="Smooth output signal by taking the mean of <smooth> bp windows (default: 1 (no smooth)", default=1)
 	PLOT.add_argument('--log-transform', help="Log transform the signals before aggregation", action="store_true")
 	PLOT.add_argument('--plot-boundaries', help="Plot TFBS boundaries (Note: estimated from first region in each --TFBS)", action='store_true')
 	PLOT.add_argument('--signal-on-x', help="Show signals on x-axis and TFBSs on y-axis (default: signal is on y-axis)", action='store_true')
-	PLOT.add_argument('--remove-outliers', help="Value between 0-1 indicating the percentile of regions to include, e.g. 0.99 to remove the sites with 1\% highest values (default: 1)", type=lambda x: restricted_float(x, 0, 1), default=1)
+	PLOT.add_argument('--remove-outliers', metavar="<float>", help="Value between 0-1 indicating the percentile of regions to include, e.g. 0.99 to remove the sites with 1%% highest values (default: 1)", type=lambda x: restricted_float(x, 0, 1), default=1)
 
 	RUN = parser.add_argument_group("Run arguments")
 	RUN = add_logger_args(RUN)
@@ -270,7 +272,7 @@ def add_aggregate_arguments(parser):
 def add_plotchanges_arguments(parser):
 
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
-	description = "PlotChanges is a utility to plot the changes in TF binding across multiple conditions as predicted by TOBIAS BINdetect.\n\n"
+	description = "PlotChanges is a utility to plot the changes in TF binding across multiple conditions as predicted by TOBIAS BINDetect.\n\n"
 	description += "Example usage:\n$ echo CTCF GATA > TFS.txt\n$ TOBIAS PlotChanges --bindetect <bindetect_results.txt> --TFS TFS.txt\n\n"
 
 	parser.description = format_help_description("PlotChanges", description)
@@ -320,6 +322,7 @@ def add_heatmap_arguments(parser):
 
 	return(parser)
 
+
 #--------------------------------------------------------------------------------------------------------#
 def add_tracks_arguments(parser):
 
@@ -342,7 +345,7 @@ def add_tracks_arguments(parser):
 	#IO.add_argument('--height', metavar="")
 	IO.add_argument('--colors', metavar="", nargs="*", help="List of specific colors to use for plotting tracks", default=None)
 	IO.add_argument('--labels', metavar="", nargs="*", help="Labels for tracks (default: prefix of bigwig)")
-	IO.add_argument('--max-transcripts', metavar="", type=int, help="Set a limit on number of shown transcripts in plot (default: 3)", default=3)
+	IO.add_argument('--max-transcripts', metavar="", type=int, help="Set a limit on number of transcripts per gene shown in plot (default: 1)", default=1)
 
 	IO.add_argument('--outdir', metavar="", help="Output folder (default: plottracks_output)", default="plottracks_output")
 	IO = add_logger_args(IO)
@@ -390,7 +393,8 @@ def add_maxpos_arguments(parser):
 def add_subsample_arguments(parser):
 
 	parser.formatter_class=lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=100)
-	description = ""
+	description = "Subsample a .bam-file into random subsets (of percentage size --start to --end with step --step).\n"
+	description = "NOTE: Requires 'samtools' command available at runtime."
 	parser.description = format_help_description("SubsampleBam", description)
 
 	parser._action_groups.pop()	#pop -h
@@ -403,8 +407,9 @@ def add_subsample_arguments(parser):
 	args.add_argument('--end', metavar="", type=int, help="End of percent subsample (default: 100)", default=100)
 	args.add_argument('--step', metavar="", type=int, help="Step between --start and --end (default: 10)", default=10)
 	args.add_argument('--cores', metavar="", type=int, help="Cores for multiprocessing (default: 1)", default=1)
-	args.add_argument('--outdir', metavar="", help="Output directory (default: current working directory)", default=".")
+	args.add_argument('--outdir', metavar="", help="Output directory (default: subsamplebam_output)", default="subsamplebam_output")
 	args.add_argument('--prefix', metavar="", help="Prefix for output files (default: prefix of .bam)")
+	args.add_argument('--force', action="store_true", help="Force creation of subsampled .bam-files (default: only create if not existing)")
 	args = add_logger_args(args)
 
 	return(parser)
@@ -430,7 +435,7 @@ def add_network_arguments(parser):
 	#optional.add_argument('--unique', action='store_true', help="Only include edges once (default: edges can occur multiple times in case of multiple binding sites)")
 	
 	runargs = parser.add_argument_group("Run arguments")
-	runargs.add_argument('--outdir', metavar="", help="Path to output directory (default: tobias_network)", default="tobias_network") 
+	runargs.add_argument('--outdir', metavar="", help="Path to output directory (default: createnetwork_output)", default="createnetwork_output") 
 	runargs = add_logger_args(runargs)
 
 	return(parser)
@@ -458,6 +463,7 @@ def add_filterfragments_arguments(parser):
 
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
 	description = "FilterFragments can filter out fragments from a .bam-file of paired-end reads based on the overlap with regions in the given .bed-file."
+	#description += "Usage: "
 	parser.description = format_help_description("FilterFragments", description)
 
 	parser._action_groups.pop()	#pop -h
@@ -467,7 +473,7 @@ def add_filterfragments_arguments(parser):
 	IO.add_argument('--regions', metavar="", help=".bed-file containing regions to filter fragments from")
 	IO.add_argument('--mode', help="Mode 1: Remove fragment if both reads overlap .bed-regions. Mode 2: Remove whole fragment if one read is overlapping .bed-regions (default: 1)", choices=[1,2], default=1)
 	IO.add_argument('--output', metavar="", help="Path to the filtered .bam-file (default: <prefix of --bam>_filtered.bam)")
-	IO.add_argument('--threads', metavar="", help="Number of threads used for decompressing/compressing bam (default: 10)", default=10)
+	IO.add_argument('--threads', metavar="", type=int, help="Number of threads used for decompressing/compressing bam (default: 10)", default=10)
 
 	IO = add_logger_args(IO)
 
@@ -475,41 +481,65 @@ def add_filterfragments_arguments(parser):
 
 #--------------------------------------------------------------------------------------------------------#
 def add_motifclust_arguments(parser):
-    """Parsing arguments using argparse
+	"""Parsing arguments using argparse
 
-    Returns
-    -------
-    ArgumentParser
-        an object containing all parameters given.
-    """
+	Returns
+	-------
+	ArgumentParser
+		an object containing all parameters given.
+	"""
 
-    parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-    description = "Cluster motifs based on similarity and create one consensus motif per cluster.\n\n"
-    description += "Usage:\nTOBIAS ClusterMotifs --motifs <motifs.jaspar>\n\n"
-    parser.description = format_help_description("ClusterMotifs", description) 
+	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
+	description = "Cluster motifs based on similarity and create one consensus motif per cluster.\n\n"
+	description += "Usage:\nTOBIAS ClusterMotifs --motifs <motifs.jaspar>\n\n"
+	description += "NOTE: This tool requres the python package 'gimmemotifs'."
+	parser.description = format_help_description("ClusterMotifs", description) 
 
-    parser._action_groups.pop() #pop -h
+	parser._action_groups.pop() #pop -h
 
-    required = parser.add_argument_group('Required arguments')
-    required.add_argument("-m", "--motifs", required=True, help="One or more motif files to compare and cluster", nargs="*", metavar="")
-    
-    optional = parser.add_argument_group('Optional arguments')
-    optional.add_argument("-t", "--threshold", metavar="", help="Clustering threshold (Default = 0.3)", type=float, default=0.3)  
-    optional.add_argument('--dist_method', metavar="", help="Method for calculating similarity between motifs (default: pcc)", choices=["pcc", "seqcor", "ed", "distance", "wic", "chisq", "akl", "sdd"], default="pcc")
-    optional.add_argument('--clust_method', metavar="", help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average", choices=["single","complete","average","weighted","centroid","median","ward"])
-    optional.add_argument("-a", "--cons_format", metavar="", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: pfm)", default="pfm")
-    optional.add_argument("-p", "--prefix", metavar="", help="Output prefix (Default: ‘motif_comparison’)", default="motif_comparison")
-    optional.add_argument("-o", "--outdir", metavar="", help="Output directory (Default: ‘./ClusterMotifs‘)", default="ClusterMotifs")
-    optional = add_logger_args(optional)
+	required = parser.add_argument_group('Required arguments')
+	required.add_argument("-m", "--motifs", required=True, help="One or more motif files to compare and cluster", nargs="*", metavar="")
+	
+	optional = parser.add_argument_group('Optional arguments')
+	optional.add_argument("-t", "--threshold", metavar="", help="Clustering threshold (Default = 0.3)", type=float, default=0.3)  
+	optional.add_argument('--dist_method', metavar="", help="Method for calculating similarity between motifs (default: pcc)", choices=["pcc", "seqcor", "ed", "distance", "wic", "chisq", "akl", "sdd"], default="pcc")
+	optional.add_argument('--clust_method', metavar="", help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average", choices=["single","complete","average","weighted","centroid","median","ward"])
+	optional.add_argument("-a", "--cons_format", metavar="", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: jaspar)", default="jaspar")
+	optional.add_argument("-p", "--prefix", metavar="", help="Output prefix (default: 'motif_comparison')", default="motif_comparison")
+	optional.add_argument("-o", "--outdir", metavar="", help="Output directory (default: 'clustermotifs_output')", default="clustermotifs_output")
+	optional = add_logger_args(optional)
 
-    visualisation = parser.add_argument_group('Visualisation arguments')
-    visualisation.add_argument("-e", "--type", dest="type", choices= ['png', 'pdf', 'jpg'], help="Plot file type [png, pdf, jpg] (Default: pdf)", default="pdf")
-    #visualisation.add_argument("-x", "--width", dest="width", help="Width of Heatmap (Default: autoscaling)", type=int)
-    #visualisation.add_argument("-y", "--height", dest="height", help="Height of Heatmap (Default: autoscaling)", type=int)
-    visualisation.add_argument("-d", "--dpi", dest="dpi", help="Dpi for plots (Default: 100)", type=int, default=100)
-    #visualisation.add_argument("-ncc", "--no_col_clust", dest="ncc", help="No column clustering", action="store_true")
-    #visualisation.add_argument("-nrc", "--no_row_clust", dest="nrc", help="No row clustering", action="store_true")
-    visualisation.add_argument("-c", "--color_palette", dest="color", help="Color palette (All possible paletts: https://python-graph-gallery.com/197-available-color-palettes-with-matplotlib/. Add '_r' to reverse palette.)", default="YlOrRd_r")
+	visualisation = parser.add_argument_group('Visualisation arguments')
+	visualisation.add_argument("-e", "--type", dest="type", choices= ['png', 'pdf', 'jpg'], help="Plot file type [png, pdf, jpg] (Default: pdf)", default="pdf")
+	#visualisation.add_argument("-x", "--width", dest="width", help="Width of Heatmap (Default: autoscaling)", type=int)
+	#visualisation.add_argument("-y", "--height", dest="height", help="Height of Heatmap (Default: autoscaling)", type=int)
+	visualisation.add_argument("-d", "--dpi", dest="dpi", help="Dpi for plots (Default: 100)", type=int, default=100)
+	#visualisation.add_argument("-ncc", "--no_col_clust", dest="ncc", help="No column clustering", action="store_true")
+	#visualisation.add_argument("-nrc", "--no_row_clust", dest="nrc", help="No row clustering", action="store_true")
+	visualisation.add_argument("-c", "--color_palette", dest="color", help="Color palette (All possible paletts: https://python-graph-gallery.com/197-available-color-palettes-with-matplotlib/. Add '_r' to reverse palette.)", default="YlOrRd_r")
 
-    return parser
+	return parser
 
+#--------------------------------------------------------------------------------------------------------#
+
+def add_downloaddata_arguments(parser):
+
+	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
+	description = "Download test data for the TOBIAS commandline examples"
+	parser.description = format_help_description("DownloadData", description) 
+
+	parser._action_groups.pop()	#pop -h
+
+	arguments = parser.add_argument_group('Arguments')
+	arguments.add_argument('--endpoint', metavar="", help="Link to the s3 server (default: The loosolab s3 server)", default="https://s3.mpi-bn.mpg.de")
+	arguments.add_argument('--bucket', metavar="", help="Name of bucket to download (default: data-tobias-2020)", default="data-tobias-2020")
+	#arguments.add_argument('--target', metavar="", help="Name of directory to save files to (default: name of bucket)")
+	arguments.add_argument('--patterns', metavar="", help="List of patterns for files to download e.g. '*.txt' (default: *)", default="*")
+	arguments.add_argument('--username', metavar="", help="Username for endpoint (default: None set)")
+	arguments.add_argument("--key", metavar="", help="Access key for endpoint (default: None set)")
+	arguments.add_argument("--yaml", metavar="", help="Set the endpoint/bucket/access information through a config file in .yaml format (NOTE: overwrites commandline arguments)")
+	arguments.add_argument("--force", action="store_true", help="Force download of already existing files (default: warn and skip)")
+
+	arguments = add_logger_args(arguments)
+
+	return parser

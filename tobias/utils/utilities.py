@@ -150,7 +150,7 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 	#Establish order of regions to be writteninput regions
 	region_tups = [(region.chrom, region.start, region.end) for region in regions]
 	sorted_region_tups = sorted(region_tups, key=lambda tup: (order_dict[tup[0]], tup[1]))			#sort to same order as bigwig header
-	no_regions = len(region_tups)
+	n_regions = len(region_tups)
 
 	#Fetching content from queue
 	logger.debug("Fetching content from queue")
@@ -165,7 +165,7 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			
 			if key == None:	#none is only inserted once all regions have been sent
 				for akey in i_to_write:
-					if i_to_write[akey] != no_regions - 1:
+					if i_to_write[akey] != n_regions:	#i_to_write is written index + 1
 						logger.error("Wrote {0} regions but there are {1} in total".format(i_to_write[akey], len(region_tups)))
 						logger.error("Ready_to_write[{0}]: {1}".format(akey, len(ready_to_write[akey])))
 						sys.exit()
@@ -174,13 +174,14 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			#Save key:region:signal to ready_to_write
 			ready_to_write[key][region] = signal
 			
-			writing_progress = Progress(no_regions, logger, prefix="Writing progress", round=0)
+			writing_progress = Progress(n_regions, logger, prefix="Writing progress", round=0)
 
 			#Check if next-to-write region was done
 			for key in handles: 
+				logger.spam("Key: {0}. Index to write: {1}".format(key, i_to_write[key]))
 
 				#Only deal with writing if there are still regions to write for this handle
-				if i_to_write[key] != no_regions - 1:
+				if i_to_write[key] < n_regions: 	#if i_to_write == 2 and n_regions == 2, the two regions (idx 0+1) have already been written
 					next_region = sorted_region_tups[i_to_write[key]]	#this is the region to be written next for this key
 				
 					#If results are in; write wanted entry to bigwig
@@ -199,15 +200,19 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 								logger.error("Error writing key: {0}, region: {1} to bigwig".format(key, next_region))
 						logger.spam("Wrote signal {0} from region {1}".format(key, next_region))
 
+						#Free up memory in dict
+						ready_to_write[key][next_region] = None
+
 						#Check whether this was the last region
-						if i_to_write[key] == no_regions - 1: #i_to_write is the last idx in regions; all sites were written
+						if i_to_write[key] == n_regions - 1: #i_to_write is the last idx in regions; all sites were written
 							logger.info("Closing {0} (this might take some time)".format(key_file_dict[key]))
 							handles[key].close()
+							i_to_write[key] += 1
 							next_region = None 	#exit the while loop
 						else:
 							i_to_write[key] += 1
 							next_region = sorted_region_tups[i_to_write[key]]	#this is the region to be written next for this key
-
+						
 						#Writing progress
 						#progress = sum([i_to_write[key] for key in handles])
 						#writing_progress.write(progress)

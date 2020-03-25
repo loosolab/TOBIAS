@@ -1,0 +1,5 @@
+endpoint: 'https://s3.mpi-bn.mpg.de'
+username: '' #set credentials skript try to find buckets as public ones and with the credetials
+accesskey: '' #secret for S3
+buckets: #buckets to download
+  data-tobias-2020: ['*'] #list of patters for file filtering example: '*.txt',  'folder/*.bw'

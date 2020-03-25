@@ -31,41 +31,49 @@ except:
 from tobias.parsers import *
 from tobias import __version__ as TOBIAS_VERSION
 
+#Ignore gimmemotifs plot warning
+import warnings
+import matplotlib
+import matplotlib.cbook
+warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
+
 def main():
 
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 
 	all_parser_info = {"Tools for footprinting analysis":
 							{
-							"ATACorrect":{"help":"Correct reads with regards to Tn5 sequence bias", "add_arguments": add_atacorrect_arguments, "function": "tobias.footprinting.atacorrect.run_atacorrect"},
-							"ScoreBigwig":{"help":"Calculate scores such as footprints from cutsites", "add_arguments": add_scorebigwig_arguments, "function": "tobias.footprinting.scorebigwig.run_scorebigwig", "replaces":"FootprintScores"},
-							"BINDetect":{"help":"Detect TF binding from footprints and motifs", "add_arguments": add_bindetect_arguments, "function": "tobias.footprinting.bindetect.run_bindetect"},
+							"ATACorrect":{"help":"Correct reads with regards to Tn5 sequence bias", "add_arguments": add_atacorrect_arguments, "function": "tobias.tools.atacorrect.run_atacorrect"},
+							"ScoreBigwig":{"help":"Calculate scores such as footprints from cutsites", "add_arguments": add_scorebigwig_arguments, "function": "tobias.tools.score_bigwig.run_scorebigwig", "replaces":"FootprintScores"},
+							"BINDetect":{"help":"Detect TF binding from footprints and motifs", "add_arguments": add_bindetect_arguments, "function": "tobias.tools.bindetect.run_bindetect"},
 							},
 
 						"Tools for working with motifs/TFBS":
 							{
-							"TFBScan": {"help":"Identify positions of TFBS given sequence and motifs", "add_arguments": add_tfbscan_arguments, "function": "tobias.motifs.tfbscan.run_tfbscan"},
-							"FormatMotifs": {"help": "Utility to deal with motif files", "add_arguments": add_formatmotifs_arguments, "function": "tobias.motifs.format_motifs.run_formatmotifs"},
-							"ClusterMotifs": {"help": "Cluster motifs by similarity", "add_arguments": add_motifclust_arguments, "function": "tobias.motifs.motif_clust.run_motifclust", "space":"\t"},
-							"ScoreBed": {"help":"Score .bed-file with signal from .bigwig-file(s)", "add_arguments": add_scorebed_arguments, "function": "tobias.motifs.score_bed.run_scorebed"},
+							"TFBScan": {"help":"Identify positions of TFBS given sequence and motifs", "add_arguments": add_tfbscan_arguments, "function": "tobias.tools.tfbscan.run_tfbscan"},
+							"FormatMotifs": {"help": "Utility to deal with motif files", "add_arguments": add_formatmotifs_arguments, "function": "tobias.tools.format_motifs.run_formatmotifs"},
+							"ClusterMotifs": {"help": "Cluster motifs by similarity", "add_arguments": add_motifclust_arguments, "function": "tobias.tools.motif_clust.run_motifclust", "space":"\t"},
+							"ScoreBed": {"help":"Score .bed-file with signal from .bigwig-file(s)", "add_arguments": add_scorebed_arguments, "function": "tobias.tools.score_bed.run_scorebed"},
 							},
 
 						"Visualization tools":
 							{
-							"PlotAggregate": {"help": "Aggregate of .bigwig-signal across TF binding sites", "add_arguments": add_aggregate_arguments, "function": "tobias.plotting.plot_aggregate.run_aggregate", "space":"\t"},
-							"PlotHeatmap": {"help": "Heatmap of .bigwig-signal across TF binding sites", "add_arguments": add_heatmap_arguments, "function": "tobias.plotting.plot_heatmap.run_heatmap"},
-							"PlotChanges": {"help": "Plot changes in TF binding across multiple conditions (from BINDetect output)", "add_arguments": add_plotchanges_arguments, "function": "tobias.plotting.plot_changes.run_plotchanges"},
-							"PlotTracks": {"help": "Plot genomic tracks using the svist4get package", "add_arguments": add_tracks_arguments, "function": "tobias.plotting.plot_tracks.run_tracks"}
+							"PlotAggregate": {"help": "Aggregate of .bigwig-signal across TF binding sites", "add_arguments": add_aggregate_arguments, "function": "tobias.tools.plot_aggregate.run_aggregate", "space":"\t"},
+							"PlotHeatmap": {"help": "Heatmap of .bigwig-signal across TF binding sites", "add_arguments": add_heatmap_arguments, "function": "tobias.tools.plot_heatmap.run_heatmap"},
+							"PlotChanges": {"help": "Plot changes in TF binding across multiple conditions (from BINDetect output)", "add_arguments": add_plotchanges_arguments, "function": "tobias.tools.plot_changes.run_plotchanges"},
+							"PlotTracks": {"help": "Plot genomic tracks using the svist4get package", "add_arguments": add_tracks_arguments, "function": "tobias.tools.plot_tracks.run_tracks"}
 							},
 
 						"Miscellaneous tools":
 							{
-							"MergePDF": {"help": "Merge pdf files to one", "add_arguments": add_mergepdf_arguments, "function":"tobias.misc.merge_pdfs.run_mergepdf"},
-							"MaxPos": {"help": "Get .bed-positions of highest bigwig signal within .bed-regions", "add_arguments": add_maxpos_arguments, "function": "tobias.misc.maxpos.run_maxpos"},
-							"SubsampleBam": {"help": "Subsample a .bam-file using samtools", "add_arguments": add_subsample_arguments, "function": "tobias.misc.subsample_bam.run_subsampling"},
-							"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": "tobias.misc.create_network.run_network", "space":"\t"},
-							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": "tobias.misc.log2table.run_log2table"},
-							"FilterFragments": {"help": "Tool for filtering fragments from a .bam-file based on the overlap of reads with .bed-regions", "add_arguments": add_filterfragments_arguments, "function": "tobias.misc.filterfragments.run_filterfragments", "space":"\t"}
+							"DownloadData": {"help": "Download test data for the TOBIAS tools", "add_arguments": add_downloaddata_arguments, "function": "tobias.tools.download_data.run_downloaddata"},
+							"MergePDF": {"help": "Merge pdf files to one", "add_arguments": add_mergepdf_arguments, "function":"tobias.tools.merge_pdfs.run_mergepdf"},
+							"MaxPos": {"help": "Get .bed-positions of highest bigwig signal within .bed-regions", "add_arguments": add_maxpos_arguments, "function": "tobias.tools.maxpos.run_maxpos"},
+							"SubsampleBam": {"help": "Subsample a .bam-file using samtools", "add_arguments": add_subsample_arguments, "function": "tobias.tools.subsample_bam.run_subsampling"},
+							"CreateNetwork": {"help": "Create TF-gene network from annotated TFBS", "add_arguments": add_network_arguments, "function": "tobias.tools.create_network.run_network", "space":"\t"},
+							"Log2Table": {"help": "Convert logs from PlotAggregate to tab-delimitered tables of footprint stats", "add_arguments": add_log2table_arguments, "function": "tobias.tools.log2table.run_log2table"},
+							"FilterFragments": {"help": "Tool for filtering fragments from a .bam-file based on the overlap of reads with .bed-regions", "add_arguments": add_filterfragments_arguments, "function": "tobias.tools.filter_fragments.run_filterfragments", "space":"\t"}
 							}
 						}
 
@@ -129,8 +137,9 @@ def main():
 	#if args are pointing to specific tool, and no other arguments are given, print help for this
 	if sys.argv[1].lower() in all_tool_parsers and len(sys.argv) == 2:
 		chosen_tool = sys.argv[1]
-		all_tool_parsers[chosen_tool.lower()].print_help()
-		sys.exit()
+		if chosen_tool != "DownloadData":	#Downloaddata can be run without options
+			all_tool_parsers[chosen_tool.lower()].print_help()
+			sys.exit()
 	
 	args = parser.parse_args()
 

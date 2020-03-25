@@ -13,9 +13,11 @@ import numpy as np
 import copy
 import re
 import os
-#import matplotlib as mpl
-#mpl.use('Agg')
-#import matplotlib.pyplot as plt
+import sys
+import math
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import seaborn as sns
 #from matplotlib.text import TextPath
 #from matplotlib.patches import PathPatch
 #from matplotlib.font_manager import FontProperties
@@ -23,12 +25,12 @@ import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 import scipy.spatial.distance as ssd
 
+import base64
+import io
+
 #Bio-specific packages
 from Bio import motifs
-from gimmemotifs.motif import Motif,read_motifs
-from gimmemotifs.comparison import MotifComparer
-
-
+import logomaker
 import MOODS.scan
 import MOODS.tools
 import MOODS.parsers
@@ -59,11 +61,28 @@ def biomotif_to_gimmemotif(biomotif):
 """
 
 
+def float_to_int(afloat):
+	""" Converts integer floats (e.g. 1.0000) to integers """
+
+	elements = str(afloat).split(".")
+	
+	if len(elements) == 1:	#already int, do nothing
+		return(afloat)
+	elif len(elements) == 2:
+
+		if float(elements[1]) == 0:	#float is int
+			return(int(afloat))
+		else:
+			return(afloat)
+	else:
+		pass #if afloat is a string with multiple "."'s
+
 #----------------------------------------------------------------------------------------#
 #List of OneMotif objects
 class MotifList(list):
 
 	def __init__(self, lst=[]):
+		""" Initialize the MotifList object with a list of OneMotif objects (lst) or empty """
 
 		super(MotifList, self).__init__(iter(lst))
 
@@ -81,14 +100,12 @@ class MotifList(list):
 	def __str__(self):
 		return("\n".join([str(onemotif) for onemotif in self]))
 
-
 	def from_file(self, path):
 		"""
 		Read a file of motifs to MotifList format
 		"""
 		
 		biopython_formats = ["jaspar"]
-		gimmemotif_formats = ["pwm", "transfac", "xxmotif", "align"]
 
 		#Establish format of motif
 		content = open(path).read()
@@ -102,13 +119,14 @@ class MotifList(list):
 		if file_format == "meme":
 			
 			lines = content.split("\n")
-			for idx, line in enumerate(lines):
+			for line in lines:
 				columns = line.strip().split()
 
 				if line.startswith("MOTIF"):
 					self.append(OneMotif()) 				#create new motif
 					self[-1].input_format = file_format
 					self[-1].counts = [[] for _ in range(4)]
+					self[-1].n = 1 #preliminarily 1
 
 					#Get id/name of motif
 					if len(columns) > 2: #MOTIF, ID, NAME
@@ -123,41 +141,56 @@ class MotifList(list):
 					if len(self) > 0: #if there was already one motif header found
 					
 						#If line contains counts
-						if re.match("^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
+						if re.match(r"^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
 							for i, col in enumerate(columns):
 								self[-1].counts[i].append(num(col))
+						elif re.match("^letter-probability", line):
+							#example: "letter-probability matrix: alength= 4 w= 6 nsites= 24 E= 0"
+
+							m = re.search(r"nsites= ([0-9]+)", line)
+							if m is not None:
+								self[-1].n = int(m.group(1))
+
+			#Multiply all counts with number of sequences
+			for motif in self:
+				for i, nuc_counts in enumerate(motif.counts):
+					motif.counts[i] = [pos * motif.n for pos in nuc_counts]
 
 		elif file_format in biopython_formats:
-			
 			with open(path) as f:
 				for m in motifs.parse(f, file_format):
 					self.append(OneMotif(motifid=m.matrix_id, name=m.name, counts=[m.counts[base] for base in ["A", "C", "G", "T"]]))
 					self[-1].biomotifs_obj = m		#biopython motif object	
 
+		else:
+			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
+
+		#Gimmemotifs functionality removed in 0.11.0
+		"""
 		elif file_format in gimmemotif_formats:
 			gimme_motif_list = read_motifs(infile = path, fmt = file_format)
 			for gimmemotif in gimme_motif_list:
 				onemotif_obj = gimmemotif_to_onemotif(gimmemotif)
 				self.append(onemotif_obj)	#add OneMotif object to list
-
-		else:
-			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
+		"""
 
 		#Check correct format of pfms
 		for motif in self:
-			nuc, pos = np.array(motif.counts).shape
-			motif.w = pos
+			nuc, length = np.array(motif.counts).shape
+			motif.length = length
 			if nuc != 4:
 				sys.exit("ERROR: Motif {0} has an unexpected format and could not be read".format(motif))
 
-		#Estimate widths and n_sites
+		#Convert float to ints
 		for motif in self:
-			motif.n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
-			motif.length = len(motif.counts[0])
-		
-		#Convert to gimmemotif
-		for motif in self:
-			motif.get_gimmemotif()	#fill in gimmemotif object
+			for r in range(4):
+				for c in range(motif.length):
+					motif.counts[r][c] = float_to_int(motif.counts[r][c])
+	
+		#Fill in motifs with additional parameters; Estimate widths and n_sites
+		for i, motif in enumerate(self):
+			self[i].n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
+			self[i].length = len(motif.counts[0])
 
 		return(self)
 
@@ -170,48 +203,10 @@ class MotifList(list):
 		path : string
 			Output path
 		fmt : string
-			Format of motif file
+			Format of motif file (pfm/jaspar/meme/transfac)
 		"""
 
-		#Create string format
-		bases = ["A", "C", "G", "T"]
-		out_string = ""
-
-		#Establish which output format
-		if fmt in ["pfm", "jaspar"]:
-			for motif in self:
-				out_string += ">{0}\t{1}\n".format(motif.id, motif.name)
-				for i, base_counts in enumerate(motif.counts):
-					base_counts_string = ["{0:.5f}".format(element) for element in base_counts]
-					out_string += "{0} [ {1} ] \n".format(bases[i], "\t".join(base_counts_string)) if fmt == "jaspar" else "\t".join(base_counts_string) + "\n"
-				out_string += "\n"
-
-		elif fmt == "meme":
-			
-			meme_header = "MEME version 4\n\n"
-			meme_header += "ALPHABET=ACGT\n\n"
-			meme_header += "strands: + -\n\n"
-			meme_header += "Background letter frequencies\nA 0.25 C 0.25 G 0.25 T 0.25\n\n"
-			out_string += meme_header
-
-			for motif in self:
-				out_string += "MOTIF\t{0}\t{1}\n".format(motif.id, motif.name)
-				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.w, motif.n)
-
-				for i in range(motif.w):
-					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
-					n_sites = round(sum(row), 0)
-					row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
-					out_string += "  ".join(row_freq) + "\n"
-				
-				out_string += "\n"	
-	
-		elif fmt == "transfac":
-			for motif in self:
-				out_string += motif.to_transfac()
-
-		else:
-			raise ValueError("Format " + fmt + " is not supported")
+		out_string = self.as_string(fmt)
 
 		#Write to output file
 		f = open(path, "w")
@@ -220,8 +215,15 @@ class MotifList(list):
 
 		return(self)
 
-
 	def as_string(self, output_format="pfm"):
+		"""
+		Returns the MotifList as a string in the given output_format
+
+		Parameter:
+		-----------
+		output_format : string
+			Motif format ("pfm", "jaspar", "meme")
+		"""
 
 		bases = ["A", "C", "G", "T"]
 		out_string = ""
@@ -230,9 +232,19 @@ class MotifList(list):
 		if output_format in ["pfm", "jaspar"]:
 			for motif in self:
 				out_string += ">{0}\t{1}\n".format(motif.id, motif.name)
-				for i, base_counts in enumerate(motif.counts):
-					base_counts_string = ["{0:.5f}".format(element) for element in base_counts]
-					out_string += "{0} [ {1} ] \n".format(bases[i], "\t".join(base_counts_string)) if output_format == "jaspar" else "\t".join(base_counts_string) + "\n"
+
+				#Convert counts to string
+				counts_type = float if float in [type(element) for element in motif.counts[0]] else int	#Estimate from first base counts
+				if counts_type == float:
+					counts_string = [["{0:.5f}".format(element) for element in row_counts] for row_counts in motif.counts]
+				else:
+					counts_string = [[str(element) for element in row_counts] for row_counts in motif.counts]
+					element_width = max(sum([[len(element) for element in row_counts] for row_counts in counts_string], []))	#Length of longest element to align to
+					counts_string = [[" " * (element_width - len(element)) + element for element in row_counts] for row_counts in counts_string]
+
+				#Write out to format
+				for i, base_counts in enumerate(counts_string):
+					out_string += "{0} [ {1} ]\n".format(bases[i], "  ".join(base_counts)) if output_format == "jaspar" else "  ".join(base_counts) + "\n"
 				out_string += "\n"
 
 		elif output_format == "meme":
@@ -245,21 +257,30 @@ class MotifList(list):
 
 			for motif in self:
 				out_string += "MOTIF\t{0}\t{1}\n".format(motif.id, motif.name)
-				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.w, motif.n)
+				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.length, motif.n)
 
-				for i in range(motif.w):
+				for i in range(motif.length):
 					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
 					n_sites = round(sum(row), 0)
 					row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
 					out_string += "  ".join(row_freq) + "\n"
 				
-				out_string += "\n"	
+				out_string += "\n"
+
+		#elif output_format == "transfac":
+		#	for motif in self:
+		#		out_string += motif.to_transfac()
+
+		else:
+			raise ValueError("Format " + output_format + " is not supported")	
 
 		return(out_string)			
+
 
 	#---------------- Functions for moods scanning ------------------------#
 
 	def setup_moods_scanner(self):
+		""" Sets self.moods_scanner object """
 
 		tups = [(motif.prefix, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
 		if len(tups) > 0:
@@ -273,8 +294,16 @@ class MotifList(list):
 		self.moods_scanner = scanner
 
 	def scan_sequence(self, seq, region):
-		""" segion is a OneRegion object 
-			seq is a string containing DNA sequence"""
+		"""
+		Scan sequence with the motifs in self 
+		
+		Parameters:
+		-----------
+		seq : string
+			DNA sequence
+		region : OneRegion
+			OneRegion object fitting seq
+		"""
 
 		if self.moods_scanner == None:
 			self.setup_moods_scanner()
@@ -297,16 +326,21 @@ class MotifList(list):
 		return(sites)
 
 	#---------------- Functions for motif clustering ----------------------#
-	def cluster(self, threshold=0.5, metric = "pcc", clust_method="average"):
+	def cluster(self, threshold=0.5, metric = "pcc", clust_method = "average"):
 		""" 
-
 		Returns:
 		----------
 		dict
 			A dictionary with keys=cluster names and values=MotifList objects
 		"""
 
-		motif_list = [motif.gimme_obj for motif in self]	#list of gimmemotif objects
+		#Needs gimmemotif
+		from gimmemotifs.motif import Motif
+		from gimmemotifs.comparison import MotifComparer
+		sns.set_style("ticks")	#set style back to ticks, as this is set globally during gimmemotifs import
+
+		#Fill in self.gimme_obj variable
+		motif_list = [motif.get_gimmemotif().gimme_obj for motif in self]	#list of gimmemotif objects
 
 		#Similarities between all motifs
 		mc = MotifComparer()
@@ -330,7 +364,9 @@ class MotifList(list):
 
 	def create_consensus(self):
 		""" Create consensus motif from MotifList """
+		from gimmemotifs.comparison import MotifComparer
 
+		self = [motif.get_gimmemotifs() if motif.gimme_obj is None else motif for motif in self]	#fill in gimme_obj if it is not found
 		motif_list = [motif.gimme_obj for motif in self]	#list of gimmemotif objects
 
 		if len(motif_list) > 1:
@@ -378,6 +414,56 @@ class MotifList(list):
 
 		return(onemotif_consensus)
 
+	def plot_motifs(self, nrow=None, ncol=None, output="motif_plot.png", figsize=None, formation = "row"):
+		""" Plot list of motifs to one figure """
+
+		n_motifs = len(self)
+
+		# check formation or set default value
+		formation, nrow, ncol = get_formation(formation, ncol, nrow, n_motifs)
+
+		# Check if motifs fit into grid
+		if nrow * ncol < n_motifs:
+			sys.exit("ERROR: Insufficient space in grid. Please add more rows or columns. Number of motifs: "
+					+ str(n_motifs) 
+					+ ", Number of spaces: " 
+					+ str(ncol*nrow))
+
+		# Get longest motif
+		longest_motif = max([len(i[0]) for i in [motif.counts for motif in self]])
+
+		if figsize is None:
+			figsize=(longest_motif*0.55*ncol, nrow*3)
+
+		fig = plt.subplots(squeeze=False, figsize=figsize)
+
+		for x, motif in enumerate(self):
+
+			# create axes object for specified position
+			ax = plt.subplot2grid((nrow, ncol), formation[x])
+			#plot logo to axes object
+			motif.create_logo(ax, longest_motif)
+
+		plt.savefig(output)
+
+		return fig
+
+	def make_unique(self):
+		""" Make motif ids unique for MotifList """
+
+		seen = {}
+
+		for motif in self:
+			m_id = motif.id
+			if m_id not in seen:
+				seen[m_id] = 1
+			else:
+				new_id = motif.id + "_" + str(seen[m_id])
+				motif.id = new_id
+				seen[m_id] += 1
+
+		return(self)
+
 #--------------------------------------------------------------------------------------------------------#
 def gimmemotif_to_onemotif(gimmemotif_obj):
 	""" Convert gimmemotif object to OneMotif object """
@@ -390,7 +476,6 @@ def gimmemotif_to_onemotif(gimmemotif_obj):
 			onemotif_obj.counts[base].append(gimmemotif_obj.pfm[pos][base])
 
 	return(onemotif_obj)
-
 
 #--------------------------------------------------------------------------------------------------------#
 def generate_similarity_matrix(score_dict):
@@ -443,6 +528,7 @@ def merge_motifs(motif_1, motif_2):
 	consensus : Object of class Motif
 		Consensus of both motifs with id composed of ids of motifs it was created.
 	"""
+	from gimmemotifs.comparison import MotifComparer
 
 	mc = MotifComparer()
 	_, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric= "pcc")
@@ -477,13 +563,75 @@ def find_best_pair(cluster_motifs, score_dict):
 
 	return best_similarity_motifs
 
+#--------------------------------------------------------------------------------------------------------#
+def get_formation(formation, ncol, nrow, nmotifs):
+	""" check formation or set formation to one of the existing options """
+
+	# if ncol and/or nrow is missing automatically set fitting parameters 
+	if formation != "alltoone":
+		if ncol is None and nrow is None:
+			half_nmotifs = math.ceil(math.sqrt(nmotifs))
+			ncol, nrow = half_nmotifs, half_nmotifs
+		else:
+			if ncol is None:
+				ncol = math.ceil(nmotifs/nrow)
+			if nrow is None:
+				nrow = math.ceil(nmotifs/ncol)
+
+	if isinstance(formation, str):
+		
+		if formation == "row":
+
+			# fill plot left to right
+
+			formation = list()
+			rows = list(range(nrow))
+			for row in rows:
+				for col in range(ncol):
+					formation.append((row,col))
+
+		elif formation == "col":
+
+			# fill plot top to bottom
+
+			formation = list()
+			rows = list(range(nrow))
+			for col in range(ncol):
+				for row in rows:
+					formation.append((row,col))
+
+		elif formation == "alltoone":
+
+			# fill first column execpt for one motif
+			# ignores parameter ncol and nrow
+
+			formation = list()
+			rows = list(range(nmotifs-1))
+			for row in rows:
+				formation.append((row,0))
+			formation.append((math.ceil(len(rows)/2)-1, 1))
+
+			ncol = 2
+			nrow = len(rows)
+
+		else:
+			sys.exit("ERROR: Unknown formation setting.")
+	else:
+
+		# Check if formation fits to grid
+		formation_max_row = max([i[0] for i in formation])
+		formation_max_col = max([i[1] for i in formation])
+		if nrow < formation_max_row or ncol < formation_max_col:
+			sys.exit("ERROR: Grid is to small for specified formation")
+
+	return formation, nrow, ncol
+
 
 #----------------------------------------------------------------------------------------#
 #Contains info on one motif formatted for use in moods
 class OneMotif:
 
 	bases = ["A", "C", "G", "T"]
-
 
 	def __init__(self, motifid=None, name=None, counts=None):
 		
@@ -493,7 +641,7 @@ class OneMotif:
 		self.prefix = "" 		#output prefix set in set_prefix
 		self.counts = counts if counts != None else [[] for _ in range(4)] 	#counts, list of 4 lists (A,C,G,T) (each as long as motif)
 		self.strand = "+"		#default strand is +
-		self.length = 0			#length of motif
+		self.length = len(counts[0]) if counts != None else None	#length of motif
 
 		#Set later
 		self.pfm = None
@@ -503,7 +651,7 @@ class OneMotif:
 		self.gimme_obj = None						#gimmemotif obj
 
 	def __str__(self):
-		""" Used for printing """
+		""" Format used for printing """
 		return("{0}".format(self.__dict__))
 
 	def set_prefix(self, naming="name_id"):
@@ -524,12 +672,17 @@ class OneMotif:
 		return(self)
 
 	def get_pfm(self):
+		""" Set self.pfm from self.counts """
+
 		self.pfm = self.counts / np.sum(self.counts, axis=0)
+		return(self)
 
 	def get_gimmemotif(self):
 		""" Get gimmemotif object for motif 
 			Reads counts from self.counts """
-		
+
+		from gimmemotifs.motif import Motif
+
 		self.length = len(self.counts[0])
 
 		motif_rows = []
@@ -573,11 +726,12 @@ class OneMotif:
 		pssm = np.log(np.true_divide(self.pfm + pseudo_vector, np.sum(self.pfm + pseudo_vector, axis=0))) - np.log(bg_col)
 		pssm = tuple([tuple(row) for row in pssm])
 		self.pssm = pssm
+		return(self)
 
 	def get_threshold(self, pvalue):
 		""" Get threshold for moods scanning """
 		if self.pssm is None:
-			self.get_pssmm()
+			self.get_pssm()
 
 		self.threshold = MOODS.tools.threshold_from_p(self.pssm, self.bg, pvalue, 4)
 		return(self)
@@ -594,6 +748,7 @@ class OneMotif:
 		entro = pfm_arr * np.log2(pfm_arr)
 		entro[np.isnan(entro)] = 0
 		info_content = 2 - (- np.sum(entro, axis=0))		#information content per position in motif
+		self.ic = info_content
 		self.bits = self.pfm * info_content	
 
 	def logo_to_file(self, filename):
@@ -602,20 +757,56 @@ class OneMotif:
 		ext = os.path.splitext(filename)[-1]
 
 		#Currently only working with pdf
-		filename = filename.replace(ext, ".pdf")	#hack
+		#filename = filename.replace(ext, ".pdf")	#hack
 
 		if ext == "jpg" :
 			filename[-3:] = "png"
 			warnings.warn("The 'jpg' format is not supported for motif image. Type is set tp 'png'")
 
-		self.gimme_obj.to_img(filename)
+		#self.gimme_obj.to_img(filename)	
+		logo = self.create_logo()	#returns a logo object
+		logo.fig.savefig(filename)
+		plt.close(logo.fig)
 
-	def logo_to_ax(self):
-		ax = None
-		#René TODO
-		pass
-		return(ax)
+	def get_base(self):
+		""" Get base64 string for plotting in HTML """
 
+		image = io.BytesIO()
+
+		logo = self.create_logo()
+		logo.fig.savefig(image)
+		self.base = base64.encodestring(image.getvalue()).decode("utf-8") 
+		self.base = self.base.replace("\n", "")	#replace automatic \n
+
+		return(self)
+
+	def create_logo(self, ax = None, motif_len=None):
+		""" Creates motif logo in axes object """
+
+		# convert to pandas dataframe
+		df = pd.DataFrame(self.counts).transpose()
+		df.columns = ["A", "C", "G", "T"]
+
+		if not motif_len:
+			motif_len = df.shape[0]
+
+		# transform matrix to information based values
+		info_df = logomaker.transform_matrix(df, from_type="counts", to_type="information")
+
+		# create Logo object
+		logo = logomaker.Logo(info_df, ax = ax)
+
+		# style
+		logo.style_xticks(rotation=0, fmt='%d', anchor=0)
+		logo.ax.set_ylim(0, 2)
+		logo.ax.set_xlim(-0.5, motif_len-0.5)
+		logo.ax.set_yticks([0, 0.5, 1, 1.5, 2], minor=False)
+		logo.style_spines(visible=False)
+		logo.style_spines(spines=['left', 'bottom'], visible=True)
+		logo.ax.xaxis.set_ticks_position('none')
+		logo.ax.xaxis.set_tick_params(pad=-1)
+
+		return logo
 
 ###########################################################
 
@@ -623,184 +814,19 @@ def get_motif_format(content):
 	""" Get motif format from string of content """
 	
 	#Estimate input format
-	if re.match("MEME version.+", content, re.DOTALL) is not None: # MOTIF\s.+letter-probability matrix.+[\d\.\s]+", content, re.MULTILINE) is not None:
+	if re.match(r"MEME version.+", content, re.DOTALL) is not None: # MOTIF\s.+letter-probability matrix.+[\d\.\s]+", content, re.MULTILINE) is not None:
 		motif_format = "meme"
 
-	elif re.match(">.+A.+\[", content, re.DOTALL) is not None:
+	elif re.match(r">.+A.+\[", content, re.DOTALL) is not None:
 		motif_format = "jaspar"
 
-	elif re.match(">.+", content, re.DOTALL) is not None:
+	elif re.match(r">.+", content, re.DOTALL) is not None:
 		motif_format = "pfm"
 
-	elif re.match("AC\s.+", content, re.DOTALL) is not None:
+	elif re.match(r"AC\s.+", content, re.DOTALL) is not None:
 		motif_format = "transfac"
 	
 	else:
 		motif_format = "unknown"
 
 	return(motif_format)
-
-
-
-
-
-###########################################################
-
-def convert_motif(content, output_format):
-	""" Output formats are "pfm", "jaspar" or "meme" """
-
-	bases = ["A", "C", "G", "T"]
-	input_format = get_motif_format(content)
-	converted_content = ""
-
-	if input_format == output_format:
-
-		#remove any meme headers 
-		m = re.match("^(MEME.*?)(MOTIF.*)", content, re.DOTALL)
-		if m:
-			converted_content = m.group(2) + "\n"
-		else:	
-			converted_content = content + "\n"
-
-	################ pfm <-> jaspar ################
-	elif (input_format == "pfm" or input_format == "jaspar") and (output_format == "pfm" or output_format == "jaspar"):
-		
-		for line in content.split("\n"):
-			if line.startswith(">"):
-				converted_content += line + "\n"	#header line + \n as this was removed in split
-				i = -1
-			
-			else:
-				m = re.match(".*?([\d]+[\d\.\s]+).*?", line)
-
-				if m:
-					i += 1	#i is 0 for first pfm line
-					pfm_line = m.group(1)
-					fields = [field for field in pfm_line.rstrip().split()]
-					
-					converted_line =  "{0} [ {1} ] \n".format(bases[i], "\t".join(fields)) if output_format == "jaspar" else "\t".join(fields) + "\n"
-					converted_content += converted_line
-
-					if i == 3: # last line
-						converted_content += "\n"
-
-				else:
-					continue
-
-
-	################ meme -> jaspar/pfm ################
-	elif input_format == "meme" and (output_format == "jaspar" or output_format == "pfm"): 
-				
-		motif_content = []
-		header = ""
-		lines = content.split("\n") + ["MOTIF"]		#add motif to end to write out motif
-		for idx, line in enumerate(lines):
-			if line.startswith("MOTIF"):
-				
-				#Write any previous motif saved
-				if len(motif_content) > 0:
-					for i, column in enumerate(motif_content):	#column = list of values
-						converted_line = "{0} [ {1} ] \n".format(bases[i], "\t".join(column)) if output_format == "jaspar" else "\t".join(column) + "\n"
-						converted_content += converted_line 	#contains \n
-
-				#Get ready for this motif 
-				if idx < len(lines) - 1:		#Up until the last line, it is possible to save for next	
-					columns = line.strip().split()
-					if len(columns) > 2: #MOTIF, ID, NAME
-						motif_id, name = columns[1], columns[2]
-					elif len(columns) == 2: # MOTIF, ID
-						motif_id, name = columns[1], columns[1]
-
-					header = ">{0}\t{1}\n".format(motif_id, name)
-
-					converted_content += header
-					motif_content = [[] for _ in range(4)] 	#ACGT
-
-			elif re.match("^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
-				columns = line.rstrip().split()
-				for i, col in enumerate(columns):
-					motif_content[i].append(col)
-
-		
-
-	################ jaspar/pfm -> meme ################
-	elif (input_format == "jaspar" or input_format == "pfm") and output_format == "meme":
-			
-		motif_content = [] 	#no motifs found yet, this is empty
-
-		lines = content.split("\n") + [">"] 	#add ">" at the end to make sure that the last motif is saved
-		for idx, line in enumerate(lines):
-
-			m = re.match(".*?([\d]+[\d\.\s]+).*?", line)
-
-			if line.startswith(">"):
-				
-				#Write any previous motif saved
-				if len(motif_content) > 0:
-					motif_w = len(motif_content[0])		
-					n_sites = int(round(sum(float(motif_content[i][0]) for i in range(4)), 0)) 	#sum of first site freqs 
-					
-					converted_content += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif_w, n_sites)
-					for i in range(motif_w):
-						row = [float(motif_content[j][i]) for j in range(4)] 	#row contains original row from content
-						n_sites = round(sum(row), 0)
-						row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
-						converted_content += "  ".join(row_freq) + "\n"
-					converted_content += "\n"
-
-				if idx < len(lines) - 1:		#Up until the last line, it is possible to save for next
-					columns = line[1:].strip().split()		#[1:] to remove > from header
-					try:
-						motif_id, name = columns[0], columns[1]
-					except:
-						motif_id, name = ".", "."
-						print(line)
-
-					converted_content += "MOTIF {0} {1}\n".format(motif_id, name)
-					motif_content = [] 	#list of rows from jaspar format motif
-
-			elif m:
-				columns = [field for field in m.group(1).rstrip().split()]
-				motif_content.append(columns)
-
-	return(converted_content)
-
-
-def pfm_to_motifs(content):
-	""" Content of a pfm motif file to MotifList format """
-
-	#Read motifs to moods
-	pfm_names = []
-	pfms = []
-	idx = -1
-
-	motiflist = MotifList([])
-	for line in content.split("\n"):
-		if line.startswith(">"):
-
-			#Read name for this motif
-			columns = line.replace(">", "").rstrip().split()
-			motifid, alt_name = (columns[0], columns[1]) if len(columns) > 1 else (columns[0], columns[0])	#Some jaspar formats do not have alternate names
-			
-			motif_obj = OneMotif(motifid, alt_name, [])		#pfm is set to empty list
-
-			motiflist.append(motif_obj)
-
-		elif len(motiflist) > 0:  #if at least one header line was found
-			m = re.match(".*?([\d]+[\d\.\s]+).*?", line)
-
-			if m:
-				pfm_line = m.group(1)
-				pfm_fields = [float(field) for field in pfm_line.rstrip().split()]
-				motif_obj.counts.append(pfm_fields)
-			else:
-				continue
-
-	#check correct format of pfms
-	for motif in motiflist:
-		rows, cols = np.array(motif.counts).shape	
-		if rows != 4:
-			sys.exit("ERROR: Motif {0} has an unexpected format and could not be read")
-
-	return(motiflist)
-
