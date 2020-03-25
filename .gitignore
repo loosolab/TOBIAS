@@ -4,4 +4,3 @@ build/
 dist/
 *.egg
 *.egg-info
-S3_downloader/S3_download/*
