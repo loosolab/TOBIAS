@@ -211,15 +211,13 @@ def bias_correction(regions_list, params, bias_obj):
 	#Open bamfile and fasta
 	bam_obj = pysam.AlignmentFile(bam_f, "rb")
 	fasta_obj = pysam.FastaFile(fasta_f)
-	chrom_lengths = dict(zip(bam_obj.references, bam_obj.lengths))  #Chromosome boundaries from bam_obj
-	
+
 	out_signals = {}
 	
 	#Go through each region
 	for region_obj in regions_list:
 
 		region_obj.extend_reg(f_extend)
-		#region_obj.check_boundary(chrom_lengths, "cut")	#moved to outside of function
 		reg_len = region_obj.get_length()	#length including flanking
 		reg_key = (region_obj.chrom, region_obj.start+f_extend, region_obj.end-f_extend)	#output region
 		out_signals[reg_key] = {"uncorrected":{}, "bias":{}, "expected":{}, "corrected":{}}
@@ -288,8 +286,8 @@ def bias_correction(regions_list, params, bias_obj):
 				bias_w = out_signals[reg_key]["bias"][strand][window[0]:window[1]]
 
 				signalmax = np.max(signal_w)
-				biasmin = np.min(bias_w) 
-				biasmax = np.max(bias_w)
+				#biasmin = np.min(bias_w) 
+				#biasmax = np.max(bias_w)
 
 				if signalmax > 0:
 					try:

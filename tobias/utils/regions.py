@@ -197,7 +197,7 @@ class RegionList(list):
 				continue
 
 			#Test line format
-			if re.match("[^\s]+\t\d+\t\d+.", line) == None:
+			if re.match(r"[^\s]+\t\d+\t\d+.", line) == None:
 				print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
 				sys.exit()
 
@@ -376,7 +376,7 @@ class RegionList(list):
 		prev_chrom, prev_start, prev_end, prev_strand = "", 0, 0, ""
 		unique = RegionList()
 
-		for i, region in enumerate(self):
+		for region in self:
 
 			curr_chrom, curr_start, curr_end, curr_strand = region.chrom, region.start, region.end, region.strand
 
@@ -673,7 +673,6 @@ class RegionCluster:
 
 				### Code to assign a specific name to clusters
 				members_idx = self.clusters[cluster]["member_idx"]
-				members_names = self.clusters[cluster]["member_names"]
 				distances = {}
 				for member in members_idx:
 					distances[member] = np.sum(self.distance_mat[member,:])	#0 if member is one-member cluster

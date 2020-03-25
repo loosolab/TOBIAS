@@ -1,4 +1,5 @@
-## 0.11.0 ()
+## 0.11.0 (2020-03-25)
+- Removed 'gimmemotifs' from requirements and included check in MotifClust (only tool needing gimmemotifs) instead. This is a temporary hack solving various install/conda issues.
 - Fixed smaller bug in bigwig writer for one-region output
 - Added check for samtools in SubsampleBam
 - Added @PG-line to FilterFragments output bam
@@ -6,8 +7,7 @@
 - Adding --smooth function to PlotAggregate
 - Fixed bug with overlapping figure labels in PlotAggregate
 - Added .pickle output of ATACorrect bias object to use in other applications
-- Fixed bugs in PlotTracks due to svist4get update; pinned =1.2.21 to setup.py
-- Pinned gimmemotifs<=0.14.1 due to KeyError with "params" for higher versions
+- Fixed bugs in PlotTracks due to svist4get update; pinned =1.2.22 to setup.py
 - Split internal structure of package into tools/utils/scripts
 - Fixed bug in BINDetect cutting off last column of _bound/_unbound files.
 - Added --naming to BINDetect

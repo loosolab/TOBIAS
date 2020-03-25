@@ -53,7 +53,7 @@ setup(name='tobias',
 		description='Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal',
 		long_description=readme(),
 		long_description_content_type='text/markdown',
-		url='https://github.molgen.mpg.de/loosolab/TOBIAS',
+		url='https://github.com/loosolab/TOBIAS',
 		author='Mette Bentsen',
 		author_email='mette.bentsen@mpi-bn.mpg.de',
 		license='MIT',
@@ -77,8 +77,8 @@ setup(name='tobias',
 			'adjustText',
 			'pyBigWig',
 			'MOODS-python',
-			'svist4get==1.2.21',	#pin due to changes in API
-			'gimmemotifs<=0.14.1',	#pin due to KeyErrors with "params" 	
+			'svist4get==1.2.22',	#pin due to changes in API
+			#'gimmemotifs',			#only used for MotifClust; now warns for this tool if it is not there
 			'logomaker',
 			'seaborn>=0.9.1',
 			'boto3',

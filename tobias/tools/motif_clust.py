@@ -11,6 +11,7 @@ If only one motif file is given, it will be compared with itself.
 """
 
 import argparse
+import sys
 import numpy as np
 import seaborn as sns
 import pandas as pd
@@ -23,15 +24,14 @@ import itertools
 import warnings
 from Bio import motifs
 from matplotlib import pyplot as plt
-from gimmemotifs.motif import Motif,read_motifs
-from gimmemotifs.comparison import MotifComparer
+
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 import scipy.spatial.distance as ssd
 from collections import defaultdict
 
 from tobias.parsers import add_motifclust_arguments
 from tobias.utils.utilities import check_required, check_files, make_directory
-from tobias.utils.logger import *
+from tobias.utils.logger import TobiasLogger
 from tobias.utils.motifs import *
 
 #--------------------------------------------------------------------------------------------------------#
@@ -264,6 +264,16 @@ def run_motifclust(args):
 
 	out_prefix = os.path.join(args.outdir, args.prefix)
 
+	#----------------------------------------- Check for gimmemotifs ----------------------------------------#
+
+	try:
+		from gimmemotifs.motif import Motif
+		from gimmemotifs.comparison import MotifComparer
+		sns.set_style("ticks")	#set style back to ticks, as this is set globally during gimmemotifs import
+	except:
+		logger.error("MotifClust requires the python package 'gimmemotifs'. You can install it using 'pip install gimmemotifs' or 'conda install gimmemotifs'.")
+		sys.exit()
+
 	#---------------------------------------- Reading motifs from file(s) -----------------------------------#
 	logger.info("Reading input file(s)")
 
@@ -290,7 +300,7 @@ def run_motifclust(args):
 	#---------------------------------------- Motif stats ---------------------------------------------------#
 	logger.info("Creating matrix statistics")
 
-	gimmemotifs_list = [motif.gimme_obj for motif in motif_list]
+	gimmemotifs_list = [motif.get_gimmemotif().gimme_obj for motif in motif_list]
 	
 	#Stats for all motifs
 	full_motifs_out = out_prefix + "_stats_motifs.txt"
@@ -305,7 +315,7 @@ def run_motifclust(args):
 	logger.stats("- Identified {0} clusters".format(len(clusters)))
 	
 	#Write out overview of clusters
-	cluster_dict = {cluster_id: [motif.gimme_obj.id for motif in clusters[cluster_id]] for cluster_id in clusters}
+	cluster_dict = {cluster_id: [motif.get_gimmemotif().gimme_obj.id for motif in clusters[cluster_id]] for cluster_id in clusters}
 	cluster_f = out_prefix + "_" + "clusters.yml"
 	logger.info("- Writing clustering to {0}".format(cluster_f))
 	write_yaml(cluster_dict, cluster_f)
@@ -369,8 +379,8 @@ def run_motifclust(args):
 		x_label, y_label = motif_file_1, motif_file_2
 
 		#Create subset of matrices for row/col clustering
-		motif_names_1 = [motif.gimme_obj.id for motif in motif_dict[motif_file_1]]
-		motif_names_2 = [motif.gimme_obj.id for motif in motif_dict[motif_file_2]]
+		motif_names_1 = [motif.get_gimmemotif().gimme_obj.id for motif in motif_dict[motif_file_1]]
+		motif_names_2 = [motif.get_gimmemotif().gimme_obj.id for motif in motif_dict[motif_file_2]]
 
 		m1_matrix, m2_matrix, similarity_matrix_sub = subset_matrix(similarity_matrix, motif_names_1, motif_names_2)
 

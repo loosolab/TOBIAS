@@ -118,7 +118,7 @@ def add_bindetect_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('--signals', metavar="<bigwig>", help="Signal per condition (.bigwig format)", nargs="*")
 	required.add_argument('--peaks', metavar="<bed>", help="Peaks.bed containing open chromatin regions across all conditions")
-	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar format", nargs="*")
+	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar/meme format", nargs="*")
 	required.add_argument('--genome', metavar="<fasta>", help="Genome .fasta file")
 
 	optargs = parser.add_argument_group('Optional arguments')
@@ -272,7 +272,7 @@ def add_aggregate_arguments(parser):
 def add_plotchanges_arguments(parser):
 
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=35, width=90)
-	description = "PlotChanges is a utility to plot the changes in TF binding across multiple conditions as predicted by TOBIAS BINdetect.\n\n"
+	description = "PlotChanges is a utility to plot the changes in TF binding across multiple conditions as predicted by TOBIAS BINDetect.\n\n"
 	description += "Example usage:\n$ echo CTCF GATA > TFS.txt\n$ TOBIAS PlotChanges --bindetect <bindetect_results.txt> --TFS TFS.txt\n\n"
 
 	parser.description = format_help_description("PlotChanges", description)
@@ -393,6 +393,7 @@ def add_maxpos_arguments(parser):
 def add_subsample_arguments(parser):
 
 	parser.formatter_class=lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=100)
+	description = "Subsample a .bam-file into random subsets (of percentage size --start to --end with step --step).\n"
 	description = "NOTE: Requires 'samtools' command available at runtime."
 	parser.description = format_help_description("SubsampleBam", description)
 
@@ -491,6 +492,7 @@ def add_motifclust_arguments(parser):
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
 	description = "Cluster motifs based on similarity and create one consensus motif per cluster.\n\n"
 	description += "Usage:\nTOBIAS ClusterMotifs --motifs <motifs.jaspar>\n\n"
+	description += "NOTE: This tool requres the python package 'gimmemotifs'."
 	parser.description = format_help_description("ClusterMotifs", description) 
 
 	parser._action_groups.pop() #pop -h
@@ -530,7 +532,7 @@ def add_downloaddata_arguments(parser):
 
 	arguments = parser.add_argument_group('Arguments')
 	arguments.add_argument('--endpoint', metavar="", help="Link to the s3 server (default: The loosolab s3 server)", default="https://s3.mpi-bn.mpg.de")
-	arguments.add_argument('--bucket', metavar="", help="Name of bucket to download (default: data-tobias-2019)", default="data-tobias-2019")
+	arguments.add_argument('--bucket', metavar="", help="Name of bucket to download (default: data-tobias-2020)", default="data-tobias-2020")
 	#arguments.add_argument('--target', metavar="", help="Name of directory to save files to (default: name of bucket)")
 	arguments.add_argument('--patterns', metavar="", help="List of patterns for files to download e.g. '*.txt' (default: *)", default="*")
 	arguments.add_argument('--username', metavar="", help="Username for endpoint (default: None set)")

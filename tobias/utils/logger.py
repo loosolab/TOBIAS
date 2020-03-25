@@ -198,7 +198,6 @@ class TOBIASFormatter(logging.Formatter):
 	comment_fmt = logging.Formatter("%(message)s")
 
 	def format(self, record):
-		format_orig = self._fmt
 
 		#Comments
 		if record.levelname == "comment":

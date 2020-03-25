@@ -31,6 +31,13 @@ except:
 from tobias.parsers import *
 from tobias import __version__ as TOBIAS_VERSION
 
+#Ignore gimmemotifs plot warning
+import warnings
+import matplotlib
+import matplotlib.cbook
+warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
+
 def main():
 
 	#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#

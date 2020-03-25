@@ -17,28 +17,20 @@ import sys
 import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import seaborn as sns
 #from matplotlib.text import TextPath
 #from matplotlib.patches import PathPatch
 #from matplotlib.font_manager import FontProperties
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 import scipy.spatial.distance as ssd
-import logomaker
+
 import base64
 import io
 
-#Ignore gimmemotifs plot warning
-import warnings
-import matplotlib.cbook
-warnings.filterwarnings("ignore", category=mpl.cbook.mplDeprecation)
-
 #Bio-specific packages
 from Bio import motifs
-from gimmemotifs.motif import Motif, read_motifs
-from gimmemotifs.comparison import MotifComparer
-import seaborn as sns
-sns.set_style("ticks")	#set style back to ticks, as this is set globally during gimmemotifs import
-
+import logomaker
 import MOODS.scan
 import MOODS.tools
 import MOODS.parsers
@@ -46,7 +38,6 @@ import MOODS.parsers
 #Internal
 from tobias.utils.regions import OneRegion, RegionList
 from tobias.utils.utilities import filafy, num 	#filafy for filenames
-
 
 """
 def biomotif_to_gimmemotif(biomotif):
@@ -115,7 +106,6 @@ class MotifList(list):
 		"""
 		
 		biopython_formats = ["jaspar"]
-		gimmemotif_formats = ["pwm", "transfac", "xxmotif", "align"]
 
 		#Establish format of motif
 		content = open(path).read()
@@ -129,7 +119,7 @@ class MotifList(list):
 		if file_format == "meme":
 			
 			lines = content.split("\n")
-			for idx, line in enumerate(lines):
+			for line in lines:
 				columns = line.strip().split()
 
 				if line.startswith("MOTIF"):
@@ -151,13 +141,13 @@ class MotifList(list):
 					if len(self) > 0: #if there was already one motif header found
 					
 						#If line contains counts
-						if re.match("^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
+						if re.match(r"^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
 							for i, col in enumerate(columns):
 								self[-1].counts[i].append(num(col))
 						elif re.match("^letter-probability", line):
 							#example: "letter-probability matrix: alength= 4 w= 6 nsites= 24 E= 0"
 
-							m = re.search("nsites= ([0-9]+)", line)
+							m = re.search(r"nsites= ([0-9]+)", line)
 							if m is not None:
 								self[-1].n = int(m.group(1))
 
@@ -172,14 +162,17 @@ class MotifList(list):
 					self.append(OneMotif(motifid=m.matrix_id, name=m.name, counts=[m.counts[base] for base in ["A", "C", "G", "T"]]))
 					self[-1].biomotifs_obj = m		#biopython motif object	
 
+		else:
+			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
+
+		#Gimmemotifs functionality removed in 0.11.0
+		"""
 		elif file_format in gimmemotif_formats:
 			gimme_motif_list = read_motifs(infile = path, fmt = file_format)
 			for gimmemotif in gimme_motif_list:
 				onemotif_obj = gimmemotif_to_onemotif(gimmemotif)
 				self.append(onemotif_obj)	#add OneMotif object to list
-
-		else:
-			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
+		"""
 
 		#Check correct format of pfms
 		for motif in self:
@@ -198,8 +191,6 @@ class MotifList(list):
 		for i, motif in enumerate(self):
 			self[i].n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
 			self[i].length = len(motif.counts[0])
-
-			self[i].get_gimmemotif() #fill in gimmemotif object
 
 		return(self)
 
@@ -231,7 +222,7 @@ class MotifList(list):
 		Parameter:
 		-----------
 		output_format : string
-			Motif format ("pfm", "jaspar", "meme", "transfac")
+			Motif format ("pfm", "jaspar", "meme")
 		"""
 
 		bases = ["A", "C", "G", "T"]
@@ -276,12 +267,12 @@ class MotifList(list):
 				
 				out_string += "\n"
 
-		elif fmt == "transfac":
-			for motif in self:
-				out_string += motif.to_transfac()
+		#elif output_format == "transfac":
+		#	for motif in self:
+		#		out_string += motif.to_transfac()
 
 		else:
-			raise ValueError("Format " + fmt + " is not supported")	
+			raise ValueError("Format " + output_format + " is not supported")	
 
 		return(out_string)			
 
@@ -335,7 +326,7 @@ class MotifList(list):
 		return(sites)
 
 	#---------------- Functions for motif clustering ----------------------#
-	def cluster(self, threshold=0.5, metric = "pcc", clust_method="average"):
+	def cluster(self, threshold=0.5, metric = "pcc", clust_method = "average"):
 		""" 
 		Returns:
 		----------
@@ -343,7 +334,13 @@ class MotifList(list):
 			A dictionary with keys=cluster names and values=MotifList objects
 		"""
 
-		motif_list = [motif.gimme_obj for motif in self]	#list of gimmemotif objects
+		#Needs gimmemotif
+		from gimmemotifs.motif import Motif
+		from gimmemotifs.comparison import MotifComparer
+		sns.set_style("ticks")	#set style back to ticks, as this is set globally during gimmemotifs import
+
+		#Fill in self.gimme_obj variable
+		motif_list = [motif.get_gimmemotif().gimme_obj for motif in self]	#list of gimmemotif objects
 
 		#Similarities between all motifs
 		mc = MotifComparer()
@@ -367,7 +364,9 @@ class MotifList(list):
 
 	def create_consensus(self):
 		""" Create consensus motif from MotifList """
+		from gimmemotifs.comparison import MotifComparer
 
+		self = [motif.get_gimmemotifs() if motif.gimme_obj is None else motif for motif in self]	#fill in gimme_obj if it is not found
 		motif_list = [motif.gimme_obj for motif in self]	#list of gimmemotif objects
 
 		if len(motif_list) > 1:
@@ -414,7 +413,6 @@ class MotifList(list):
 		onemotif_consensus.name += "(...)" if len(all_names) > 3 else ""
 
 		return(onemotif_consensus)
-
 
 	def plot_motifs(self, nrow=None, ncol=None, output="motif_plot.png", figsize=None, formation = "row"):
 		""" Plot list of motifs to one figure """
@@ -479,7 +477,6 @@ def gimmemotif_to_onemotif(gimmemotif_obj):
 
 	return(onemotif_obj)
 
-
 #--------------------------------------------------------------------------------------------------------#
 def generate_similarity_matrix(score_dict):
 	"""Generate a similarity matrix from the output of get_all_scores()
@@ -531,6 +528,7 @@ def merge_motifs(motif_1, motif_2):
 	consensus : Object of class Motif
 		Consensus of both motifs with id composed of ids of motifs it was created.
 	"""
+	from gimmemotifs.comparison import MotifComparer
 
 	mc = MotifComparer()
 	_, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric= "pcc")
@@ -682,7 +680,9 @@ class OneMotif:
 	def get_gimmemotif(self):
 		""" Get gimmemotif object for motif 
 			Reads counts from self.counts """
-		
+
+		from gimmemotifs.motif import Motif
+
 		self.length = len(self.counts[0])
 
 		motif_rows = []
@@ -731,7 +731,7 @@ class OneMotif:
 	def get_threshold(self, pvalue):
 		""" Get threshold for moods scanning """
 		if self.pssm is None:
-			self.get_pssmm()
+			self.get_pssm()
 
 		self.threshold = MOODS.tools.threshold_from_p(self.pssm, self.bg, pvalue, 4)
 		return(self)
@@ -763,7 +763,10 @@ class OneMotif:
 			filename[-3:] = "png"
 			warnings.warn("The 'jpg' format is not supported for motif image. Type is set tp 'png'")
 
-		self.gimme_obj.to_img(filename)
+		#self.gimme_obj.to_img(filename)	
+		logo = self.create_logo()	#returns a logo object
+		logo.fig.savefig(filename)
+		plt.close(logo.fig)
 
 	def get_base(self):
 		""" Get base64 string for plotting in HTML """
@@ -796,8 +799,10 @@ class OneMotif:
 		# style
 		logo.style_xticks(rotation=0, fmt='%d', anchor=0)
 		logo.ax.set_ylim(0, 2)
-		logo.ax.set_xlim(-0.5,motif_len-0.5)
+		logo.ax.set_xlim(-0.5, motif_len-0.5)
 		logo.ax.set_yticks([0, 0.5, 1, 1.5, 2], minor=False)
+		logo.style_spines(visible=False)
+		logo.style_spines(spines=['left', 'bottom'], visible=True)
 		logo.ax.xaxis.set_ticks_position('none')
 		logo.ax.xaxis.set_tick_params(pad=-1)
 
@@ -809,16 +814,16 @@ def get_motif_format(content):
 	""" Get motif format from string of content """
 	
 	#Estimate input format
-	if re.match("MEME version.+", content, re.DOTALL) is not None: # MOTIF\s.+letter-probability matrix.+[\d\.\s]+", content, re.MULTILINE) is not None:
+	if re.match(r"MEME version.+", content, re.DOTALL) is not None: # MOTIF\s.+letter-probability matrix.+[\d\.\s]+", content, re.MULTILINE) is not None:
 		motif_format = "meme"
 
-	elif re.match(">.+A.+\[", content, re.DOTALL) is not None:
+	elif re.match(r">.+A.+\[", content, re.DOTALL) is not None:
 		motif_format = "jaspar"
 
-	elif re.match(">.+", content, re.DOTALL) is not None:
+	elif re.match(r">.+", content, re.DOTALL) is not None:
 		motif_format = "pfm"
 
-	elif re.match("AC\s.+", content, re.DOTALL) is not None:
+	elif re.match(r"AC\s.+", content, re.DOTALL) is not None:
 		motif_format = "transfac"
 	
 	else:
