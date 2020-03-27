@@ -15,6 +15,9 @@ import re
 from copy import deepcopy
 import pyBigWig
 from collections import Counter
+import logging
+
+from tobias.utils.logger import TobiasLogger
 
 #Clustering
 import sklearn.preprocessing as preprocessing
@@ -108,37 +111,39 @@ class OneRegion(list):
 		return(regions)
 
 
-	def check_boundary(self, boundaries_dict, action="cut"):
-		""" Check if regions are within chromosome boundaries. Actions:
-				- "cut": cut region to bounds
+	def check_boundary(self, boundaries_dict, action="cut", logger=TobiasLogger()):
+		""" Check if region is within chromosome boundaries. Actions:
+				- "cut": cut region to bounds. If the chromosome is not in boundaries_dict, "cut" falls back on "remove"
 				- "remove": remove region outside bounds (returns None)
+				- "exit": exit the program with error message through logger
 		"""
+		
+		#Establish if region is outside of bounds:
+		outside = 0
+		if self.chrom not in boundaries_dict:
+			if action == "exit":
+				logger.error("Chromosome for region \"{0}\" is not found in list of available chromosomes ({1})".format(self, list(boundaries_dict.keys())))
+				sys.exit()
+			self = None	#cannot cut to bounds when boundaries are not known; remove	
+		elif self.start < 0:
+			outside = 1
+		elif self.end > int(boundaries_dict[self.chrom]):
+			outside = 1
 
-		if (action == "cut" or action == "remove"):
-
-			chrom = self.chrom
-
-			#Check start
-			if self.start < 0:
-				if action == "cut":
-					self.start = 0
-				elif action == "remove":
-					self = None
-
-			#Check end if chrom in boundaries dict
-			if chrom in boundaries_dict:
-				if self.end > int(boundaries_dict[chrom]):
-					if action == "cut":
-						self.end = int(boundaries_dict[chrom])
-
-					elif action == "remove":
-						self = None
-
-			if self.get_length() < 0:
+		#Perform action if region is outside of bounds
+		if outside == 1:
+			if action == "cut":
+				self.start = max([0, self.start])
+				self.end = min([boundaries_dict[self.chrom], self.end])
+			elif action == "remove":
 				self = None
-
-		else:
-			exit("Error in regions.check_boundary: unknown action")
+			elif action == "exit":
+				logger.error("Region \"{0}\" is outside of the chromosome boundaries ({1}: {2})".format(self, self.chrom, boundaries_dict[self.chrom]))
+				sys.exit()
+		
+		#If the region has been cut to be 0 of less length; remove
+		if self.get_length() <= 0:
+			self = None
 
 		self[1] = self.start
 		self[2] = self.end
@@ -185,7 +190,7 @@ class RegionList(list):
 			self.append(obj)
 		return(self)
 
-	def from_bed(self, bedfile_f):
+	def from_bed(self, bedfile_f, logger=TobiasLogger()):
 		""" Initialize Object from bedfile """
 
 		#Read all lines
@@ -198,7 +203,7 @@ class RegionList(list):
 
 			#Test line format
 			if re.match(r"[^\s]+\t\d+\t\d+.", line) == None:
-				print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
+				logger.error("Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
 				sys.exit()
 
 			columns = line.rstrip().split("\t")
@@ -206,7 +211,7 @@ class RegionList(list):
 			columns[2] = int(columns[2]) #end
 			
 			if columns[1] >= columns[2]:
-				print("ERROR: Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
+				logger.error("Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
 				sys.exit()
 
 			region = OneRegion(columns)
