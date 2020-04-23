@@ -63,7 +63,8 @@ def add_atacorrect_arguments(parser):
 def add_scorebigwig_arguments(parser):
 
 	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
-	description = "ScoreBigwig calculates scores (such as footprint-scores) from bigwig files (such as ATAC-seq cutsites calculated using the ATACorrect tool).\n\n"
+	description = "ScoreBigwig calculates scores (such as footprint-scores) from bigwig files (such as ATAC-seq cutsites calculated using the ATACorrect tool). " 
+	description += "NOTE: ScoreBigwig replaces the previous FootprintScores command.\n\n"
 	description += "Usage: ScoreBigwig --signal <cutsites.bw> --regions <regions.bed> --output <output.bw>\n\n"
 	description += "Output:\n- <output.bw>"
 	parser.description = format_help_description("ScoreBigwig", description)
