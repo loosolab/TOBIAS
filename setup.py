@@ -75,7 +75,7 @@ setup(name='tobias',
 			'pypdf2',
 			'xlsxwriter',
 			'adjustText',
-			'pyBigWig',
+			'pyBigWig>=0.3',		#to use values(numpy=True)
 			'MOODS-python',
 			'svist4get==1.2.22',	#pin due to changes in API
 			#'gimmemotifs',			#only used for MotifClust; now warns for this tool if it is not there

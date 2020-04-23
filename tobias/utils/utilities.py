@@ -21,6 +21,7 @@ import string
 import numpy as np
 import copy
 from difflib import SequenceMatcher
+import traceback
 
 import pyBigWig
 from tobias.utils.logger import *
@@ -190,14 +191,18 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 						signal = ready_to_write[key][next_region]
 						included = signal.nonzero()[0]
 						positions = np.arange(next_region[1],next_region[2])		#start-end	(including end)
-						pos = positions[included]
-						val = signal[included]
+						pos = positions[included].tolist()
+						val = signal[included].tolist()
 
 						if len(pos) > 0:
 							try:
 								handles[key].addEntries(chrom, pos, values=val, span=1)
-							except:
+							except Exception as e:
 								logger.error("Error writing key: {0}, region: {1} to bigwig".format(key, next_region))
+								logger.debug("Chrom: {0}".format(chrom))
+								logger.debug("Positions: {0}".format(pos))
+								logger.debug("Values: {0}".format(val))
+								raise e
 						logger.spam("Wrote signal {0} from region {1}".format(key, next_region))
 
 						#Free up memory in dict
@@ -218,11 +223,12 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 						#writing_progress.write(progress)
 
 		except Exception as e:
-			logger.error('Problem in file_writer:')
-			print(e)
-			break
-
-	return(1)
+			logger.error("Problem in bigwig_writer. Exception is: '{0}'".format(e))
+			traceback.print_tb(e.__traceback__)
+			raise e
+			return(1) #Return with error
+			
+	return(0)	#everything went well
 
 
 def monitor_progress(task_list, logger, prefix="Progress"):

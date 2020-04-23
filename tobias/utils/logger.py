@@ -154,7 +154,7 @@ class TobiasLogger(logging.Logger):
 				self.handle(record) 	#this logger is coming from the main process
 
 			except EOFError:
-				self.error("Multiprocessing Logger lost connection to queue - probably due to an error raised from a child process.")
+				self.error("Multiprocessing logger lost connection to queue - probably due to an error raised from a child process.")
 				break
 
 		return(1)
