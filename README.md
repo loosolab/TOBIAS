@@ -87,7 +87,7 @@ We provide a pre-set snakemake workflow which is found [here](https://github.mol
 You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow can be found [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
 
 **Nextflow kubernetes/de.NBI cloud aware pipeline**  
-We also provide the TOBIAS nextflow pipeline for a cloud computing environment. One version utilizes a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_S3), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_over_NGINX).
+We also provide the TOBIAS nextflow pipeline for a cloud computing environment. One version utilizes a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_MAPOKS), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_MACSEK).
 
 
 License
