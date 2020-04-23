@@ -28,9 +28,12 @@ if use_cython:
 				Extension("tobias.utils.signals", ["tobias/utils/signals.pyx"], include_dirs=[np.get_include()])]
 
 else:
-	ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.c"], include_dirs=[np.get_include()]),
-					Extension("tobias.utils.sequences", ["tobias/utils/sequences.c"], include_dirs=[np.get_include()]),
-					Extension("tobias.utils.signals", ["tobias/utils/signals.c"], include_dirs=[np.get_include()])] 
+	if os.path.exists("tobias/utils/ngs.c"):
+		ext_modules = [Extension("tobias.utils.ngs", ["tobias/utils/ngs.c"], include_dirs=[np.get_include()]),
+						Extension("tobias.utils.sequences", ["tobias/utils/sequences.c"], include_dirs=[np.get_include()]),
+						Extension("tobias.utils.signals", ["tobias/utils/signals.c"], include_dirs=[np.get_include()])] 
+	else: #Only happens when installing directly from source
+		sys.exit("Cython is needed to compile TOBIAS.")
 
 #Path of setup file to establish version
 setupdir = os.path.abspath(os.path.dirname(__file__))
