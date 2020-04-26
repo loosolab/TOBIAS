@@ -75,7 +75,7 @@ def calculate_scores(regions, args):
 
 		elif args.score == "FOS":
 			scores = FOS_score(signal, args.flank_min, args.flank_max, args.fp_min, args.fp_max)
-			scores = -scores
+			#scores = -scores
 
 		elif args.score == "none":
 			scores = signal

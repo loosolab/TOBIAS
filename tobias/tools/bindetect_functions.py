@@ -205,13 +205,8 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		#Read footprints in region
 		footprints = {}
 		for condition in args.cond_names:
-			try:
-				footprints[condition] = pybw[condition].values(region.chrom, region.start, region.end, numpy=True)
-				footprints[condition] = np.nan_to_num(footprints[condition])	#nan to 0
-			except Exception as e:
-				logger.error("Error reading footprints from region: {0}".format(region))
-				raise e
-
+			footprints[condition] = region.get_signal(pybw[condition], logger=logger)
+				
 			if len(footprints[condition]) == 0:
 				logger.error("ERROR IN REGION: {0}".format(region))
 				raise Exception

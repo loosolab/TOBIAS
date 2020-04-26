@@ -175,7 +175,7 @@ def run_atacorrect(args):
 	# Process peaks
 	peak_regions = RegionList().from_bed(args.peaks)
 	peak_regions.merge()
-	peak_regions.apply_method(OneRegion.check_boundary, bam_chrom_info, "cut")
+	peak_regions.apply_method(OneRegion.check_boundary, bam_chrom_info, "cut")	#regions are cut/removed from list
 	nonpeak_regions = deepcopy(genome_regions).subtract(peak_regions)
 
 	# Process specific input regions if given

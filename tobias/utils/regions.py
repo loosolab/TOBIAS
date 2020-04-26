@@ -16,6 +16,7 @@ from copy import deepcopy
 import pyBigWig
 from collections import Counter
 import logging
+import traceback
 
 from tobias.utils.logger import TobiasLogger
 
@@ -58,7 +59,6 @@ class OneRegion(list):
 		self[0] = self.chrom
 		self[1] = self.start
 		self[2] = self.end
-
 
 	def get_length(self):
 		return(self.end - self.start)
@@ -124,7 +124,10 @@ class OneRegion(list):
 			if action == "exit":
 				logger.error("Chromosome for region \"{0}\" is not found in list of available chromosomes ({1})".format(self, list(boundaries_dict.keys())))
 				sys.exit()
-			self = None	#cannot cut to bounds when boundaries are not known; remove	
+
+			self = None	#cannot cut to bounds when boundaries are not known; remove
+			return(self)
+
 		elif self.start < 0:
 			outside = 1
 		elif self.end > int(boundaries_dict[self.chrom]):
@@ -150,11 +153,15 @@ class OneRegion(list):
 
 		return(self)
 
-	def get_signal(self, pybw, numpy_bool = True):
+	def get_signal(self, pybw, numpy_bool = True, logger=TobiasLogger()):
 		""" Get signal from bigwig in region """
 
 		try:
-			values = pybw.values(self.chrom, self.start, self.end, numpy=numpy_bool)
+			#Define whether pybigwig was compiled with numpy
+			if pyBigWig.numpy == 1:
+				values = pybw.values(self.chrom, self.start, self.end, numpy=numpy_bool)
+			else:
+				values = np.array(pybw.values(self.chrom, self.start, self.end)) #fetch list of values and convert to numpy arr
 			values = np.nan_to_num(values)	#nan to 0
 			
 			if self.strand == "-":
@@ -162,10 +169,11 @@ class OneRegion(list):
 			else:
 				signal = values
 				
-		except:
-			print("Error reading region: {0} from pybigwig object".format(self.tup()))
-			signal = np.zeros(self.end - self.start)
-
+		except Exception as e:
+			logger.error("Error reading region: {0} from pybigwig object. Exception is: {1}".format(self.tup(), e))
+			traceback.print_tb(e.__traceback__)
+			raise e
+			
 		return(signal)	
 
 

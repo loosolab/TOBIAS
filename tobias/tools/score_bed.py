@@ -121,11 +121,9 @@ def run_scorebed(args):
 				for bigwig_f in args.bigwigs:	#preserves order of bigwigs
 					
 					if chrom in pybw_headers[bigwig_f]:	#only get score if chromosome is in bigwig; to prevent error from pybigwig.values
-						try:
-							signal = pybw[bigwig_f].values(chrom, start, end, numpy=True)
-						except:
-							logger.error("Error reading signal for site: {0}".format(line))
-							sys.exit()
+						
+						region = OneRegion([chrom, start, end])
+						signal = region.get_signal(pybw[bigwig_f], numpy_bool=True, logger=logger)
 
 						if len(signal) > 0:
 							signal = np.nan_to_num(signal)
