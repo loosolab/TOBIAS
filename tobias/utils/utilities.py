@@ -142,7 +142,7 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			handles[key].addHeader(header)
 
 		except Exception as e:
-			logger.error("Error opening file {0} in bigwig_writer. Exception was: '{1}'".format(fil, e))
+			logger.error("Error opening file {0} in bigwig_writer. Exception was: '{1}'".format(key_file_dict[key], e))
 			raise e
 
 	#Correct order of chromosomes as given in header
