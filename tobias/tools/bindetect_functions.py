@@ -175,7 +175,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	logger.debug("Setting up scanner/bigwigs/fasta")
 	motifs_obj.setup_moods_scanner()	#MotifList object
 
-	pybw = {condition:pyBigWig.open(args.signals[i], "rb") for i, condition in enumerate(args.cond_names)}
+	pybw = {condition: pyBigWig.open(args.signals[i], "rb") for i, condition in enumerate(args.cond_names)}
 	fasta_obj = pysam.FastaFile(args.genome)
 	chrom_boundaries = dict(zip(fasta_obj.references, fasta_obj.lengths))
 
@@ -193,8 +193,8 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		
 		#Check whether region is within boundaries
 		if region.end >= chrom_boundaries[region.chrom]:
-			#print("ERROR IN REGION: {0}".format(region))
-			pass
+			logger.error("Input region {0} is beyond chromosome boundaries ({1}: {2})".format(region, region.chrom, chrom_boundaries[region.chrom]))
+			raise Exception 
 
 		#Random positions for sampling
 		reglen = region.get_length()
@@ -205,15 +205,11 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		#Read footprints in region
 		footprints = {}
 		for condition in args.cond_names:
-			try:
-				footprints[condition] = pybw[condition].values(region.chrom, region.start, region.end, numpy=True)
-				footprints[condition] = np.nan_to_num(footprints[condition])	#nan to 0
-			except:
-				logger.error("Error reading footprints from region: {0}".format(region))
-				continue
-
+			footprints[condition] = region.get_signal(pybw[condition], logger=logger)
+				
 			if len(footprints[condition]) == 0:
 				logger.error("ERROR IN REGION: {0}".format(region))
+				raise Exception
 
 			#Read random positions for background
 			for pos in rand_positions:
@@ -288,7 +284,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		bedlines = [dict(zip(header, line.rstrip().split("\t"))) for line in f.readlines()]
 	n_rows = len(bedlines)
 	etime = datetime.now()
-	logger.debug("{0} - Reading took:\t{1}".format(TF_name, etime - stime))
+	logger.spam("{0} - Reading took:\t{1}".format(TF_name, etime - stime))
 	
 
 	############################## Local effects ###############################
@@ -354,7 +350,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 	etime_excel = datetime.now()
 	etime = datetime.now()
-	logger.debug("{0} - Local effects took:\t{1} (excel: {2})".format(TF_name, etime - stime, etime_excel - stime_excel))
+	logger.spam("{0} - Local effects took:\t{1} (excel: {2})".format(TF_name, etime - stime, etime_excel - stime_excel))
 
 	############################## Global effects ##############################
 
@@ -467,7 +463,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	log2fc_pdf.close()	
 	
 	etime = datetime.now()
-	logger.debug("{0} - Global effects took:\t{1}".format(TF_name, etime - stime))
+	logger.spam("{0} - Global effects took:\t{1}".format(TF_name, etime - stime))
 
 	#################### Remove temporary file ######################
 	try:

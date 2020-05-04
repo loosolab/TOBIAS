@@ -21,6 +21,7 @@ import string
 import numpy as np
 import copy
 from difflib import SequenceMatcher
+import traceback
 
 import pyBigWig
 from tobias.utils.logger import *
@@ -93,8 +94,8 @@ def file_writer(q, key_file_dict, args):
 		try:
 			file2handle[fil] = open(fil, "w")
 		except Exception as e:
-			print("Error opening file {0} in file_writer".format(fil))
-			print(e)
+			print("Error opening file {0} in file_writer. Exception was: '{1}'".format(fil, e))
+			raise e
 			return(0)
 
 	#Assign handles to keys
@@ -113,8 +114,9 @@ def file_writer(q, key_file_dict, args):
 
 		except Exception as e:
 			import sys, traceback
-			print('Problem in file_writer:')
+			print('Problem in file_writer: ')
 			print(e)
+			raise e
 			break
 
 	#Got all regions in queue, close files
@@ -140,8 +142,8 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 			handles[key].addHeader(header)
 
 		except Exception as e:
-			logger.error("Error opening file {0} in bigwig_writer".format(fil))
-			print(e)
+			logger.error("Error opening file {0} in bigwig_writer. Exception was: '{1}'".format(key_file_dict[key], e))
+			raise e
 
 	#Correct order of chromosomes as given in header
 	contig_list = [tup[0] for tup in header]
@@ -190,14 +192,18 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 						signal = ready_to_write[key][next_region]
 						included = signal.nonzero()[0]
 						positions = np.arange(next_region[1],next_region[2])		#start-end	(including end)
-						pos = positions[included]
-						val = signal[included]
+						pos = positions[included].tolist()
+						val = signal[included].tolist()
 
 						if len(pos) > 0:
 							try:
 								handles[key].addEntries(chrom, pos, values=val, span=1)
-							except:
-								logger.error("Error writing key: {0}, region: {1} to bigwig".format(key, next_region))
+							except Exception as e:
+								logger.error("Error writing key: {0}, region: {1} to bigwig. Exception was: '{2}'".format(key, next_region, e))
+								logger.debug("Chrom: {0}".format(chrom))
+								logger.debug("Positions: {0}".format(pos))
+								logger.debug("Values: {0}".format(val))
+								raise e
 						logger.spam("Wrote signal {0} from region {1}".format(key, next_region))
 
 						#Free up memory in dict
@@ -218,11 +224,12 @@ def bigwig_writer(q, key_file_dict, header, regions, args):
 						#writing_progress.write(progress)
 
 		except Exception as e:
-			logger.error('Problem in file_writer:')
-			print(e)
-			break
-
-	return(1)
+			logger.error("Problem in bigwig_writer. Exception was: '{0}'".format(e))
+			traceback.print_tb(e.__traceback__)
+			raise e
+			return(1) #Return with error
+			
+	return(0)	#everything went well
 
 
 def monitor_progress(task_list, logger, prefix="Progress"):

@@ -64,8 +64,8 @@ def run_maxpos(args):
 			chrom, start, end = columns[0], int(columns[1]), int(columns[2])
 
 			#Get signal from bigwig
-			signal = pybw.values(chrom, start, end, numpy=True)
-			signal = np.nan_to_num(signal)
+			region = OneRegion([chrom, start, end])
+			signal = region.get_signal(pybw, numpy_bool=True)
 			positions = minmax_func(signal)
 	
 			#output is list of index positions -> convert to bed

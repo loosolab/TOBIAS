@@ -175,7 +175,7 @@ def run_atacorrect(args):
 	# Process peaks
 	peak_regions = RegionList().from_bed(args.peaks)
 	peak_regions.merge()
-	peak_regions.apply_method(OneRegion.check_boundary, bam_chrom_info, "cut")
+	peak_regions.apply_method(OneRegion.check_boundary, bam_chrom_info, "cut")	#regions are cut/removed from list
 	nonpeak_regions = deepcopy(genome_regions).subtract(peak_regions)
 
 	# Process specific input regions if given
@@ -354,6 +354,7 @@ def run_atacorrect(args):
 	manager = mp.Manager()
 
 	#Start bigwig file writers
+	writer_tasks = []
 	header = [(chrom, bam_chrom_info[chrom]) for chrom in bam_references]
 	key_chunks = [list(key2file.keys())[i::writer_cores] for i in range(writer_cores)]
 	qs_list = []
@@ -365,7 +366,7 @@ def run_atacorrect(args):
 		qs_list.append(q)
 
 		files = [key2file[key] for key in chunk]
-		writer_pool.apply_async(bigwig_writer, args=(q, dict(zip(chunk, files)), header, output_regions, args))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
+		writer_tasks.append(writer_pool.apply_async(bigwig_writer, args=(q, dict(zip(chunk, files)), header, output_regions, args)))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
 		for key in chunk:
 			qs[key] = q
 
@@ -394,6 +395,10 @@ def run_atacorrect(args):
 	logger.debug("Stop all queues by inserting None")
 	for q in qs_list:
 		q.put((None, None, None))
+
+	#Fetch error codes from bigwig writers
+	logger.debug("Fetching possible errors from bigwig_writer tasks")
+	results = [task.get() for task in writer_tasks]	#blocks until writers are finished
 
 	logger.debug("Joining bigwig_writer queues")
 	

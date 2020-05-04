@@ -33,6 +33,7 @@ from matplotlib.ticker import NullFormatter
 
 #Bio-specific packages
 import pysam
+import pyBigWig as pybw
 
 #Internal functions and classes
 from tobias.parsers import add_bindetect_arguments
@@ -102,6 +103,7 @@ def run_bindetect(args):
 	pool = mp.Pool(processes=worker_cores)
 	writer_pool = mp.Pool(processes=writer_cores)
 
+
 	#-------------------------------------------------------------------------------------------------------------#
 	#-------------------------- Pre-processing data: Reading motifs, sequences, peaks ----------------------------#
 	#-------------------------------------------------------------------------------------------------------------#
@@ -146,8 +148,9 @@ def run_bindetect(args):
 	figure_pdf.savefig(bbox_inches='tight')
 	plt.close()
 
-	################# Peaks / GC in peaks ################
+	################# Read peaks ################
 	#Read peak and peak_header
+	logger.info("Reading peaks")
 	peaks = RegionList().from_bed(args.peaks)
 	logger.info("- Found {0} regions in input peaks".format(len(peaks)))
 	peaks = peaks.merge()	#merge overlapping peaks
@@ -157,13 +160,8 @@ def run_bindetect(args):
 		logger.error("Input --peaks file is empty!")
 		sys.exit()
 		
-	peak_chroms = peaks.get_chroms()
+	#Read header and check match with number of peak columns
 	peak_columns = len(peaks[0]) #number of columns
-
-	#if args.debug:
-	#	peaks = RegionList(peaks[:1000])
-
-	#Header
 	if args.peak_header != None:
 		content = open(args.peak_header, "r").read()
 		args.peak_header_list = content.split()
@@ -177,18 +175,28 @@ def run_bindetect(args):
 		args.peak_header_list = ["peak_chr", "peak_start", "peak_end"] + ["additional_" + str(num + 1) for num in range(peak_columns-3)]
 	logger.debug("Peak header list: {0}".format(args.peak_header_list))
 
-	##### GC content for motif scanning ######
+	################# Check for match between peaks and fasta/bigwig #################
+	logger.info("Checking for match between --peaks and --fasta/--signals boundaries")
+	logger.info("- Comparing peaks to {0}".format(args.genome))
 	fasta_obj = pysam.FastaFile(args.genome)
-	fasta_chroms = fasta_obj.references
+	fasta_boundaries = dict(zip(fasta_obj.references, fasta_obj.lengths))
+	fasta_obj.close()
+	logger.debug("Fasta boundaries: {0}".format(fasta_boundaries))
+	peaks = peaks.apply_method(OneRegion.check_boundary, fasta_boundaries, "exit")	#will exit if peaks are outside borders
 
-	if not set(peak_chroms).issubset(fasta_chroms):
-		logger.warning("Chromosome(s) found in peaks ({0}) are not found in input FASTA file ({1}). These peaks are skipped.".format(peak_chroms, fasta_chroms))
-		peaks.keep_chroms(fasta_chroms)	#peaks are changed in place
-	
+	#Check boundaries of each bigwig signal individually
+	for signal in args.signals:	
+		logger.info("- Comparing peaks to {0}".format(signal))
+		pybw_obj = pybw.open(signal)
+		pybw_header = pybw_obj.chroms()
+		pybw_obj.close()
+		logger.debug("Signal boundaries: {0}".format(pybw_header))
+		peaks = peaks.apply_method(OneRegion.check_boundary, pybw_header, "exit")
+
+	##### GC content for motif scanning ######
 	#Make chunks of regions for multiprocessing
+	logger.info("Estimating GC content from peak sequences")
 	peak_chunks = peaks.chunks(args.split)
-
-	logger.info("Estimating GC content from peak sequences") 
 	gc_content_pool = pool.starmap(get_gc_content, itertools.product(peak_chunks, [args.genome])) 
 	gc_content = np.mean(gc_content_pool)	#fraction
 	args.gc = gc_content
@@ -235,7 +243,6 @@ def run_bindetect(args):
 		make_directory(os.path.join(args.outdir, TF))
 		make_directory(os.path.join(args.outdir, TF, "beds"))
 		make_directory(os.path.join(args.outdir, TF, "plots"))
-
 
 	#-------------------------------------------------------------------------------------------------------------#	
 	#----------------------------------------- Plot logos for all motifs -----------------------------------------#
@@ -361,6 +368,10 @@ def run_bindetect(args):
 	bg_values = bg_values[np.logical_not(np.isclose(bg_values, 0.0))]	#only non-zero counts
 	x_max = np.percentile(bg_values, [99]) 
 	bg_values = bg_values[bg_values < x_max]
+
+	if len(bg_values) == 0:
+		logger.error("Error processing bigwig scores from background. It could be that there are no scores in the bigwig (=0) assigned for the peaks. Please check your input files.")
+		sys.exit()
 		
 	#Fit mixture of normals
 	lowest_bic = np.inf

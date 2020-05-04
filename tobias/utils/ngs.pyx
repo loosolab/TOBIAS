@@ -13,6 +13,7 @@ from collections import Counter
 
 import time
 import sys
+import traceback
 
 import numpy as np
 cimport numpy as np
@@ -151,9 +152,11 @@ class ReadList(list):
 			read_list = bam_obj.fetch(region.chrom, region.start, region.end)
 			self = ReadList([OneRead(read) for read in read_list if read.is_unmapped == False and read.is_duplicate == False])
 
-		except:
+		except Exception as e:
 			sys.exit("Error reading {0} from bam object".format(region))
-
+			traceback.print_tb(e.__traceback__)
+			raise e
+		
 		return(self)
 
 

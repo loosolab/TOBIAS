@@ -75,9 +75,6 @@ class AtacBias:
 		self = pickle.load(handle)
 		return(self)
 
-		
-
-
 #--------------------------------------------------------------------------------------------------#
 
 def count_reads(regions_list, params):

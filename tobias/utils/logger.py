@@ -153,14 +153,11 @@ class TobiasLogger(logging.Logger):
 					break
 				self.handle(record) 	#this logger is coming from the main process
 
-			except Exception:
-				import sys, traceback
-				print('Problem in main logger process:', file=sys.stderr)
-				traceback.print_exc(file=sys.stderr)
+			except EOFError:
+				self.error("Multiprocessing logger lost connection to queue - probably due to an error raised from a child process.")
 				break
 
 		return(1)
-
 
 	def arguments_overview(self, parser, args):
 		""" Creates string of arguments and options to print using logger """

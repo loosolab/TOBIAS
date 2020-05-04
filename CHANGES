@@ -1,3 +1,8 @@
+## 0.11.1 (2020-05-04)
+- Fixed error in parsing "patterns" for DownloadData
+- Fixed errors for reading/writing bigwigs when pybigwig.numpy == 0
+- Improved exceptions for bigwig/bam reading/writing
+
 ## 0.11.0 (2020-03-25)
 - Removed 'gimmemotifs' from requirements and included check in MotifClust (only tool needing gimmemotifs) instead. This is a temporary hack solving various install/conda issues.
 - Fixed smaller bug in bigwig writer for one-region output
