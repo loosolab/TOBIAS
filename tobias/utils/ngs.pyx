@@ -81,7 +81,7 @@ class OneRead():
 		self.query_alignment_end = read.query_alignment_end
 		self.template_length = read.template_length
 		self.is_reverse = read.is_reverse 
-		self.query_length = read.query_length
+		self.query_length = read.query_length if read.query_length > 0 else read.infer_query_length()	#infers query length from cigar if not set
 		self.flag = read.flag
 		self.cigartuples = read.cigartuples
 		self.tags = read.get_tags()
