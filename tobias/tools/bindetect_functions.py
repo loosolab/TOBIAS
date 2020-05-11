@@ -74,8 +74,11 @@ def dict_to_tab(dict_list, fname, chosen_columns, header=False):
 		out_str = ""
 	
 	#Add lines
-	out_str += "\n".join(["\t".join([str(line_dict[column]) for column in chosen_columns]) for line_dict in dict_list]) + "\n"
+	out_str += "\n".join(["\t".join([str(line_dict[column]) for column in chosen_columns]) for line_dict in dict_list])
 	
+	#Add \n if out_str contains lines
+	out_str += "\n" if len(out_str) > 0 else ""
+
 	#Write file
 	f = open(fname, "w")
 	f.write(out_str)
@@ -286,6 +289,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	etime = datetime.now()
 	logger.spam("{0} - Reading took:\t{1}".format(TF_name, etime - stime))
 	
+	if n_rows == 0:
+		logger.warning("No TFBS found for TF {0} - output .bed/.txt files will be empty and excel output will be skipped.".format(TF_name))
+
 
 	############################## Local effects ###############################
 	
@@ -326,12 +332,15 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	##### Write overview with scores, bound and log2fcs ####
 	overview_columns = header + [condition + "_bound" for condition in args.cond_names] + ["{0}_{1}_log2fc".format(cond1, cond2) for (cond1, cond2) in comparisons]
 	overview_txt = os.path.join(args.outdir, TF_name, TF_name + "_overview.txt")
-	dict_to_tab(bedlines, overview_txt, overview_columns, header=True)
+	dict_to_tab(bedlines, overview_txt, overview_columns, header=True)	#Write dictionary to table
 	
 	#Write xlsx overview
-	bed_table = pd.DataFrame(bedlines)
+	bed_table = pd.DataFrame(bedlines, columns=overview_columns)
+	nrow, ncol = bed_table.shape 
+	logger.spam("Read table of shape {0} for TF {1}".format((nrow, ncol), TF_name))
+
 	stime_excel = datetime.now()
-	if args.skip_excel == False:
+	if args.skip_excel == False and n_rows > 0:
 		try:
 			overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
 			writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter') #, options=dict(constant_memory=True))
@@ -344,9 +353,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			writer.save()
 
 		except Exception as e:
-			print("Error writing excelfile for TF {0}".format(TF_name))
-			print(e)
-			#sys.exit()
+			logger.error("Error writing excelfile for TF {0}. Exception was: {1}".format(TF_name, e))
 
 	etime_excel = datetime.now()
 	etime = datetime.now()
@@ -361,104 +368,105 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	info_columns.extend(["{0}_{1}".format(cond, metric) for (cond, metric) in itertools.product(args.cond_names, ["mean_score", "bound"])])
 	info_columns.extend(["{0}_{1}_{2}".format(comparison[0], comparison[1], metric) for (comparison, metric) in itertools.product(comparisons, ["change", "pvalue"])])
 	rows, cols = 1, len(info_columns)
-	info_table = pd.DataFrame(np.zeros((rows, cols)), columns=info_columns, index=[TF_name])
+	info_table = pd.DataFrame(np.nan, columns=info_columns, index=[TF_name])
 
 	#Fill in info table
 	info_table.at[TF_name, "total_tfbs"] = n_rows
 
 	for condition in args.cond_names:
-		info_table.at[TF_name, condition + "_mean_score"] = round(np.mean(bed_table[condition + "_score"]), 5)
+		info_table.at[TF_name, condition + "_mean_score"] = round(np.mean(bed_table[condition + "_score"]), 5) if n_rows > 0 else np.nan
 		info_table.at[TF_name, condition + "_bound"] = np.sum(bed_table[condition + "_bound"].values) #_bound contains bool 0/1
 		
 	#### Calculate statistical test for binding in comparison to background ####
 	fig_out = os.path.abspath(os.path.join(args.outdir, TF_name, "plots", TF_name + "_log2fcs.pdf"))
-	log2fc_pdf = PdfPages(fig_out, keep_empty=False) #do not write if there is only 1 condition 
+	log2fc_pdf = PdfPages(fig_out, keep_empty=False) #do not write if there is only 1 condition or if there are no sites
 
-	for i, (cond1, cond2) in enumerate(comparisons):
-		base = "{0}_{1}".format(cond1, cond2)
+	if n_rows > 0:	#log2fc only possible when more than one binding site was found
+		for i, (cond1, cond2) in enumerate(comparisons):
+			base = "{0}_{1}".format(cond1, cond2)
 
-		# Compare log2fcs to background log2fcs
-		included = np.logical_or(bed_table[cond1 + "_score"].values > 0, bed_table[cond2 + "_score"].values > 0)
-		subset = bed_table[included].copy() 		#included subset 
-		subset.loc[:,"peak_id"] = ["_".join([chrom, str(start), str(end)]) for (chrom, start, end) in zip(subset["peak_chr"].values, subset["peak_start"].values, subset["peak_end"].values)]	
-		
-		observed_log2fcs = subset.groupby('peak_id')[base + '_log2fc'].mean().reset_index()[base + "_log2fc"].values		#if more than one TFBS per peak -> take mean value
+			# Compare log2fcs to background log2fcs
+			included = np.logical_or(bed_table[cond1 + "_score"].values > 0, bed_table[cond2 + "_score"].values > 0)
+			subset = bed_table[included].copy() 		#included subset 
+			subset.loc[:,"peak_id"] = ["_".join([chrom, str(start), str(end)]) for (chrom, start, end) in zip(subset["peak_chr"].values, subset["peak_start"].values, subset["peak_end"].values)]	
+			
+			observed_log2fcs = subset.groupby('peak_id')[base + '_log2fc'].mean().reset_index()[base + "_log2fc"].values		#if more than one TFBS per peak -> take mean value
 
-		#Estimate mean/std
-		bg_params = log2fc_params[(cond1, cond2)]
-		obs_params = scipy.stats.norm.fit(observed_log2fcs)
+			#Estimate mean/std
+			bg_params = log2fc_params[(cond1, cond2)]
+			obs_params = scipy.stats.norm.fit(observed_log2fcs)
 
-		obs_mean, obs_std = obs_params
-		bg_mean, bg_std = bg_params
-		obs_no = np.min([len(observed_log2fcs), 50000])		#Set cap on obs_no to prevent super small p-values
-		n_obs = len(observed_log2fcs)
+			obs_mean, obs_std = obs_params
+			bg_mean, bg_std = bg_params
+			obs_no = np.min([len(observed_log2fcs), 50000])		#Set cap on obs_no to prevent super small p-values
+			n_obs = len(observed_log2fcs)
 
-		#If there was any change found at all (0 can happen if two bigwigs are the same)
-		if obs_mean != bg_mean: 
-			info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / np.mean([obs_std, bg_std])  #effect size
-			info_table.at[TF_name, base + "_change"] = np.round(info_table.at[TF_name, base + "_change"], 5)
-		
-			#pval = scipy.stats.mannwhitneyu(observed_log2fcs, bg_log2fcs, alternative="two-sided")[1]
-			#pval = scipy.stats.ttest_ind_from_stats(obs_mean, obs_std, obs_no, bg_mean, bg_std, obs_no, equal_var=False)[1] 	#pvalue is second in tup
-			#info_table.at[TF_name, base + "_pvalue"] = pval
-		
-		#Else not possible to compare groups
-		else:
-			info_table.at[TF_name, base + "_change"] = 0
-			info_table.at[TF_name, base + "_pvalue"] = 1
+			#If there was any change found at all (0 can happen if two bigwigs are the same)
+			if obs_mean != bg_mean: 
+				info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / np.mean([obs_std, bg_std])  #effect size
+				info_table.at[TF_name, base + "_change"] = np.round(info_table.at[TF_name, base + "_change"], 5)
+			
+				#pval = scipy.stats.mannwhitneyu(observed_log2fcs, bg_log2fcs, alternative="two-sided")[1]
+				#pval = scipy.stats.ttest_ind_from_stats(obs_mean, obs_std, obs_no, bg_mean, bg_std, obs_no, equal_var=False)[1] 	#pvalue is second in tup
+				#info_table.at[TF_name, base + "_pvalue"] = pval
+			
+			#Else not possible to compare groups
+			else:
+				info_table.at[TF_name, base + "_change"] = 0
+				info_table.at[TF_name, base + "_pvalue"] = 1
 
-		#Sample from background distribution
-		np.random.seed(n_obs)
-		sample_changes = []
-		for i in range(100):
-			sample = scipy.stats.norm.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
-			sample_mean, sample_std = np.mean(sample), np.std(sample)
-			sample_change = (sample_mean - bg_mean) / np.mean([sample_std, bg_std])
-			sample_changes.append(sample_change)
+			#Sample from background distribution
+			np.random.seed(n_obs)
+			sample_changes = []
+			for i in range(100):
+				sample = scipy.stats.norm.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
+				sample_mean, sample_std = np.mean(sample), np.std(sample)
+				sample_change = (sample_mean - bg_mean) / np.mean([sample_std, bg_std])
+				sample_changes.append(sample_change)
 
-		#Write out differential scores
-		if args.debug:
-			f = open(os.path.join(args.outdir, TF_name, "sampled_differential_scores.txt"), "w")
-			f.write("\n".join([str(val) for val in sample_changes]))
-			f.close()
+			#Write out differential scores
+			if args.debug:
+				f = open(os.path.join(args.outdir, TF_name, "sampled_differential_scores.txt"), "w")
+				f.write("\n".join([str(val) for val in sample_changes]))
+				f.close()
 
-		#Estimate p-value by comparing sampling to observed mean
-		ttest = scipy.stats.ttest_1samp(sample_changes, info_table.at[TF_name, base + "_change"])
-		info_table.at[TF_name, base + "_pvalue"] = ttest[1]
-		
-		#### Plot comparison ###
-		fig, ax = plt.subplots(1,1)
-		ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
-		xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
-		
-		#Observed distribution
-		pdf = scipy.stats.norm.pdf(xvals, *obs_params)
-		ax.plot(xvals, pdf, label="Observed distribution (fit)", color="red", linestyle="--")
-		ax.axvline(obs_mean, color="red", label="Observed mean")
-		
-		#Background distribution
-		pdf = scipy.stats.norm.pdf(xvals, *bg_params)
-		ax.plot(xvals, pdf, label="Background distribution (fit)", color="Black", linestyle="--")
-		ax.axvline(bg_mean, color="black", label="Background mean")
+			#Estimate p-value by comparing sampling to observed mean
+			ttest = scipy.stats.ttest_1samp(sample_changes, info_table.at[TF_name, base + "_change"])
+			info_table.at[TF_name, base + "_pvalue"] = ttest[1]
+			
+			#### Plot comparison ###
+			fig, ax = plt.subplots(1,1)
+			ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
+			xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
+			
+			#Observed distribution
+			pdf = scipy.stats.norm.pdf(xvals, *obs_params)
+			ax.plot(xvals, pdf, label="Observed distribution (fit)", color="red", linestyle="--")
+			ax.axvline(obs_mean, color="red", label="Observed mean")
+			
+			#Background distribution
+			pdf = scipy.stats.norm.pdf(xvals, *bg_params)
+			ax.plot(xvals, pdf, label="Background distribution (fit)", color="Black", linestyle="--")
+			ax.axvline(bg_mean, color="black", label="Background mean")
 
-		#Set size
-		x0,x1 = ax.get_xlim()
-		y0,y1 = ax.get_ylim()
-		ax.set_aspect(((x1-x0)/(y1-y0)) / 1.5)
+			#Set size
+			x0,x1 = ax.get_xlim()
+			y0,y1 = ax.get_ylim()
+			ax.set_aspect(((x1-x0)/(y1-y0)) / 1.5)
 
-		#Decorate
-		ax.legend()
-		plt.xlabel("Log2 fold change", fontsize=8)
-		plt.ylabel("Density", fontsize=8)
-		plt.title("Differential binding for TF \"{0}\"\nbetween ({1} / {2})".format(TF_name, cond1, cond2), fontsize=10)
-		ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-		
-		plt.tight_layout()
-		log2fc_pdf.savefig(fig, bbox_inches='tight')
-		plt.close(fig)
+			#Decorate
+			ax.legend()
+			plt.xlabel("Log2 fold change", fontsize=8)
+			plt.ylabel("Density", fontsize=8)
+			plt.title("Differential binding for TF \"{0}\"\nbetween ({1} / {2})".format(TF_name, cond1, cond2), fontsize=10)
+			ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+			
+			plt.tight_layout()
+			log2fc_pdf.savefig(fig, bbox_inches='tight')
+			plt.close(fig)
 
-		#etime_plot = datetime.now()
-		#logger.debug("{0} - Plotting took:\t{1}".format(TF_name, etime_plot - stime_plot))
+			#etime_plot = datetime.now()
+			#logger.debug("{0} - Plotting took:\t{1}".format(TF_name, etime_plot - stime_plot))
 
 	log2fc_pdf.close()	
 	
