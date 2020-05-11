@@ -660,8 +660,8 @@ class RegionCluster:
 					tot_id1 = self.overlaps[id1]
 					tot_id2 = self.overlaps[id2]
 
-					id1_dist = 1 - tot_overlap / float(tot_id1)
-					id2_dist = 1 - tot_overlap / float(tot_id2)
+					id1_dist = 1 - tot_overlap / float(tot_id1) if tot_id1 > 0 else 1 
+					id2_dist = 1 - tot_overlap / float(tot_id2) if tot_id2 > 0 else 1
 
 					dist = min([id1_dist, id2_dist])
 					distance_mat[i,j] = dist

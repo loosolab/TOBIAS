@@ -338,8 +338,27 @@ def run_bindetect(args):
 	TF_overlaps = merge_dicts([result[1] for result in results])
 	results = None
 
+	#Add missing TF overlaps (if some TFs had zero sites)
+	for TF1 in plus_motifs:
+		if TF1.prefix not in TF_overlaps:
+			TF_overlaps[TF1.prefix] = 0
+		for TF2 in plus_motifs:
+			tup = (TF1.prefix, TF2.prefix)
+			if tup not in TF_overlaps:
+				TF_overlaps[tup] = 0
+
+	#Collect sampled background values
 	for bigwig in args.cond_names:
 		background["signal"][bigwig] = np.array(background["signal"][bigwig])
+	
+	#Check how many values were fetched from background
+	n_bg_values = len(background["signal"][args.cond_names[0]])
+	logger.debug("Collected {0} values from background".format(n_bg_values))
+	if n_bg_values < 1000:
+		err_str = "Number of background values collected from peaks is low (={0}) ".format(n_bg_values)
+		err_str += "- this affects estimation of the bound/unbound threshold and the normalization between conditions. "
+		err_str += "To improve this estimation, please run BINDetect with --peaks = the full peak set across all conditions."
+		logger.warning(err_str) 
 
 	logger.comment("")
 	logger.info("Estimating score distribution per condition")
@@ -570,8 +589,7 @@ def run_bindetect(args):
 	info_table.insert(1, "name", names)
 	info_table.insert(2, "motif_id", ids)
 
-	#relative_logo_filenames = 
-	info_table.insert(3, "motif_logo", [os.path.join("motif_logos", os.path.basename(logo_filenames[prefix])) for prefix in info_table["output_prefix"]])	#add relative path to logo
+	#info_table.insert(3, "motif_logo", [os.path.join("motif_logos", os.path.basename(logo_filenames[prefix])) for prefix in info_table["output_prefix"]])	#add relative path to logo
 	
 	#Add cluster to info_table
 	cluster_names = []
@@ -579,10 +597,11 @@ def run_bindetect(args):
 		for cluster in clustering.clusters:
 			if name in clustering.clusters[cluster]["member_names"]:
 				cluster_names.append(clustering.clusters[cluster]["cluster_name"])
+				
 	info_table.insert(3, "cluster", cluster_names)
 	
 	#Cluster table on motif clusters
-	info_table_clustered = info_table.groupby("cluster").mean() #mean of each column
+	info_table_clustered = info_table.groupby("cluster").mean() 	#mean of each column
 	info_table_clustered.reset_index(inplace=True)
 
 	#Map correct type
@@ -609,8 +628,8 @@ def run_bindetect(args):
 	for (cond1, cond2) in comparisons:
 		base = cond1 + "_" + cond2
 		info_table[base + "_change"] = info_table[base + "_change"].round(5)
-		info_table[base + "_pvalue"] = info_table[base + "_pvalue"].map("{:.5E}".format)
-	
+		info_table[base + "_pvalue"] = info_table[base + "_pvalue"].map("{:.5E}".format, na_action="ignore")
+
 	#Write bindetect results tables
 	#info_table.insert(0, "TF_name", info_table.index)	 #Set index as first column
 	bindetect_out = os.path.join(args.outdir, args.prefix + "_results.txt")
@@ -623,6 +642,12 @@ def run_bindetect(args):
 
 	if no_conditions > 1:
 		logger.info("Creating BINDetect plot(s)")
+
+		#Fill NAs from info_table to enable plotting of log2fcs (NA -> 0 change)
+		change_cols = [col for col in info_table.columns if "_change" in col]
+		pvalue_cols = [col for col in info_table.columns if "_pvalue" in col]
+		info_table[change_cols] = info_table[change_cols].fillna(0)
+		info_table[pvalue_cols] = info_table[pvalue_cols].fillna(1)
 
 		#Plotting bindetect per comparison
 		for (cond1, cond2) in comparisons:

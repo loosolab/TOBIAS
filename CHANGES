@@ -1,3 +1,7 @@
+## 0.11.2 (2020-05-11)
+- Fixed bug when running BINDetect with very few peaks (no TFBS for many TF) and added warnings for this case
+- Enabled running ATACorrect with bedToBam input - thanks to Surag Nair for 'read.infer_query_length()' fix!
+
 ## 0.11.1 (2020-05-04)
 - Fixed error in parsing "patterns" for DownloadData
 - Fixed errors for reading/writing bigwigs when pybigwig.numpy == 0
