@@ -43,9 +43,9 @@ warnings.simplefilter("error", OptimizeWarning)
 class AtacBias:
 	""" Class for storing information about estimated bias """
 
-	def __init__(self, L, stype):
+	def __init__(self, L=10, stype="DWM"):
 
-		self.stype = stype
+		self.stype = stype	#type of score matrix
 		self.bias = {"forward": SequenceMatrix.create(L, self.stype),
 					 "reverse": SequenceMatrix.create(L, self.stype),
 					 "both": SequenceMatrix.create(L, self.stype)}
