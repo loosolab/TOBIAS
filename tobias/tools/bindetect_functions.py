@@ -91,7 +91,7 @@ def quantile_normalization(list_of_arrays): #lists paired values to normalize
 
 	#Calculate 
 	quantiles = np.linspace(0.2,0.999,500)
-	array_quantiles = [np.quantile(arr[arr > 0], quantiles) for arr in list_of_arrays]
+	array_quantiles = [np.quantile([0] if sum(arr > 0) == 0 else arr[arr > 0], quantiles) for arr in list_of_arrays]
 	mean_array_quantiles = [np.mean([array_quantiles[i][j] for i in range(n)]) for j in range(len(quantiles))]
 
 	norm_objects = []
@@ -109,17 +109,21 @@ def quantile_normalization(list_of_arrays): #lists paired values to normalize
 		#Plot normalizyation factors
 		#f, ax = plt.subplots()
 		xdata = array_quantiles[i]
-		ydata = mean_array_quantiles/xdata
+		ydata = mean_array_quantiles/xdata	#gives NA if xdata is 0
 		#plt.scatter(xdata, ydata)
 		#plt.close()
 
-		popt, pcov = curve_fit(sigmoid, xdata, ydata, bounds=((0,-np.inf, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+		#If any values > 0 were found:
+		if np.max(xdata) > 0:
+			popt, pcov = curve_fit(sigmoid, xdata, ydata, bounds=((0,-np.inf, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
+		else:
+			popt = [1,1,0,0]	#returns y=0
+
 		norm_objects.append(ArrayNorm(popt))
 
-		y_est = sigmoid(xdata, *popt)
-		plt.plot(xdata, y_est)
-
-		plt.close()
+		#y_est = sigmoid(xdata, *popt)
+		#plt.plot(xdata, y_est)
+		#plt.close()
 
 	#Normalize each array using means per rank
 	normed = []
@@ -495,7 +499,7 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	warnings.filterwarnings("ignore")
 
 	cond1, cond2 = conditions
-	no_IDS = cluster_obj.n
+	n_IDS = cluster_obj.n
 
 	#Link information from motifs / clusters
 	diff_scores = {}
@@ -545,8 +549,8 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 
 	#Make figure
 	no_rows, no_cols = 2,2	
-	h_ratios = [1,max(1,no_IDS/25)]
-	figsize = (8,10+7*(no_IDS/25))
+	h_ratios = [1,max(1,n_IDS/25)]
+	figsize = (8,10+7*(n_IDS/25))
 	
 	fig = plt.figure(figsize = figsize)
 	gs = gridspec.GridSpec(no_rows, no_cols, height_ratios=h_ratios)
@@ -579,18 +583,24 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	ax1.set_ylabel("-log10(pvalue)")
 
 	########### Dendrogram over similarities of TFs #######
+
+	#Only plot dendrogram if there was more than one TF
+	if n_IDS > 1:
+		dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=IDS, no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
+		labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
+
+		ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
+
+		ax3.set_ylabel("Transcription factor clustering based on TFBS overlap", rotation=270, labelpad=20)
+		ax3.yaxis.set_label_position("right")
+	else:
+		labels = IDS
+		ax3.axis('off')
 	
-	dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=IDS, no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
-	labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
-	ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
-
-	ax3.set_ylabel("Transcription factor clustering based on TFBS overlap", rotation=270, labelpad=20)
-	ax3.yaxis.set_label_position("right")
-
 	#Set aspect of dendrogram/changes
 	x0,x1 = ax3.get_xlim()
 	y0,y1 = ax3.get_ylim()
-	ax3.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)		
+	ax3.set_aspect(((x1-x0)/(y1-y0)) * n_IDS/10)
 
 	########## Differential binding scores per TF ##########
 	ax2.set_xlabel("Differential binding score\n" + "(" + cond2 + r' $\leftarrow$' + r'$\rightarrow$ ' + cond1 + ")") #First position in comparison equals numerator in log2fc division
@@ -629,7 +639,7 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	#set aspect
 	x0,x1 = ax2.get_xlim()
 	y0,y1 = ax2.get_ylim()
-	ax2.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)		#square volcano plot
+	ax2.set_aspect(((x1-x0)/(y1-y0)) * n_IDS/10)		#square volcano plot
 
 	plt.tight_layout()    #tight layout before setting ids in volcano plot
 

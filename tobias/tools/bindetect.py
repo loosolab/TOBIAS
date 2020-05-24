@@ -216,8 +216,7 @@ def run_bindetect(args):
 	motif_list.bg = bg
 
 	logger.debug("Getting reverse motifs")
-	motif_list.extend([motif.get_reverse() for motif in motif_list])
-	logger.spam(motif_list)
+	motif_list.extend([motif.get_reverse() for motif in motif_list])	
 
 	#Set prefixes
 	for motif in motif_list:	#now with reverse motifs as well
@@ -232,6 +231,8 @@ def run_bindetect(args):
 	#Get threshold for motifs
 	logger.debug("Getting match threshold per motif")
 	outlist = pool.starmap(OneMotif.get_threshold, itertools.product(motif_list, [args.motif_pvalue])) 
+
+	logger.spam(motif_list)
 
 	motif_list = MotifList(outlist)	
 	for motif in motif_list:
@@ -385,12 +386,12 @@ def run_bindetect(args):
 	#Prepare scores (remove 0's etc.)
 	bg_values = np.array(normed).flatten()
 	bg_values = bg_values[np.logical_not(np.isclose(bg_values, 0.0))]	#only non-zero counts
+	if len(bg_values) == 0:
+		logger.error("Error processing bigwig scores from background. It could be that there are no scores in the bigwig (= all scores are 0) assigned for the peaks. Please check your input files.")
+		sys.exit()
+
 	x_max = np.percentile(bg_values, [99]) 
 	bg_values = bg_values[bg_values < x_max]
-
-	if len(bg_values) == 0:
-		logger.error("Error processing bigwig scores from background. It could be that there are no scores in the bigwig (=0) assigned for the peaks. Please check your input files.")
-		sys.exit()
 		
 	#Fit mixture of normals
 	lowest_bic = np.inf
