@@ -86,7 +86,7 @@ class MotifList(list):
 
 		super(MotifList, self).__init__(iter(lst))
 
-		self.bg = np.array([0.25,0.25,0.25,0.25])
+		self.bg = np.array([0.25,0.25,0.25,0.25])	#(A,C,G,T). Default is equal background if not overwritten by MEME 
 
 		#Set by setup moods scanner
 		self.names = []
@@ -118,6 +118,9 @@ class MotifList(list):
 		#Read motifs
 		if file_format == "meme":
 			
+			proba_flag = 0  #read letter-probabilities
+			bg_flag = 0 	#read background letter frequencies
+
 			lines = content.split("\n")
 			for line in lines:
 				columns = line.strip().split()
@@ -136,20 +139,39 @@ class MotifList(list):
 
 					self[-1].id = motif_id
 					self[-1].name = name
-				
+
+				elif line.startswith("Background letter frequencies"):
+					bg_flag = 1	#next line is frequencies
 				else:
+					if bg_flag == 1:
+						
+						nuc_split = re.split("(?<!\D)\s+", line.rstrip())	#Split on any space not preceeded by any letter
+						nuc_dict = {s.split()[0]: float(s.split()[1]) for s in nuc_split}
+
+						self.bg = np.array([nuc_dict[nuc] for nuc in ["A","C","G","T"]])
+						bg_flag = 0	#done reading background
+
 					if len(self) > 0: #if there was already one motif header found
-					
+						
 						#If line contains counts
-						if re.match(r"^[\s]*([\d\.\s]+)$", line):	#starts with any number of spaces (or none) followed by numbers
+						if re.match(r"^[\s]*([\d\.\s]+)$", line) and proba_flag == 1:	#starts with any number of spaces (or none) followed by numbers
 							for i, col in enumerate(columns):
 								self[-1].counts[i].append(num(col))
-						elif re.match("^letter-probability", line):
-							#example: "letter-probability matrix: alength= 4 w= 6 nsites= 24 E= 0"
+						elif re.match("^letter-probability matrix:", line): #example: "letter-probability matrix: alength= 4 w= 6 nsites= 24 E= 0"
 
-							m = re.search(r"nsites= ([0-9]+)", line)
-							if m is not None:
-								self[-1].n = int(m.group(1))
+							#Get information from 'letter-probability matrix'-header
+							key_value_string = re.sub("letter-probability matrix:\s+", "", line.rstrip())
+							key_value_split = re.split("(?<!=)\s+", key_value_string)	#Split on any space not preceeded by =
+							key_value_lists = [re.split("=\s*", pair) for pair in key_value_split]
+							key_value_dict = {pair[0]: pair[1] for pair in key_value_lists}
+							self[-1].info.update(key_value_dict) 	#Add meme-read information to info-dict
+
+							if "nsites" in self[-1].info:
+								self[-1].n = int(self[-1].info["nsites"])
+
+							proba_flag = 1
+						else:
+							proba_flag = 0	#No longer a match to counts or header; done reading probabilities
 
 			#Multiply all counts with number of sequences
 			for motif in self:
@@ -191,6 +213,7 @@ class MotifList(list):
 		for i, motif in enumerate(self):
 			self[i].n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
 			self[i].length = len(motif.counts[0])
+			self[i].bg = self.bg 	#global background for each motif
 
 		return(self)
 
@@ -250,20 +273,22 @@ class MotifList(list):
 		elif output_format == "meme":
 			
 			meme_header = "MEME version 4\n\n"
-			meme_header += "ALPHABET=ACGT\n\n"
+			meme_header += "ALPHABET= ACGT\n\n"
 			meme_header += "strands: + -\n\n"
-			meme_header += "Background letter frequencies\nA 0.25 C 0.25 G 0.25 T 0.25\n\n"
+			meme_header += "Background letter frequencies\n"
+			meme_header += " ".join(["{0} {1}".format(bases[i], self.bg[i]) for i in range(4)]) + "\n\n"
 			out_string += meme_header
 
 			for motif in self:
-				out_string += "MOTIF\t{0}\t{1}\n".format(motif.id, motif.name)
-				out_string += "letter-probability matrix: alength=4 w={0} nsites={1} E=0\n".format(motif.length, motif.n)
+				out_string += "MOTIF {0} {1}\n".format(motif.id, motif.name)
+				out_string += "letter-probability matrix: "
+				out_string += " ".join("{0}= {1}".format(key, value) for key, value in motif.info.items()) + "\n"
 
 				for i in range(motif.length):
 					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
 					n_sites = round(sum(row), 0)
-					row_freq = ["{0:.5f}".format(num/n_sites) for num in row] 
-					out_string += "  ".join(row_freq) + "\n"
+					row_freq = ["{0:.6f}".format(num/n_sites) for num in row] 
+					out_string += " " + "  ".join(row_freq) + "\n"
 				
 				out_string += "\n"
 
@@ -642,6 +667,8 @@ class OneMotif:
 		self.counts = counts if counts != None else [[] for _ in range(4)] 	#counts, list of 4 lists (A,C,G,T) (each as long as motif)
 		self.strand = "+"		#default strand is +
 		self.length = len(counts[0]) if counts != None else None	#length of motif
+		self.info = {}		#dictionary containing additional key:value information about each motif (from meme)
+		self.n = 20 		#Number of sequences in motif; default is 20 if not overwritten by input
 
 		#Set later
 		self.pfm = None
@@ -814,7 +841,7 @@ def get_motif_format(content):
 	""" Get motif format from string of content """
 	
 	#Estimate input format
-	if re.match(r"MEME version.+", content, re.DOTALL) is not None: # MOTIF\s.+letter-probability matrix.+[\d\.\s]+", content, re.MULTILINE) is not None:
+	if re.match(r".*MEME version.+", content, re.DOTALL) is not None: # MOTIF\s.+letter-probability matrix.+[\d\.\s]+", content, re.MULTILINE) is not None:
 		motif_format = "meme"
 
 	elif re.match(r">.+A.+\[", content, re.DOTALL) is not None:
