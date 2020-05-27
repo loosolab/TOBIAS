@@ -145,7 +145,7 @@ class MotifList(list):
 				else:
 					if bg_flag == 1:
 						
-						nuc_split = re.split("(?<!\D)\s+", line.rstrip())	#Split on any space not preceeded by any letter
+						nuc_split = re.split("(?<!\D)\s+", line.lstrip().rstrip())	#Split on any space not preceeded by any letter
 						nuc_dict = {s.split()[0]: float(s.split()[1]) for s in nuc_split}
 
 						self.bg = np.array([nuc_dict[nuc] for nuc in ["A","C","G","T"]])
