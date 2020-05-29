@@ -33,6 +33,7 @@ import json
 #Bio-specific packages
 import pyBigWig
 import pysam
+from pybedtools import BedTool
 #import MOODS.scan
 #import MOODS.tools
 #import MOODS.parsers
@@ -281,8 +282,17 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	#Pre-scanned sites to read
 	bed_outdir = os.path.join(args.outdir, TF_name, "beds")
 	filename = os.path.join(bed_outdir, TF_name + ".tmp")
+	tmp_files = [filename]
 	no_cond = len(args.cond_names)
 	comparisons = args.comparisons
+
+	#Subset analysis to args.output_peaks if these were given
+	if args.output_peaks is not None:
+		output_peaks_bt = BedTool(args.output_peaks)
+		sites_bt = BedTool(filename)
+		intersection = sites_bt.intersect(output_peaks_bt, u=True)
+		filename = intersection.fn	#Overwrite filename with the path to the bedtools object
+		tmp_files.append(intersection.fn)
 
 	#Read file to list of dicts
 	stime = datetime.now()
@@ -410,10 +420,6 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 				info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / np.mean([obs_std, bg_std])  #effect size
 				info_table.at[TF_name, base + "_change"] = np.round(info_table.at[TF_name, base + "_change"], 5)
 			
-				#pval = scipy.stats.mannwhitneyu(observed_log2fcs, bg_log2fcs, alternative="two-sided")[1]
-				#pval = scipy.stats.ttest_ind_from_stats(obs_mean, obs_std, obs_no, bg_mean, bg_std, obs_no, equal_var=False)[1] 	#pvalue is second in tup
-				#info_table.at[TF_name, base + "_pvalue"] = pval
-			
 			#Else not possible to compare groups
 			else:
 				info_table.at[TF_name, base + "_change"] = 0
@@ -478,10 +484,12 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	logger.spam("{0} - Global effects took:\t{1}".format(TF_name, etime - stime))
 
 	#################### Remove temporary file ######################
-	try:
-		os.remove(filename)
-	except:
-		logger.error("Could not remove temporary file {0} - this does not effect the results of BINDetect.".format(filename) )
+
+	for filename in tmp_files:
+		try:
+			os.remove(filename)
+		except:
+			logger.error("Could not remove temporary file {0} - this does not effect the results of BINDetect.".format(filename) )
 
 	return(info_table)
 

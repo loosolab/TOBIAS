@@ -1,5 +1,6 @@
 ## 0.11.3-b 
-- Internal changes to OneMotif/MotifList classes to support reading more info from meme files 
+- Internal changes to OneMotif/MotifList classes to support reading more info from meme files
+- Added '--output-peaks' to BINDetect to enable output of a subset of '--peak' regions
 
 ## 0.11.2 (2020-05-11)
 - Fixed bug when running BINDetect with very few peaks (no TFBS for many TF) and added warnings for this case
