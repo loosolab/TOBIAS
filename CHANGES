@@ -1,3 +1,6 @@
+## 0.11.3 (2020-06-02)
+- Fixed bug of undefined exit statement
+
 ## 0.11.2 (2020-05-11)
 - Fixed bug when running BINDetect with very few peaks (no TFBS for many TF) and added warnings for this case
 - Enabled running ATACorrect with bedToBam input - thanks to Surag Nair for 'read.infer_query_length()' fix!
