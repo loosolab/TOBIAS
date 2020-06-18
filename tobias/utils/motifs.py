@@ -668,12 +668,17 @@ class OneMotif:
 		self.strand = "+"		#default strand is +
 		self.length = len(counts[0]) if counts != None else None	#length of motif
 		self.info = {}		#dictionary containing additional key:value information about each motif (from meme)
-		self.n = 20 		#Number of sequences in motif; default is 20 if not overwritten by input
+
+		#Number of sequences in motif; default is 20 if not overwritten by input
+		if counts != None:
+			self.n = np.sum(row[0] for row in self.counts)
+		else:
+			self.n = 20
 
 		#Set later
-		self.pfm = None
+		self.pfm = None								#position frequency matrix, i.e. counts / sum of counts per position
 		self.bg = np.array([0.25,0.25,0.25,0.25]) 	#background set to equal by default
-		self.pssm = None 							#pssm calculated from get_pssm
+		self.pssm = None 							#The log-odds scoring matrix (pssm) calculated from get_pssm.
 		self.threshold = None 						#threshold calculated from get_threshold
 		self.gimme_obj = None						#gimmemotif obj
 
@@ -699,14 +704,17 @@ class OneMotif:
 		return(self)
 
 	def get_pfm(self):
-		""" Set self.pfm from self.counts """
+		""" Set the position frequency matrix (self.pfm) from self.count. The frecquency matrix is set as the relative frequency.
+			This matrix is also sometimes called the PPM or probability matrix.
+		"""
 
 		self.pfm = self.counts / np.sum(self.counts, axis=0)
 		return(self)
 
 	def get_gimmemotif(self):
 		""" Get gimmemotif object for motif 
-			Reads counts from self.counts """
+			Reads counts from self.counts 
+		"""
 
 		from gimmemotifs.motif import Motif
 
@@ -742,41 +750,48 @@ class OneMotif:
 		return(reverse_motif)	#OneMotif object
 
 	def get_pssm(self, ps=0.01):
-		""" Calculate pssm from pfm """
+		""" Calculate pssm from pfm. ps is a pseudocount. Note: PSSM is sometimes called PWM in literature"""
 
 		if self.pfm is None:
 			self.get_pfm()
 
 		bg_col = self.bg.reshape((-1,1))
-		pseudo_vector = ps * bg_col
+		self.pssm = np.log(self.pfm + ps) - np.log(bg_col)	#pfm/bg - assumes that self.pfm is calculated from get_pfm()
 
-		pssm = np.log(np.true_divide(self.pfm + pseudo_vector, np.sum(self.pfm + pseudo_vector, axis=0))) - np.log(bg_col)
-		pssm = tuple([tuple(row) for row in pssm])
-		self.pssm = pssm
 		return(self)
 
 	def get_threshold(self, pvalue):
 		""" Get threshold for moods scanning """
+
 		if self.pssm is None:
 			self.get_pssm()
 
-		self.threshold = MOODS.tools.threshold_from_p(self.pssm, self.bg, pvalue, 4)
+		pssm_tuple = tuple([tuple(row) for row in pssm])
+		self.threshold = MOODS.tools.threshold_from_p(pssm_tuple, self.bg, pvalue, 4)
 		return(self)
 
-	def calc_bit_score(self):
-		""" Bits for logo plots (?) """
+	def information_content(self, ps=0.01):
+		'''
+		Calculate the information content of the given motif.
+		The information content is calculated in bits and is saved in the .ic-variable
+		
+		Uses:
+		:ps: a pseudocount to add to the pfm
+		:self.pfm: Position probability matrix as dataframe where rows are positions and columns bases.
+		:self.bg: Background frequencies
+		'''
+
 		if self.pfm is None:
 			self.get_pfm()
+	
+		#Calculate information content
+		bg_col = self.bg.reshape((-1,1))
+		self.information = self.pfm * (np.log2(self.pfm + ps) - np.log2(bg_col + ps))
+		self.ic = np.sum(self.information)	#sum of all information content
+		
+		self.bits = self.pfm * np.sum(self.information, axis=0)	#bits is the pfm-fraction of information content per column
 
-		pfm_arr = np.copy(self.pfm)
-		pfm_arr[pfm_arr == 0] = np.nan
-
-		#Info content per pos
-		entro = pfm_arr * np.log2(pfm_arr)
-		entro[np.isnan(entro)] = 0
-		info_content = 2 - (- np.sum(entro, axis=0))		#information content per position in motif
-		self.ic = info_content
-		self.bits = self.pfm * info_content	
+		return(self)
 
 	def logo_to_file(self, filename):
 		""" Plots the motif to pdf/png/jpg file """
@@ -819,6 +834,7 @@ class OneMotif:
 
 		# transform matrix to information based values
 		info_df = logomaker.transform_matrix(df, from_type="counts", to_type="information")
+		self.info_df = info_df
 
 		# create Logo object
 		logo = logomaker.Logo(info_df, ax = ax)

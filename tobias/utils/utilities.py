@@ -250,7 +250,7 @@ def monitor_progress(task_list, logger, prefix="Progress"):
 	
 	logger.info("{0} done!".format(prefix))
 
-	return() 	#doesn't return until the while loop exits
+	return(0) 	#doesn't return until the while loop exits
 
 
 #-------------------------------------------------------------------------------------------#
