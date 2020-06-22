@@ -15,9 +15,6 @@ import numpy as np
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
-#import copy
-
 import itertools
 import scipy
 import sklearn
@@ -237,6 +234,27 @@ def run_aggregate(args):
 
 	signal_dict = None #free up space
 
+
+	#########################################################################################
+	############################## Write aggregates to file #################################
+	#########################################################################################
+
+	if args.output_txt is not None:
+
+		#Open file for writing
+		f_out = open(args.output_txt, "w")
+		f_out.write("### AGGREGATE\n")
+		f_out.write("# Signal\tRegions\tAggregate\n")
+		for row, signal_name in enumerate(signal_names):
+			for col, region_name in enumerate(region_names):
+				
+				agg = aggregate_dict[signal_name][region_name]
+				agg_txt = ",".join(["{:.4f}".format(val) for val in agg])
+
+				f_out.write("{0}\t{1}\t{2}\n".format(signal_name, region_name, agg_txt))
+
+		f_out.close()
+
 	#########################################################################################
 	################################## Footprint measures ###################################
 	#########################################################################################
@@ -278,13 +296,12 @@ def run_aggregate(args):
 
 	#Compare pairwise to calculate correlation of signals
 	logger.comment("")
-	logger.info("Calculating pairwise aggregate pearson correlation")
-	logger.info("CORRELATION (signal1,region1) VS (signal2,region2): PEARSONR")
+	logger.info("Calculating measures for comparing pairwise aggregates")
+	logger.info("CORRELATION (signal1,region1) VS (signal2,region2): PEARSONR\tSUM_DIFF")
 	plots = itertools.product(signal_names, region_names)
 	combis = itertools.combinations(plots, 2)
 
 	for ax1, ax2 in combis:
-
 		signal1, region1 = ax1
 		signal2, region2 = ax2
 		agg1 = aggregate_dict[signal1][region1]
@@ -292,7 +309,9 @@ def run_aggregate(args):
 
 		pearsonr, pval = scipy.stats.pearsonr(agg1, agg2)
 
-		logger.stats("CORRELATION ({0},{1}) VS ({2},{3}): {4:.5f}".format(signal1, region1, signal2, region2, pearsonr))
+		diff = np.sum(np.abs(agg1 - agg2))	#Sum of difference between agg1 and agg2
+
+		logger.stats("CORRELATION ({0},{1}) VS ({2},{3}): {4:.5f}\t{5:.5f}".format(signal1, region1, signal2, region2, pearsonr, diff))
 
 
 	#########################################################################################

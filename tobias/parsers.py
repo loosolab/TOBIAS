@@ -248,7 +248,8 @@ def add_aggregate_arguments(parser):
 	IO.add_argument('--regions', metavar="<bed>", nargs="*", help="Regions to overlap with TFBS (optional)", default=[])
 	IO.add_argument('--whitelist', metavar="<bed>", nargs="*", help="Only plot sites overlapping whitelist (optional)", default=[])
 	IO.add_argument('--blacklist', metavar="<bed>", nargs="*", help="Exclude sites overlapping blacklist (optional)", default=[])
-	IO.add_argument('--output', metavar="", help="Path to output (default: TOBIAS_aggregate.pdf)", default="TOBIAS_aggregate.pdf")
+	IO.add_argument('--output', metavar="", help="Path to output plot (default: TOBIAS_aggregate.pdf)", default="TOBIAS_aggregate.pdf")
+	IO.add_argument('--output-txt', metavar="", help="Path to output file for aggregates in .txt-format (default: None)")
 
 	PLOT = parser.add_argument_group('Plot arguments')
 	PLOT.add_argument('--title', metavar="", help="Title of plot (default: \"Aggregated signals\")", default="Aggregated signals")
