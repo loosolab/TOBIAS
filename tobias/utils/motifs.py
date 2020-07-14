@@ -661,9 +661,9 @@ class OneMotif:
 
 	id = "" # motif id
 	name = "" # motif name
-	bases = ["A", "C", "G", "T"]
+	bases = ["A", "C", "G", "T"] # alphabet order must correspont with counts matrix!
 	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
-	strand = "+"
+	strand = ["+", "-"]
 	n = 20 # number of sites used for motif
 	length = None # length of the motif
  
@@ -677,10 +677,11 @@ class OneMotif:
 	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid, counts, name=None):
+	def __init__(self, motifid, counts, name=None, strand=["+", "-"]):
 		
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
+		self.strand = strand
 
 		# sets counts, length and n
 		self.set_counts(counts)
@@ -740,6 +741,8 @@ class OneMotif:
 
 	def get_reverse(self):
 		""" Reverse complement motif """
+		# TODO doesn't work with strand var
+		# TODO missing count in reverse_motif
 		if self.pfm is None:
 			self.get_pfm()
 
@@ -749,6 +752,7 @@ class OneMotif:
 			setattr(reverse_motif, att, getattr(self, att))
 
 		reverse_motif.strand = "-" if self.strand == "+" else "+"
+		# TODO why even use MOODS?
 		reverse_motif.pfm = MOODS.tools.reverse_complement(self.pfm, 4)
 		return(reverse_motif)	#OneMotif object
 
@@ -806,7 +810,7 @@ class OneMotif:
 
 		if ext == "jpg" :
 			filename[-3:] = "png"
-			warnings.warn("The 'jpg' format is not supported for motif image. Type is set tp 'png'")
+			warnings.warn("The 'jpg' format is not supported for motif image. Type is set to 'png'")
 
 		#self.gimme_obj.to_img(filename)	
 		logo = self.create_logo()	#returns a logo object
@@ -877,6 +881,81 @@ class OneMotif:
 		self.length = lengths[0]
 		# update number of sites
 		self.n = np.sum([row[0] for row in counts])
+
+		return self
+
+	def as_string(self, output_format="pfm", header=True):
+		"""
+		Returns the OneMotif object as a string in the given output_format.
+  
+		Parameters:
+			output_format (string): Set the output format one of ["pfm", "jaspar", "meme"].
+
+			header (bool): Whether a header should be generated (meme only).
+   
+		Returns:
+			(string): String in the chosen file format.
+		"""
+		out_string = ""
+  
+		if output_format in ["pfm", "jaspar"]:
+			# create id line
+			out_string += f">{self.id}\t{self.name}\n"
+
+			# add counts
+			for index, base in enumerate(self.bases):
+				row = " ".join(map(str, self.counts[index]))
+
+				if output_format == "jaspar":
+					row = f"{base} [{row} ]\n"
+
+				out_string += row
+			
+		elif output_format == "meme":
+			# create meme header
+			if header:
+				# TODO implement for newer version
+				meme_header = "MEME version 4\n\n"
+				meme_header += "ALPHABET= {0}\n\n".format("".join(bases))
+				meme_header += "strands: {0}\n\n".format(" ".join(self.strand))
+				meme_header += "Background letter frequencies\n"
+				meme_header += " ".join([f"{self.bases[i]} {self.bg[i]}" for i in range(4)]) + "\n\n"
+
+				out_string += meme_header
+
+			# add id
+			out_string += f"MOTIF {self.id} {self.name}\n"
+			# add information
+			out_string += f"letter-probability matrix: alength= {len(self.bases)} w= {self.length} nsites= {self.n} E= 0" # omit e_value as it could be out of context
+			# add pfm
+			if self.pfm is None:
+				self.get_pfm()
+			for row in self.pfm.T:
+				out_string += " {0}".format("  ".join(row))
+
+		else:
+			raise ValueError("Format " + output_format + " is not supported")
+
+		return out_string
+
+	def to_file(self, output_file, fmt="pfm"):
+		"""
+		Save motif as a file.
+
+		Parameters:
+			output_file (string): Name of the output file.
+
+			fmt (string): Format of the output file. One of ["pfm", "jaspar", "meme"].
+
+		Returns:
+			self (OneMotif)
+		"""
+		# add file ext if needed
+		if not output_file.endswith(f".{fmt}"):
+			output_file += f".{fmt}"
+
+		with open(output_file, "w") as f:
+			f.write(self.as_string(output_format=fmt))
 
 		return self
 
