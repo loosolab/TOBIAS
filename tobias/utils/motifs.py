@@ -854,6 +854,32 @@ class OneMotif:
 
 		return logo
 
+	def set_counts(self, counts):
+		""" 
+		Set the count matrix. Also updates number of sites (n) and motif length (length).
+
+		Parameters:
+			counts (list): List of length 4. Contains lists of base counts for each position.
+
+		Returns:
+			self (OneMotif): OneMotif object with modified counts.
+  		"""
+    	# check counts input
+		if len(counts) != 4:
+			raise("Input counts must be of length 4. Received length {0}".format(len(counts)))
+		lengths = [len(base) for base in counts]
+		if len(set(lengths)) != 1:
+			raise("All lists in counts must be of same length.")
+
+		# add counts
+		self.counts = counts
+		# update motif length
+		self.length = lengths[0]
+		# update number of sites
+		self.n = np.sum([row[0] for row in counts])
+
+		return self
+
 ###########################################################
 
 def get_motif_format(content):
