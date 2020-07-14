@@ -659,31 +659,31 @@ def get_formation(formation, ncol, nrow, nmotifs):
 #Contains info on one motif formatted for use in moods
 class OneMotif:
 
+	id = "" # motif id
+	name = "" # motif name
 	bases = ["A", "C", "G", "T"]
+	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
+	strand = "+"
+	n = 20 # number of sites used for motif
+	length = None # length of the motif
+ 
+	threshold = None # mood threshold calculated in get_threshold()
+	gimme_obj = None # gimmemotif obj
+	info = {} # additional motif information used in meme format
+	prefix = "" # output prefix set in set_prefix()
+ 
+	# matrices
+	counts = None # base counts per position; list of 4 lists (A,C,G,T) (each as long as motif)
+	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
+	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid=None, name=None, counts=None):
+	def __init__(self, motifid, counts, name=None):
 		
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
 
-		self.prefix = "" 		#output prefix set in set_prefix
-		self.counts = counts if counts != None else [[] for _ in range(4)] 	#counts, list of 4 lists (A,C,G,T) (each as long as motif)
-		self.strand = "+"		#default strand is +
-		self.length = len(counts[0]) if counts != None else None	#length of motif
-		self.info = {}		#dictionary containing additional key:value information about each motif (from meme)
-
-		#Number of sequences in motif; default is 20 if not overwritten by input
-		if counts != None:
-			self.n = np.sum(row[0] for row in self.counts)
-		else:
-			self.n = 20
-
-		#Set later
-		self.pfm = None								#position frequency matrix, i.e. counts / sum of counts per position
-		self.bg = np.array([0.25,0.25,0.25,0.25]) 	#background set to equal by default
-		self.pssm = None 							#The log-odds scoring matrix (pssm) calculated from get_pssm.
-		self.threshold = None 						#threshold calculated from get_threshold
-		self.gimme_obj = None						#gimmemotif obj
+		# sets counts, length and n
+		self.set_counts(counts)
 
 	def __str__(self):
 		""" Format used for printing """
