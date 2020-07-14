@@ -496,12 +496,10 @@ class MotifList(list):
 def gimmemotif_to_onemotif(gimmemotif_obj):
 	""" Convert gimmemotif object to OneMotif object """
 
-	length = len(gimmemotif_obj.pwm)
+	# get count matrix
+	counts = np.array(gimmemotif_obj.pfm).T.tolist()
 
-	onemotif_obj = OneMotif(motifid=gimmemotif_obj.id)
-	for pos in range(length):
-		for base in range(4):
-			onemotif_obj.counts[base].append(gimmemotif_obj.pfm[pos][base])
+	onemotif_obj = OneMotif(motifid=gimmemotif_obj.id, counts=counts)
 
 	return(onemotif_obj)
 
