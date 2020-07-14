@@ -160,14 +160,17 @@ class MotifList(list):
 						elif re.match("^letter-probability matrix:", line): #example: "letter-probability matrix: alength= 4 w= 6 nsites= 24 E= 0"
 
 							#Get information from 'letter-probability matrix'-header
-							key_value_string = re.sub("letter-probability matrix:\s+", "", line.rstrip())
-							key_value_split = re.split("(?<!=)\s+", key_value_string)	#Split on any space not preceeded by =
-							key_value_lists = [re.split("=\s*", pair) for pair in key_value_split]
-							key_value_dict = {pair[0]: pair[1] for pair in key_value_lists}
-							self[-1].info.update(key_value_dict) 	#Add meme-read information to info-dict
+							key_value_string = re.sub("letter-probability matrix:\s*", "", line.rstrip())
 
-							if "nsites" in self[-1].info:
-								self[-1].n = int(self[-1].info["nsites"])
+							# only proceed if there is information
+							if len(key_value_string) > 0:
+								key_value_split = re.split("(?<!=)\s+", key_value_string)	#Split on any space not preceeded by =
+								key_value_lists = [re.split("=\s*", pair) for pair in key_value_split]
+								key_value_dict = {pair[0]: pair[1] for pair in key_value_lists}
+								self[-1].info.update(key_value_dict) 	#Add meme-read information to info-dict
+
+								if "nsites" in self[-1].info:
+									self[-1].n = int(self[-1].info["nsites"])
 
 							proba_flag = 1
 						else:
