@@ -268,66 +268,22 @@ class MotifList(list):
 			Motif format ("pfm", "jaspar", "meme")
 		"""
 
-		bases = ["A", "C", "G", "T"]
 		out_string = ""
 
-		#Establish which output format
-		if output_format in ["pfm", "jaspar"]:
-			for motif in self:
-				out_string += ">{0}\t{1}\n".format(motif.id, motif.name)
+		header = True
+		for motif in self:
+			out_string += motif.as_string(output_format=output_format, header=header)
+			header = False
 
-				#Convert counts to string
-				counts_type = float if float in [type(element) for element in motif.counts[0]] else int	#Estimate from first base counts
-				if counts_type == float:
-					counts_string = [["{0:.5f}".format(element) for element in row_counts] for row_counts in motif.counts]
-				else:
-					counts_string = [[str(element) for element in row_counts] for row_counts in motif.counts]
-					element_width = max(sum([[len(element) for element in row_counts] for row_counts in counts_string], []))	#Length of longest element to align to
-					counts_string = [[" " * (element_width - len(element)) + element for element in row_counts] for row_counts in counts_string]
-
-				#Write out to format
-				for i, base_counts in enumerate(counts_string):
-					out_string += "{0} [ {1} ]\n".format(bases[i], "  ".join(base_counts)) if output_format == "jaspar" else "  ".join(base_counts) + "\n"
-				out_string += "\n"
-
-		elif output_format == "meme":
-			
-			meme_header = "MEME version 4\n\n"
-			meme_header += "ALPHABET= ACGT\n\n"
-			meme_header += "strands: + -\n\n"
-			meme_header += "Background letter frequencies\n"
-			meme_header += " ".join(["{0} {1}".format(bases[i], self.bg[i]) for i in range(4)]) + "\n\n"
-			out_string += meme_header
-
-			for motif in self:
-				out_string += "MOTIF {0} {1}\n".format(motif.id, motif.name)
-				out_string += "letter-probability matrix: "
-				out_string += " ".join("{0}= {1}".format(key, value) for key, value in motif.info.items()) + "\n"
-
-				for i in range(motif.length):
-					row = [float(motif.counts[j][i]) for j in range(4)] 	#row contains original row from content
-					n_sites = round(sum(row), 0)
-					row_freq = ["{0:.6f}".format(num/n_sites) for num in row] 
-					out_string += " " + "  ".join(row_freq) + "\n"
-				
-				out_string += "\n"
-
-		#elif output_format == "transfac":
-		#	for motif in self:
-		#		out_string += motif.to_transfac()
-
-		else:
-			raise ValueError("Format " + output_format + " is not supported")	
-
-		return(out_string)			
-
+		return(out_string)
 
 	#---------------- Functions for moods scanning ------------------------#
 
 	def setup_moods_scanner(self):
 		""" Sets self.moods_scanner object """
 
-		tups = [(motif.prefix, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
+		# replace strand list with "." if strand is unknown
+		tups = [(motif.prefix, motif.strand[0] if len(motif.strand) < 2 else ".", motif.pssm, motif.threshold) for motif in self] 		#list of tups
 		if len(tups) > 0:
 			self.names, self.strands, self.matrices, self.thresholds = list(map(list, zip(*tups))) 	#get "columns"
 		else:
