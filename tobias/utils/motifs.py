@@ -115,72 +115,95 @@ class MotifList(list):
 		if file_format == "pfm":
 			file_format = "jaspar"
 
-		#Read motifs
+		#parse MEME file
 		if file_format == "meme":
+			bg_flag = False # read background letter frequencies
+			proba_flag = False  # read letter-probabilities
+			new_motif = True # initialize vars for new motif
 			
-			proba_flag = 0  #read letter-probabilities
-			bg_flag = 0 	#read background letter frequencies
-
 			lines = content.split("\n")
 			for line in lines:
-				columns = line.strip().split()
+				# init/ reset motif vars
+				if new_motif:
+					bases = ["A", "C", "G", "T"]
+					strand = ["+", "-"]
+					bg = np.array([0.25] * 4)
+					n = 20 # defined as default number of sites in MEME format
+					info = {}
+					probability_matrix = []
 
-				if line.startswith("MOTIF"):
-					self.append(OneMotif()) 				#create new motif
-					self[-1].input_format = file_format
-					self[-1].counts = [[] for _ in range(4)]
-					self[-1].n = 1 #preliminarily 1
+				# parse alphabet
+				if line.startswith("ALPHABET= "): # TODO implement for custom alphabet
+					bases = list(line.replace("ALPHABET= ", ""))
 
-					#Get id/name of motif
-					if len(columns) > 2: #MOTIF, ID, NAME
+				# parse strands
+				elif line.startswith("strands"):
+					strand = line.replace("strands: ", "").split(" ")
+
+				# find background freq
+				elif line.startswith("Background letter frequencies"):
+					bg_flag = True # next line is background frequencies
+
+				# parse background freq
+				elif bg_flag:
+					# Assumes one background line. Might not be the case for custom alphabets.
+					bg_flag = False
+
+					bg_and_freq = re.split(r"(?<=\d)\s+", line) # split after every number followed by a whitespace
+					bg_dict = {key: float(value) for key, value in [el.split(" ") for el in bg_and_freq]}
+					bg = np.array([bg_dict[base] for base in bases])
+
+				# parse id, name
+				elif line.startswith("MOTIF"):
+					columns = line.split()
+					if len(columns) > 2: # MOTIF, ID, NAME
 						motif_id, name = columns[1], columns[2]
 					elif len(columns) == 2: # MOTIF, ID
-						motif_id, name = columns[1], ""	#name not given
+						motif_id, name = columns[1], ""	# name not given
 
-					self[-1].id = motif_id
-					self[-1].name = name
+				# find and parse letter probability matrix header
+				elif line.startswith("letter-probability matrix"):
+					proba_flag = True
 
-				elif line.startswith("Background letter frequencies"):
-					bg_flag = 1	#next line is frequencies
+					# parse info
+					key_value_string = re.sub("letter-probability matrix:\s*", "", line.rstrip())
+
+					# only proceed if there is information
+					if len(key_value_string) > 0:
+						key_value_split = re.split(r"(?<!=)\s+", key_value_string)	#Split on any space not preceeded by =
+						key_value_lists = [re.split(r"=\s*", pair) for pair in key_value_split]
+						key_value_dict = {pair[0]: pair[1] for pair in key_value_lists}
+						info.update(key_value_dict) 	#Add meme-read information to info-dict
+
+						if "nsites" in info:
+							n = int(info["nsites"])
+
+				# parse probability matrix
+				elif proba_flag and re.match(r"^[\s]*([\d\.\s]+)$", line):
+					columns = list(map(float, line.split()))
+
+					# check for correct number of columns
+					if not len(columns) == len(bases):
+						sys.exit("Error when reading probability matrix from {0}! Expected {1} columns found {2}!".format(path, len(bases), len(columns)))
+
+					# append a single row split into its columns
+					probability_matrix.append(columns)
+
+				# motif ended; save and start new motif
 				else:
-					if bg_flag == 1:
-						
-						nuc_split = re.split("(?<!\D)\s+", line.lstrip().rstrip())	#Split on any space not preceeded by any letter
-						nuc_dict = {s.split()[0]: float(s.split()[1]) for s in nuc_split}
+					proba_flag = False
+					new_motif = True
 
-						self.bg = np.array([nuc_dict[nuc] for nuc in ["A","C","G","T"]])
-						bg_flag = 0	#done reading background
+					# transpose and convert probability matrix to count
+					count_matrix = (np.array(probability_matrix).T * n).tolist()
 
-					if len(self) > 0: #if there was already one motif header found
-						
-						#If line contains counts
-						if re.match(r"^[\s]*([\d\.\s]+)$", line) and proba_flag == 1:	#starts with any number of spaces (or none) followed by numbers
-							for i, col in enumerate(columns):
-								self[-1].counts[i].append(num(col))
-						elif re.match("^letter-probability matrix:", line): #example: "letter-probability matrix: alength= 4 w= 6 nsites= 24 E= 0"
+					# create and append new OneMotif object
+					obj = OneMotif(motifid=motif_id, counts=count_matrix, name=name, strand=strand)
+					obj.info = info
+					obj.bg = bg
+					self.append(obj)
 
-							#Get information from 'letter-probability matrix'-header
-							key_value_string = re.sub("letter-probability matrix:\s*", "", line.rstrip())
-
-							# only proceed if there is information
-							if len(key_value_string) > 0:
-								key_value_split = re.split("(?<!=)\s+", key_value_string)	#Split on any space not preceeded by =
-								key_value_lists = [re.split("=\s*", pair) for pair in key_value_split]
-								key_value_dict = {pair[0]: pair[1] for pair in key_value_lists}
-								self[-1].info.update(key_value_dict) 	#Add meme-read information to info-dict
-
-								if "nsites" in self[-1].info:
-									self[-1].n = int(self[-1].info["nsites"])
-
-							proba_flag = 1
-						else:
-							proba_flag = 0	#No longer a match to counts or header; done reading probabilities
-
-			#Multiply all counts with number of sequences
-			for motif in self:
-				for i, nuc_counts in enumerate(motif.counts):
-					motif.counts[i] = [pos * motif.n for pos in nuc_counts]
-
+		# parse PFM/ JASPAR
 		elif file_format in biopython_formats:
 			with open(path) as f:
 				for m in motifs.parse(f, file_format):
@@ -202,7 +225,7 @@ class MotifList(list):
 		#Check correct format of pfms
 		for motif in self:
 			nuc, length = np.array(motif.counts).shape
-			motif.length = length
+
 			if nuc != 4:
 				sys.exit("ERROR: Motif {0} has an unexpected format and could not be read".format(motif))
 
@@ -211,12 +234,6 @@ class MotifList(list):
 			for r in range(4):
 				for c in range(motif.length):
 					motif.counts[r][c] = float_to_int(motif.counts[r][c])
-	
-		#Fill in motifs with additional parameters; Estimate widths and n_sites
-		for i, motif in enumerate(self):
-			self[i].n = int(round(sum([base_counts[0] for base_counts in motif.counts])))
-			self[i].length = len(motif.counts[0])
-			self[i].bg = self.bg 	#global background for each motif
 
 		return(self)
 
