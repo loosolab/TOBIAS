@@ -661,7 +661,7 @@ class OneMotif:
 	name = "" # motif name
 	bases = ["A", "C", "G", "T"] # alphabet order must correspont with counts matrix!
 	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
-	strand = ["+", "-"]
+	strand = ["+", "-"] # both means unknown
 	n = 20 # number of sites used for motif
 	length = None # length of the motif
  
@@ -739,19 +739,28 @@ class OneMotif:
 
 	def get_reverse(self):
 		""" Reverse complement motif """
-		# TODO doesn't work with strand var
-		# TODO missing count in reverse_motif
-		if self.pfm is None:
-			self.get_pfm()
 
-		#Create reverse motif obj
-		reverse_motif = OneMotif()	#empty
-		for att in ["id", "name", "prefix", "strand", "length"]:
-			setattr(reverse_motif, att, getattr(self, att))
+		rev_strand = ["+" if s == "-" else "-" for s in self.strand]
+		# add 'rev_' prefix to indicate motif was reverse complemented
+		rev_id = "rev_" + self.id
+		rev_name = "rev_" + self.name if len(self.name) > 0  else self.name
+		# reverse counts
+		rev_counts = [[],[],[],[]]
+		rev_counts[0] = self.counts[3].reverse() # rev T => A
+		rev_counts[1] = self.counts[2].reverse() # rev G => C
+		rev_counts[2] = self.counts[1].reverse() # rev C => G
+		rev_counts[3] = self.counts[0].reverse() # rev A => T
+		# reverse background
+		rev_bg = self.bg[[3, 2, 1, 0]]
 
-		reverse_motif.strand = "-" if self.strand == "+" else "+"
-		# TODO why even use MOODS?
-		reverse_motif.pfm = MOODS.tools.reverse_complement(self.pfm, 4)
+		# Create reverse motif obj
+		reverse_motif = OneMotif(motifid=rev_id, counts=rev_counts, name=rev_name, strand=rev_strand)
+		
+		# add info
+		reverse_motif.info = self.info
+		# add background
+		reverse_motif.bg = rev_bg
+
 		return(reverse_motif)	#OneMotif object
 
 	def get_pssm(self, ps=0.01):
