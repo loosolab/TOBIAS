@@ -724,7 +724,7 @@ class OneMotif:
 
 		motif_rows = []
 		for pos_id in range(self.length):
-			row = [self.counts[letter][pos_id] for letter in range(4)] 	# each row represents one position in motif ( A C G T )
+			row = [self.counts[letter][pos_id] for letter in range(len(self.bases))] 	# each row represents one position in motif ( A C G T )
 			motif_rows.append(row)
 
 		self.gimme_obj = Motif(motif_rows) 	# generate gimmemotif motif instance
@@ -735,6 +735,7 @@ class OneMotif:
 	def get_biomotif(self):
 		""" Get biomotif object for motif """
 
+		# TODO implement
 		self.biomotif_obj = ""
 
 	def get_reverse(self):
@@ -841,7 +842,7 @@ class OneMotif:
 
 		# convert to pandas dataframe
 		df = pd.DataFrame(self.counts).transpose()
-		df.columns = ["A", "C", "G", "T"]
+		df.columns = self.bases
 
 		if not motif_len:
 			motif_len = df.shape[0]
