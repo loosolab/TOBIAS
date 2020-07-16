@@ -81,21 +81,22 @@ def float_to_int(afloat):
 #List of OneMotif objects
 class MotifList(list):
 
+	# initialize vars
+	#Set by setup moods scanner
+	self.names = []
+	self.matrices = [] 	#pssms
+	self.strands = []
+	self.thresholds = []
+
+	#Scanner
+	self.moods_scanner = None
+ 
 	def __init__(self, lst=[]):
 		""" Initialize the MotifList object with a list of OneMotif objects (lst) or empty """
 
 		super(MotifList, self).__init__(iter(lst))
 
-		self.bg = np.array([0.25,0.25,0.25,0.25])	#(A,C,G,T). Default is equal background if not overwritten by MEME 
-
-		#Set by setup moods scanner
-		self.names = []
-		self.matrices = [] 	#pssms
-		self.strands = []
-		self.thresholds = []
-
-		#Scanner
-		self.moods_scanner = None
+		self.bg = self.get_background() # (A,C,G,T). Default is equal background if not overwritten by MEME (See OneMotif)
 
 	def __str__(self):
 		return("\n".join([str(onemotif) for onemotif in self]))
@@ -276,6 +277,22 @@ class MotifList(list):
 			header = False
 
 		return(out_string)
+
+	def get_background(self):
+		"""
+		Combines background of all motifs to a global background.
+  
+		Returns:
+			numpy array of frequencies
+		"""
+		total_n = 0
+		global_bg = np.array([0] * len(self[0].bg))
+  
+		for motif in self:
+			global_bg += motif.bg * motif.n
+			total_n += motif.n
+
+		return global_bg / total_n
 
 	#---------------- Functions for moods scanning ------------------------#
 
