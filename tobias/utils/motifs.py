@@ -83,20 +83,20 @@ class MotifList(list):
 
 	# initialize vars
 	#Set by setup moods scanner
-	self.names = []
-	self.matrices = [] 	#pssms
-	self.strands = []
-	self.thresholds = []
+	names = []
+	matrices = [] 	#pssms
+	strands = []
+	thresholds = []
 
 	#Scanner
-	self.moods_scanner = None
+	moods_scanner = None
  
 	def __init__(self, lst=[]):
 		""" Initialize the MotifList object with a list of OneMotif objects (lst) or empty """
 
 		super(MotifList, self).__init__(iter(lst))
 
-		self.bg = self.get_background() # (A,C,G,T). Default is equal background if not overwritten by MEME (See OneMotif)
+		self.bg = self.get_background() if len(self) > 0 else np.array([0.25] * 4) # (A,C,G,T). Default is equal background if not overwritten by MEME (See OneMotif)
 
 	def __str__(self):
 		return("\n".join([str(onemotif) for onemotif in self]))
@@ -122,13 +122,17 @@ class MotifList(list):
 			proba_flag = False  # read letter-probabilities
 			new_motif = True # initialize vars for new motif
 			
+			# init global vars for file
+			bases = ["A", "C", "G", "T"]
+			strand = ["+", "-"]
+			bg = np.array([0.25] * 4)
+
 			lines = content.split("\n")
 			for line in lines:
 				# init/ reset motif vars
 				if new_motif:
-					bases = ["A", "C", "G", "T"]
-					strand = ["+", "-"]
-					bg = np.array([0.25] * 4)
+					new_motif = False
+
 					n = 20 # defined as default number of sites in MEME format
 					info = {}
 					probability_matrix = []
@@ -150,7 +154,7 @@ class MotifList(list):
 					# Assumes one background line. Might not be the case for custom alphabets.
 					bg_flag = False
 
-					bg_and_freq = re.split(r"(?<=\d)\s+", line) # split after every number followed by a whitespace
+					bg_and_freq = re.split(r"(?<=\d)\s+", line.strip()) # split after every number followed by a whitespace
 					bg_dict = {key: float(value) for key, value in [el.split(" ") for el in bg_and_freq]}
 					bg = np.array([bg_dict[base] for base in bases])
 
@@ -179,30 +183,31 @@ class MotifList(list):
 						if "nsites" in info:
 							n = int(info["nsites"])
 
-				# parse probability matrix
-				elif proba_flag and re.match(r"^[\s]*([\d\.\s]+)$", line):
-					columns = list(map(float, line.split()))
+				# parse probability matrix or save motif
+				elif proba_flag:
+					if re.match(r"^[\s]*([\d\.\s]+)$", line):
+						columns = list(map(float, line.split()))
 
-					# check for correct number of columns
-					if not len(columns) == len(bases):
-						sys.exit("Error when reading probability matrix from {0}! Expected {1} columns found {2}!".format(path, len(bases), len(columns)))
+						# check for correct number of columns
+						if not len(columns) == len(bases):
+							sys.exit("Error when reading probability matrix from {0}! Expected {1} columns found {2}!".format(path, len(bases), len(columns)))
 
-					# append a single row split into its columns
-					probability_matrix.append(columns)
+						# append a single row split into its columns
+						probability_matrix.append(columns)
 
-				# motif ended; save and start new motif
-				else:
-					proba_flag = False
-					new_motif = True
+					# motif ended; save and start new motif
+					else:
+						proba_flag = False
+						new_motif = True
 
-					# transpose and convert probability matrix to count
-					count_matrix = (np.array(probability_matrix).T * n).tolist()
+						# transpose and convert probability matrix to count
+						count_matrix = (np.array(probability_matrix).T * n).tolist()
 
-					# create and append new OneMotif object
-					obj = OneMotif(motifid=motif_id, counts=count_matrix, name=name, strand=strand)
-					obj.info = info
-					obj.bg = bg
-					self.append(obj)
+						# create and append new OneMotif object
+						obj = OneMotif(motifid=motif_id, counts=count_matrix, name=name, strand=strand)
+						obj.info = info
+						obj.bg = bg
+						self.append(obj)
 
 		# parse PFM/ JASPAR
 		elif file_format in biopython_formats:
@@ -249,6 +254,10 @@ class MotifList(list):
 		fmt : string
 			Format of motif file (pfm/jaspar/meme/transfac)
 		"""
+  
+		# add file ext if needed
+		if not path.endswith(f".{fmt}"):
+			path += f".{fmt}"
 
 		out_string = self.as_string(fmt)
 
@@ -286,9 +295,12 @@ class MotifList(list):
 			numpy array of frequencies
 		"""
 		total_n = 0
-		global_bg = np.array([0] * len(self[0].bg))
+		global_bg = None
   
 		for motif in self:
+			if global_bg is None:
+				global_bg = np.array([0] * len(motif.bg), dtype=float)
+
 			global_bg += motif.bg * motif.n
 			total_n += motif.n
 
@@ -299,12 +311,19 @@ class MotifList(list):
 	def setup_moods_scanner(self):
 		""" Sets self.moods_scanner object """
 
+		# make sure everything necessary exists
+		for motif in self:
+			motif.set_prefix()
+			# creates pssm as well
+			motif.get_threshold(0.05)
+
 		# replace strand list with "." if strand is unknown
 		tups = [(motif.prefix, motif.strand[0] if len(motif.strand) < 2 else ".", motif.pssm, motif.threshold) for motif in self] 		#list of tups
+
 		if len(tups) > 0:
 			self.names, self.strands, self.matrices, self.thresholds = list(map(list, zip(*tups))) 	#get "columns"
 		else:
-			self.names, self.strands, self.marices, self.thresholds = ([], [], [], [])
+			self.names, self.strands, self.matrices, self.thresholds = ([], [], [], [])
 
 		scanner = MOODS.scan.Scanner(7)
 		scanner.set_motifs(self.matrices, self.bg, self.thresholds)
@@ -737,10 +756,10 @@ class OneMotif:
 		rev_name = "rev_" + self.name if len(self.name) > 0  else self.name
 		# reverse counts
 		rev_counts = [[],[],[],[]]
-		rev_counts[0] = self.counts[3].reverse() # rev T => A
-		rev_counts[1] = self.counts[2].reverse() # rev G => C
-		rev_counts[2] = self.counts[1].reverse() # rev C => G
-		rev_counts[3] = self.counts[0].reverse() # rev A => T
+		rev_counts[0] = self.counts[3][::-1] # rev T => A
+		rev_counts[1] = self.counts[2][::-1] # rev G => C
+		rev_counts[2] = self.counts[1][::-1] # rev C => G
+		rev_counts[3] = self.counts[0][::-1] # rev A => T
 		# reverse background
 		rev_bg = self.bg[[3, 2, 1, 0]]
 
@@ -771,7 +790,7 @@ class OneMotif:
 		if self.pssm is None:
 			self.get_pssm()
 
-		pssm_tuple = tuple([tuple(row) for row in pssm])
+		pssm_tuple = tuple([tuple(row) for row in self.pssm])
 		self.threshold = MOODS.tools.threshold_from_p(pssm_tuple, self.bg, pvalue, 4)
 		return(self)
 
@@ -905,16 +924,16 @@ class OneMotif:
 				row = " ".join(map(str, self.counts[index]))
 
 				if output_format == "jaspar":
-					row = f"{base} [{row} ]\n"
+					row = f"{base} [{row} ]"
 
-				out_string += row
+				out_string += row + "\n"
 			
 		elif output_format == "meme":
 			# create meme header
 			if header:
 				# TODO implement for newer version
 				meme_header = "MEME version 4\n\n"
-				meme_header += "ALPHABET= {0}\n\n".format("".join(bases))
+				meme_header += "ALPHABET= {0}\n\n".format("".join(self.bases))
 				meme_header += "strands: {0}\n\n".format(" ".join(self.strand))
 				meme_header += "Background letter frequencies\n"
 				meme_header += " ".join([f"{self.bases[i]} {self.bg[i]}" for i in range(4)]) + "\n\n"
@@ -922,14 +941,16 @@ class OneMotif:
 				out_string += meme_header
 
 			# add id
-			out_string += f"MOTIF {self.id} {self.name}\n"
+			out_string += f"\nMOTIF {self.id} {self.name}\n"
 			# add information
-			out_string += f"letter-probability matrix: alength= {len(self.bases)} w= {self.length} nsites= {self.n} E= 0" # omit e_value as it could be out of context
+			out_string += f"letter-probability matrix: alength= {len(self.bases)} w= {self.length} nsites= {int(round(self.n))} E= 0\n" # omit e_value as it could be out of context
 			# add pfm
 			if self.pfm is None:
 				self.get_pfm()
+
+			precision = 6
 			for row in self.pfm.T:
-				out_string += " {0}".format("  ".join(row))
+				out_string += " {0}\n".format("  ".join(map(lambda f: format(round(f, precision), f".{precision}f"), row)))
 
 		else:
 			raise ValueError("Format " + output_format + " is not supported")
