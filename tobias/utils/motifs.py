@@ -238,6 +238,9 @@ class MotifList(list):
 				for c in range(motif.length):
 					motif.counts[r][c] = float_to_int(motif.counts[r][c])
 
+		# calculate global background
+		self.bg = self.get_background()
+
 		return(self)
 
 	def to_file(self, path, fmt="pfm"):
@@ -310,7 +313,7 @@ class MotifList(list):
 		# make sure everything necessary exists
 		for motif in self:
 			if len(motif.prefix) <= 0 or motif.threshold == None:
-				raise("Missing prefix and/or threshold! Please consider running 'motif.set_prefix()' and 'motif.get_threshold()' on the respective motif(s).")
+				raise Exception("Missing prefix and/or threshold! Please consider running 'motif.set_prefix()' and 'motif.get_threshold()' on the respective motif(s).")
 
 		tups = [(motif.prefix, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
 
@@ -681,7 +684,7 @@ class OneMotif:
 	def __init__(self, motifid, counts, name=None, strand="."):
 		# enforce strand value
 		if not strand in ["+", "-", "."]:
-			raise(f"Strand has to be '+', '-' or '.'. Found {strand}")
+			raise ValueError(f"Strand has to be '+', '-' or '.'. Found {strand}")
 		
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
@@ -889,10 +892,10 @@ class OneMotif:
   		"""
     	# check counts input
 		if len(counts) != 4:
-			raise("Input counts must be of length 4. Received length {0}".format(len(counts)))
+			raise ValueError("Input counts must be of length 4. Received length {0}".format(len(counts)))
 		lengths = [len(base) for base in counts]
 		if len(set(lengths)) != 1:
-			raise("All lists in counts must be of same length.")
+			raise ValueError("All lists in counts must be of same length.")
 
 		# add counts
 		self.counts = counts
