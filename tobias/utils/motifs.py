@@ -287,15 +287,16 @@ class MotifList(list):
 		Combines background of all motifs to a global background.
   
 		Returns:
-			numpy array of frequencies
+			numpy array of frequencies or None if no motifs
 		"""
-		total_n = 0
-		global_bg = None
-  
-		for motif in self:
-			if global_bg is None:
-				global_bg = np.array([0] * len(motif.bg), dtype=float)
 
+		if len(self) > 0:
+			global_bg = np.array([0] * len(self[0].bg), dtype=float)
+		else:
+			return None
+
+		total_n = 0
+		for motif in self:
 			global_bg += motif.bg * motif.n
 			total_n += motif.n
 
