@@ -19,6 +19,7 @@ import random
 
 #Plotting
 import matplotlib
+matplotlib.use("Agg")	#non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as patches
@@ -580,7 +581,7 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 
 	########### Dendrogram over similarities of TFs #######
 	
-	dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=IDS, no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
+	dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=list(IDS), no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
 	labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
 	ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
 
