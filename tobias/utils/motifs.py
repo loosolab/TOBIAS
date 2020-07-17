@@ -124,7 +124,7 @@ class MotifList(list):
 			
 			# init global vars for file
 			bases = ["A", "C", "G", "T"]
-			strand = ["+", "-"]
+			strand = "."
 			bg = np.array([0.25] * 4)
 
 			lines = content.split("\n")
@@ -143,7 +143,11 @@ class MotifList(list):
 
 				# parse strands
 				elif line.startswith("strands"):
-					strand = line.replace("strands: ", "").split(" ")
+					tmp_strand = line.replace("strands: ", "").split(" ")
+					if len(tmp_strand) < 2:
+						strand = tmp_strand[0]
+					else:
+						strand = "." # set strand to unknown
 
 				# find background freq
 				elif line.startswith("Background letter frequencies"):
@@ -308,8 +312,7 @@ class MotifList(list):
 			# creates pssm as well
 			motif.get_threshold(0.05)
 
-		# replace strand list with "." if strand is unknown
-		tups = [(motif.prefix, motif.strand[0] if len(motif.strand) < 2 else ".", motif.pssm, motif.threshold) for motif in self] 		#list of tups
+		tups = [(motif.prefix, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
 
 		if len(tups) > 0:
 			self.names, self.strands, self.matrices, self.thresholds = list(map(list, zip(*tups))) 	#get "columns"
@@ -661,7 +664,7 @@ class OneMotif:
 	name = "" # motif name
 	bases = ["A", "C", "G", "T"] # alphabet order must correspont with counts matrix!
 	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
-	strand = ["+", "-"] # both means unknown
+	strand = "." # has to be one of "+", "-" or "."
 	n = 20 # number of sites used for motif
 	length = None # length of the motif
  
@@ -675,7 +678,10 @@ class OneMotif:
 	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid, counts, name=None, strand=["+", "-"]):
+	def __init__(self, motifid, counts, name=None, strand="."):
+		# enforce strand value
+		if not strand in ["+", "-", "."]:
+			raise(f"Strand has to be '+', '-' or '.'. Found {strand}")
 		
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
@@ -741,7 +747,13 @@ class OneMotif:
 	def get_reverse(self):
 		""" Reverse complement motif """
 
-		rev_strand = ["+" if s == "-" else "-" for s in self.strand]
+		if self.strand == "+":
+			rev_strand = "-"
+		elif self.strand == "-":
+			rev_strand = "+"
+		else:
+			rev_strand = "."
+
 		rev_id = self.id
 		rev_name = self.name
 		# reverse counts
@@ -924,7 +936,7 @@ class OneMotif:
 				# TODO implement for newer version
 				meme_header = "MEME version 4\n\n"
 				meme_header += "ALPHABET= {0}\n\n".format("".join(self.bases))
-				meme_header += "strands: {0}\n\n".format(" ".join(self.strand))
+				meme_header += "strands: {0}\n\n".format(self.strand if self.strand != "." else "+ -")
 				meme_header += "Background letter frequencies\n"
 				meme_header += " ".join([f"{self.bases[i]} {self.bg[i]}" for i in range(4)]) + "\n\n"
 
