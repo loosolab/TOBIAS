@@ -254,10 +254,6 @@ class MotifList(list):
 		fmt : string
 			Format of motif file (pfm/jaspar/meme/transfac)
 		"""
-  
-		# add file ext if needed
-		if not path.endswith(f".{fmt}"):
-			path += f".{fmt}"
 
 		out_string = self.as_string(fmt)
 
@@ -969,9 +965,6 @@ class OneMotif:
 		Returns:
 			self (OneMotif)
 		"""
-		# add file ext if needed
-		if not output_file.endswith(f".{fmt}"):
-			output_file += f".{fmt}"
 
 		with open(output_file, "w") as f:
 			f.write(self.as_string(output_format=fmt))
