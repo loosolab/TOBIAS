@@ -228,13 +228,6 @@ class MotifList(list):
 				self.append(onemotif_obj)	#add OneMotif object to list
 		"""
 
-		#Check correct format of pfms
-		for motif in self:
-			nuc, length = np.array(motif.counts).shape
-
-			if nuc != 4:
-				sys.exit("ERROR: Motif {0} has an unexpected format and could not be read".format(motif))
-
 		#Convert float to ints
 		for motif in self:
 			for r in range(4):
