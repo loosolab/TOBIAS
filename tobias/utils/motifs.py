@@ -747,9 +747,8 @@ class OneMotif:
 		""" Reverse complement motif """
 
 		rev_strand = ["+" if s == "-" else "-" for s in self.strand]
-		# add 'rev_' prefix to indicate motif was reverse complemented
-		rev_id = "rev_" + self.id
-		rev_name = "rev_" + self.name if len(self.name) > 0  else self.name
+		rev_id = self.id
+		rev_name = self.name
 		# reverse counts
 		rev_counts = [[],[],[],[]]
 		rev_counts[0] = self.counts[3][::-1] # rev T => A
