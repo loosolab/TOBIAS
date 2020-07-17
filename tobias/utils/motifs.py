@@ -271,8 +271,10 @@ class MotifList(list):
 
 		header = True
 		for motif in self:
+			# Add a single header at the beginning as it is required in meme format. (For other formats ignored)
 			out_string += motif.as_string(output_format=output_format, header=header)
 			header = False
+
 
 		return(out_string)
 
