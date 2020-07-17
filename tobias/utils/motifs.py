@@ -309,9 +309,8 @@ class MotifList(list):
 
 		# make sure everything necessary exists
 		for motif in self:
-			motif.set_prefix()
-			# creates pssm as well
-			motif.get_threshold(0.05)
+			if len(motif.prefix) <= 0 or motif.threshold == None:
+				raise("Missing prefix and/or threshold! Please consider running 'motif.set_prefix()' and 'motif.get_threshold()' on the respective motif(s).")
 
 		tups = [(motif.prefix, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
 
