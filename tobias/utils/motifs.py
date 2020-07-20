@@ -681,10 +681,7 @@ class OneMotif:
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
 	def __init__(self, motifid, counts, name=None):
-		# enforce strand value
-		if not strand in ["+", "-", "."]:
-			raise ValueError(f"Strand has to be '+', '-' or '.'. Found {strand}")
-		
+
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
 
