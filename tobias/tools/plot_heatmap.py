@@ -15,6 +15,7 @@ import logging
 
 import numpy as np
 import matplotlib as mpl
+mpl.use("Agg")	#non-interactive backend
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import matplotlib.gridspec as gridspec

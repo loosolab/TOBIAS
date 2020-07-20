@@ -26,6 +26,9 @@ from copy import deepcopy
 
 from collections import OrderedDict
 import itertools
+import matplotlib
+matplotlib.use("Agg")  #non-interactive backend
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 #Bio-specific packages
