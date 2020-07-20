@@ -680,10 +680,11 @@ class OneMotif:
 	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid, counts, name=None):
+	def __init__(self, motifid, counts, name=None, strand="+ -"):
 
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
+		self.strand = strand
 
 		# sets counts, length and n
 		self.set_counts(counts)
@@ -769,6 +770,8 @@ class OneMotif:
 		reverse_motif.moods_strand = rev_strand
 		reverse_motif.info = self.info 	# add info from original motif
 		reverse_motif.bg = rev_bg		# add background
+		reverse_motif.prefix = self.prefix
+		reverse_motif.threshold = self.threshold
 
 		return(reverse_motif)	#OneMotif object
 
