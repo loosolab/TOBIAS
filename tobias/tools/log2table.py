@@ -56,14 +56,16 @@ def run_log2table(args):
 				m = re.match(".*CORRELATION \((.+),(.+)\) VS \((.+),(.+)\): (.+)", line.rstrip())
 				if m:
 					elements = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)
-					signal1, sites1, signal2, sites2, pearsonr = elements
+					signal1, sites1, signal2, sites2, values_str = elements
 
-					columns = [signal1, sites1, signal2, sites2, pearsonr]
+					#split values (can be more than one depending on tobias version)
+					values = values_str.split()
+					columns = [signal1, sites1, signal2, sites2] + values
 					CORR_data.append(columns)
 
 					#Add reverse comparison as well
-					if pearsonr != "PEARSONR":
-						columns = [signal2, sites2, signal1, sites1, pearsonr]
+					if "PEARSONR" not in values:	#header should not be reversed
+						columns = [signal2, sites2, signal1, sites1] + values
 						CORR_data.append(columns)
 
 	logger.info("Writing tables")
