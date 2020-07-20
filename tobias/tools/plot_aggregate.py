@@ -14,6 +14,7 @@ import argparse
 import numpy as np
 
 import matplotlib as mpl
+mpl.use("Agg")	#non-interactive backend
 import matplotlib.pyplot as plt
 import itertools
 import scipy

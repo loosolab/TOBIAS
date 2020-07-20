@@ -13,6 +13,7 @@ import os
 import argparse
 import pandas as pd
 import matplotlib
+matplotlib.use("Agg")	#non-interactive backend
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools

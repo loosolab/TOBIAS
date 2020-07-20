@@ -27,6 +27,8 @@ import scipy
 #from scipy.optimize import curve_fit
 
 #Plotting
+import matplotlib
+matplotlib.use("Agg")	#non-interactive backend
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.ticker import NullFormatter
