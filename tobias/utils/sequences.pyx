@@ -13,6 +13,7 @@ import numpy as np
 cimport numpy as np
 import cython
 from libc.math cimport log2
+import sys
 
 import pysam
 complement = {0:1, 1:0, 2:3, 3:2}
@@ -29,7 +30,7 @@ class SequenceMatrix:
 		elif stype == "DWM":
 			return(DiNucleotideMatrix(length))
 		else:
-			exit("Unkown score type {0}".format(stype))
+			sys.exit("Unkown score type {0}".format(stype))
 
 	def add_counts(self, obj):
 		
