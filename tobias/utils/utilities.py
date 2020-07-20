@@ -332,6 +332,7 @@ def num(s):
 
 class Progress:
 	""" Class for writing out progress of processes such as multiprocessing """
+
 	def __init__(self, total_elements, logger, prefix="Progress", round=0):
 		
 		self.total_elements = total_elements
@@ -376,11 +377,12 @@ def expand_dirs(list_of_paths):
 
 	return(all_files)
 
-def check_files(lst_of_files, action="r"):
+def check_files(lst_of_files, action="r", logger=TobiasLogger()):
 
 	flat_lst = flatten_list(lst_of_files)
 	for fil in flat_lst:
 		if fil != None:
+			logger.debug("Checking " + fil)
 			if action == "r":
 				if os.path.exists(fil):
 					try: 

@@ -747,6 +747,7 @@ class OneMotif:
 
 		reverse_motif.strand = "-" if self.strand == "+" else "+"
 		reverse_motif.pfm = MOODS.tools.reverse_complement(self.pfm, 4)
+		reverse_motif.pfm = np.array(reverse_motif.pfm) #Convert motif to np arr
 		return(reverse_motif)	#OneMotif object
 
 	def get_pssm(self, ps=0.01):
@@ -766,8 +767,10 @@ class OneMotif:
 		if self.pssm is None:
 			self.get_pssm()
 
-		pssm_tuple = tuple([tuple(row) for row in pssm])
+
+		pssm_tuple = tuple([tuple(row) for row in self.pssm])
 		self.threshold = MOODS.tools.threshold_from_p(pssm_tuple, self.bg, pvalue, 4)
+
 		return(self)
 
 	def information_content(self, ps=0.01):
