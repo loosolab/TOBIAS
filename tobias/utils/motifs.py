@@ -118,13 +118,13 @@ class MotifList(list):
 
 		#parse MEME file
 		if file_format == "meme":
-			bg_flag = False # read background letter frequencies
+			bg_flag = False 	# read background letter frequencies
 			proba_flag = False  # read letter-probabilities
-			new_motif = True # initialize vars for new motif
+			new_motif = True 	# initialize vars for new motif
 			
 			# init global vars for file
-			bases = ["A", "C", "G", "T"]
-			strand = "."
+			bases = ["A", "C", "G", "T"]	#default DNA alphabet
+			strand = "+ -"	#default meme strands
 			bg = np.array([0.25] * 4)
 
 			lines = content.split("\n")
@@ -143,11 +143,7 @@ class MotifList(list):
 
 				# parse strands
 				elif line.startswith("strands"):
-					tmp_strand = line.replace("strands: ", "").split(" ")
-					if len(tmp_strand) < 2:
-						strand = tmp_strand[0]
-					else:
-						strand = "." # set strand to unknown
+					strand = line.replace("strands: ", "")	#strand string from header
 
 				# find background freq
 				elif line.startswith("Background letter frequencies"):
@@ -210,7 +206,9 @@ class MotifList(list):
 						# create and append new OneMotif object
 						obj = OneMotif(motifid=motif_id, counts=count_matrix, name=name, strand=strand)
 						obj.info = info
+						obj.bases = bases
 						obj.bg = bg
+						obj.strand = strand
 						self.append(obj)
 
 		# parse PFM/ JASPAR
@@ -232,14 +230,13 @@ class MotifList(list):
 				self.append(onemotif_obj)	#add OneMotif object to list
 		"""
 
-		#Convert float to ints
+		#Final changes to motifs
 		for motif in self:
+
+			#Convert float to ints
 			for r in range(4):
 				for c in range(motif.length):
 					motif.counts[r][c] = float_to_int(motif.counts[r][c])
-
-		# calculate global background
-		self.bg = self.get_background()
 
 		return(self)
 
@@ -315,7 +312,8 @@ class MotifList(list):
 			if len(motif.prefix) <= 0 or motif.threshold == None:
 				raise Exception("Missing prefix and/or threshold! Please consider running 'motif.set_prefix()' and 'motif.get_threshold()' on the respective motif(s).")
 
-		tups = [(motif.prefix, motif.strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
+		#Set lists of names/strands/thresholds used for scanning		
+		tups = [(motif.prefix, motif.moods_strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
 
 		if len(tups) > 0:
 			self.names, self.strands, self.matrices, self.thresholds = list(map(list, zip(*tups))) 	#get "columns"
@@ -663,15 +661,16 @@ def get_formation(formation, ncol, nrow, nmotifs):
 #Contains info on one motif formatted for use in moods
 class OneMotif:
 
-	id = "" # motif id
-	name = "" # motif name
+	id = "" # motif id (should be unique)
+	name = "" # motif name (does not have to be unique)
 	bases = ["A", "C", "G", "T"] # alphabet order must correspont with counts matrix!
 	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
-	strand = "." # has to be one of "+", "-" or "."
-	n = 20 # number of sites used for motif
-	length = None # length of the motif
+	strand = "+ -"		# default meme strand
+	moods_strand = "+"	# default strand for moods output
+	n = 20				# default number of sites used for creating motif
+	length = None 		# length of the motif
  
-	threshold = None # mood threshold calculated in get_threshold()
+	threshold = None # moods hit threshold calculated in get_threshold()
 	gimme_obj = None # gimmemotif obj
 	info = {} # additional motif information used in meme format
 	prefix = "" # output prefix set in set_prefix()
@@ -681,14 +680,13 @@ class OneMotif:
 	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid, counts, name=None, strand="."):
+	def __init__(self, motifid, counts, name=None):
 		# enforce strand value
 		if not strand in ["+", "-", "."]:
 			raise ValueError(f"Strand has to be '+', '-' or '.'. Found {strand}")
 		
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
-		self.strand = strand
 
 		# sets counts, length and n
 		self.set_counts(counts)
@@ -750,31 +748,30 @@ class OneMotif:
 	def get_reverse(self):
 		""" Reverse complement motif """
 
-		if self.strand == "+":
+		if self.moods_strand == "+":
 			rev_strand = "-"
-		elif self.strand == "-":
+		elif self.moods_strand == "-":
 			rev_strand = "+"
 		else:
-			rev_strand = "."
+			rev_strand = self.moods_strand  #could be "."
 
 		rev_id = self.id
 		rev_name = self.name
+
 		# reverse counts
 		rev_counts = [[],[],[],[]]
 		rev_counts[0] = self.counts[3][::-1] # rev T => A
 		rev_counts[1] = self.counts[2][::-1] # rev G => C
 		rev_counts[2] = self.counts[1][::-1] # rev C => G
 		rev_counts[3] = self.counts[0][::-1] # rev A => T
-		# reverse background
-		rev_bg = self.bg[[3, 2, 1, 0]]
-
-		# Create reverse motif obj
-		reverse_motif = OneMotif(motifid=rev_id, counts=rev_counts, name=rev_name, strand=rev_strand)
 		
-		# add info
-		reverse_motif.info = self.info
-		# add background
-		reverse_motif.bg = rev_bg
+		rev_bg = self.bg[[3, 2, 1, 0]]	# reverse background
+
+		# Create reverse motif obj and fill in 
+		reverse_motif = OneMotif(motifid=rev_id, counts=rev_counts, name=rev_name)
+		reverse_motif.moods_strand = rev_strand
+		reverse_motif.info = self.info 	# add info from original motif
+		reverse_motif.bg = rev_bg		# add background
 
 		return(reverse_motif)	#OneMotif object
 
@@ -934,27 +931,28 @@ class OneMotif:
 				out_string += row + "\n"
 			
 		elif output_format == "meme":
+
 			# create meme header
 			if header:
-				# TODO implement for newer version
+				# TODO read meme version from original file (or default to version 4)
 				meme_header = "MEME version 4\n\n"
 				meme_header += "ALPHABET= {0}\n\n".format("".join(self.bases))
-				meme_header += "strands: {0}\n\n".format(self.strand if self.strand != "." else "+ -")
+				meme_header += "strands: {0}\n\n".format(self.strand)
 				meme_header += "Background letter frequencies\n"
 				meme_header += " ".join([f"{self.bases[i]} {self.bg[i]}" for i in range(4)]) + "\n\n"
 
 				out_string += meme_header
 
-			# add id
+			# add motif information to string
 			out_string += f"\nMOTIF {self.id} {self.name}\n"
-			# add information
 			out_string += f"letter-probability matrix: alength= {len(self.bases)} w= {self.length} nsites= {int(round(self.n))} E= 0\n" # omit e_value as it could be out of context
+			
 			# add pfm
 			if self.pfm is None:
 				self.get_pfm()
 
 			precision = 6
-			for row in self.pfm.T:
+			for row in self.pfm.T: #add frequency per position
 				out_string += " {0}\n".format("  ".join(map(lambda f: format(round(f, precision), f".{precision}f"), row)))
 
 		else:
