@@ -307,7 +307,7 @@ class MotifList(list):
 
 	#---------------- Functions for moods scanning ------------------------#
 
-	def setup_moods_scanner(self, strand="+"):
+	def setup_moods_scanner(self, strand="."):
 		""" 
 		Sets self.moods_scanner_forward and self.moods_scanner_reverse objects 
 
@@ -359,7 +359,7 @@ class MotifList(list):
 
 		return (scanner, parameter)
 
-	def scan_sequence(self, seq, region, strand="+"):
+	def scan_sequence(self, seq, region, strand="."):
 		"""
 		Scan sequence with the motifs in self 
 		
