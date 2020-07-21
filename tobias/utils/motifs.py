@@ -741,7 +741,6 @@ class OneMotif:
 	bases = ["A", "C", "G", "T"] # alphabet order must correspont with counts matrix!
 	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
 	strand = "+ -"		# default meme strand
-	moods_strand = "+"	# default strand for moods output
 	n = 20				# default number of sites used for creating motif
 	length = None 		# length of the motif
  
@@ -821,16 +820,6 @@ class OneMotif:
 	def get_reverse(self):
 		""" Reverse complement motif """
 
-		if self.moods_strand == "+":
-			rev_strand = "-"
-		elif self.moods_strand == "-":
-			rev_strand = "+"
-		else:
-			rev_strand = self.moods_strand  #could be "."
-
-		rev_id = self.id
-		rev_name = self.name
-
 		# reverse counts
 		rev_counts = [[],[],[],[]]
 		rev_counts[0] = self.counts[3][::-1] # rev T => A
@@ -841,8 +830,7 @@ class OneMotif:
 		rev_bg = self.bg[[3, 2, 1, 0]]	# reverse background
 
 		# Create reverse motif obj and fill in 
-		reverse_motif = OneMotif(motifid=rev_id, counts=rev_counts, name=rev_name)
-		reverse_motif.moods_strand = rev_strand
+		reverse_motif = OneMotif(motifid=self.id, counts=rev_counts, name=self.name, strand=self.strand)
 		reverse_motif.info = self.info 	# add info from original motif
 		reverse_motif.bg = rev_bg		# add background
 		reverse_motif.prefix = self.prefix
