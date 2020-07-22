@@ -24,7 +24,7 @@ import seaborn as sns
 import sklearn
 from sklearn import mixture
 import scipy
-#from scipy.optimize import curve_fit
+from kneed import KneeLocator	
 
 #Plotting
 import matplotlib
@@ -51,12 +51,6 @@ from scipy.optimize import OptimizeWarning
 warnings.simplefilter("ignore", OptimizeWarning)
 warnings.simplefilter("ignore", RuntimeWarning)
 
-
-#--------------------------------------------------------------------------------------------------------------#
-
-def find_nearest_idx(array, value):
-    idx = (np.abs(array - value)).argmin()
-    return idx
 
 def norm_fit(x, mean, std, scale):
 	return(scale * scipy.stats.norm.pdf(x, mean, std))
@@ -363,6 +357,7 @@ def run_bindetect(args):
 		err_str += "To improve this estimation, please run BINDetect with --peaks = the full peak set across all conditions."
 		logger.warning(err_str) 
 
+	#Normalize scores between conditions
 	logger.comment("")
 	logger.info("Estimating score distribution per condition")
 
@@ -372,21 +367,98 @@ def run_bindetect(args):
 
 	logger.info("Normalizing scores")
 	list_of_vals = [background["signal"][bigwig] for bigwig in args.cond_names]
-	normed, norm_objects = quantile_normalization(list_of_vals)
+	norm_functions = {}
+	if args.debug:
 
-	args.norm_objects = dict(zip(args.cond_names, norm_objects))
+		fig_out = os.path.abspath(os.path.join(args.outdir, args.prefix + "_debug.pdf"))
+		debug_pdf = PdfPages(fig_out, keep_empty=True)
+
+		n = len(list_of_vals)
+
+		#Calculate 
+		quantiles = np.linspace(0.05,1,500)	#the lower bound excludes most 0's from quantiles
+		array_quantiles = [np.quantile([0] if sum(arr > 0) == 0 else arr[arr > 0], quantiles) for arr in list_of_vals]
+		mean_array_quantiles = [np.mean([array_quantiles[i][j] for i in range(n)]) for j in range(len(quantiles))]
+
+		#Plot overview of quantile-quantile
+		f, ax = plt.subplots()
+		for i in range(n):
+			plt.plot(array_quantiles[i], mean_array_quantiles, label="Quantiles for {0}".format(i))
+		
+		plt.title("Quantile-quantile plot")
+		ax.set_xlabel("Value quantiles")
+		ax.set_ylabel("Mean quantiles")
+		ax.plot([0, 1], [0, 1], transform=ax.transAxes, linestyle="dashed", color="black", label="Expected")
+		plt.legend()
+		debug_pdf.savefig(f, bbox_inches='tight')
+		plt.close()
+
+		#Plot necessary correction
+		for i, bigwig in enumerate(args.cond_names):
+			xdata = array_quantiles[i]
+			ydata = mean_array_quantiles/xdata	#gives NA if xdata is 0
+
+			f, ax = plt.subplots()
+			residual_list = []
+			poly_functions = {}
+			degrees = list(range(1,10))
+			for deg in degrees:
+
+				o = np.polyfit(xdata, ydata, deg, full=True)
+				z, residuals, rank, singular_values, rcond = o	#unpack values
+
+				residual_list.append(residuals[0])
+				p = np.poly1d(z)
+				poly_functions[deg] = p
+				plt.plot(xdata, p(xdata), linestyle='dashed', label="fit deg = {0} (residual: {1})".format(deg, residuals))
+
+			ax.set_xlabel("Original value")
+			ax.set_ylabel("Multiplication factor")
+			plt.title("Multiplication needed for normalization")
+			plt.plot(xdata, ydata, color="black", linewidth=2, label="Original")
+
+			plt.legend()
+			debug_pdf.savefig(f, bbox_inches="tight")
+			plt.close()
+
+			#Use knee-plot to estimate how many degrees to use
+			try:
+				kneedle = KneeLocator(degrees, residual_list, S=1, curve='convex', direction='decreasing')
+				n_degrees = kneedle.knee + 1
+
+			except: #if knee was not found
+				n_degrees = 5
+
+			f, ax = plt.subplots()
+			plt.axvline(kneedle.knee)
+
+			plt.plot(degrees, residual_list)
+			debug_pdf.savefig(f)
+			plt.close()
+
+			norm_functions[bigwig] = poly_functions[n_degrees]
+
+			print(norm_functions[bigwig](1.3))
+
+		debug_pdf.close()
+
+	#normed, norm_objects = quantile_normalization(list_of_vals)
+	args.norm_functions = norm_functions
+
+	#args.norm_objects = dict(zip(args.cond_names, norm_objects))
 	for bigwig in args.cond_names:
-		background["signal"][bigwig] = args.norm_objects[bigwig].normalize(background["signal"][bigwig]) 
+		background["signal"][bigwig] = background["signal"][bigwig] * args.norm_functions[bigwig](background["signal"][bigwig])
 	
 	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
 	figure_pdf.savefig(fig, bbox_inches='tight')
 	plt.close()
 
-	###########################################################
+
+	############ Estimate bound/unbound threshold ################
 	logger.info("Estimating bound/unbound threshold")
 
 	#Prepare scores (remove 0's etc.)
-	bg_values = np.array(normed).flatten()
+	bg_values = np.array([background["signal"][bigwig] for bigwig in args.cond_names]).flatten()	#scores from all conditions
 	bg_values = bg_values[np.logical_not(np.isclose(bg_values, 0.0))]	#only non-zero counts
 	if len(bg_values) == 0:
 		logger.error("Error processing bigwig scores from background. It could be that there are no scores in the bigwig (= all scores are 0) assigned for the peaks. Please check your input files.")
@@ -470,6 +542,7 @@ def run_bindetect(args):
 		plt.close(fig)
 
 	############ Foldchanges between conditions ################
+
 	logger.comment("")
 	log2fc_params = {}
 	if len(args.signals) > 1:
@@ -704,6 +777,8 @@ def run_bindetect(args):
 		#Decide fig size
 		rows, cols = heatmap_table.shape
 		figsize = (7 + cols, max(10, rows/8.0))
+		print(heatmap_table)
+
 		cm = sns.clustermap(heatmap_table,
 							figsize = figsize, 
 							z_score = 0,		 	#zscore for rows

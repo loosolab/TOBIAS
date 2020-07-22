@@ -59,13 +59,16 @@ def sigmoid(x, a, b, L, shift):
 	y = L / (1 + np.exp(-b*(x-a))) + shift
 	return y
 
+
 class ArrayNorm:
 
 	def __init__(self, popt):
 		self.popt = popt
 
 	def normalize(self, arr):
+
 		return(arr * sigmoid(arr, *self.popt))
+
 
 def dict_to_tab(dict_list, fname, chosen_columns, header=False):
 
@@ -320,7 +323,8 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		for condition in args.cond_names:
 			threshold = args.thresholds[condition]
 			line[condition + "_score"] = float(line[condition + "_score"])
-			line[condition + "_score"] = round(args.norm_objects[condition].normalize(line[condition + "_score"] ), 5)
+			line[condition + "_score"] = line[condition + "_score"] * args.norm_functions[condition](line[condition + "_score"])  #normalize scores
+			line[condition + "_score"] = round(line[condition + "_score"], 5)
 			line[condition + "_bound"] = 1 if line[condition + "_score"] > threshold else 0
 
 		#Comparison specific
@@ -409,7 +413,18 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 			#Estimate mean/std
 			bg_params = log2fc_params[(cond1, cond2)]
-			obs_params = scipy.stats.norm.fit(observed_log2fcs)
+
+			try:
+				obs_params = scipy.stats.norm.fit(observed_log2fcs)
+			except:
+				abool = ~np.isfinite(observed_log2fcs)
+				logger.error("Non finite log2fcs: {0}".format(observed_log2fcs[abool]))
+
+				logger.error("Non finite values")
+				#logger.error(subset[abool])
+				#logger.error("observed log2fcs: {0}".format(",".join([str(e) for e in observed_log2fcs])))
+				raise Exception 
+
 
 			obs_mean, obs_std = obs_params
 			bg_mean, bg_std = bg_params
@@ -429,7 +444,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			#Sample from background distribution
 			np.random.seed(n_obs)
 			sample_changes = []
-			for i in range(100):
+			for i in range(1000):
 				sample = scipy.stats.norm.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
 				sample_mean, sample_std = np.mean(sample), np.std(sample)
 				sample_change = (sample_mean - bg_mean) / np.mean([sample_std, bg_std])
@@ -442,8 +457,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 				f.close()
 
 			#Estimate p-value by comparing sampling to observed mean
-			ttest = scipy.stats.ttest_1samp(sample_changes, info_table.at[TF_name, base + "_change"])
-			info_table.at[TF_name, base + "_pvalue"] = ttest[1]
+			z = (info_table.at[TF_name, base + "_change"] - np.mean(sample_changes)) / np.std(sample_changes)
+			pval = scipy.stats.norm.sf(abs(z))*2
+			info_table.at[TF_name, base + "_pvalue"] = pval
 			
 			#### Plot comparison ###
 			fig, ax = plt.subplots(1,1)

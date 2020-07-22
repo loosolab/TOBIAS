@@ -85,7 +85,8 @@ setup(name='tobias',
 			'logomaker',
 			'seaborn>=0.9.1',
 			'boto3',
-			'pyyaml>5.1'	#requirement for norns full_load
+			'pyyaml>5.1',			#requirement for norns full_load
+			'kneed'
 		],
 		scripts=["tobias/scripts/filter_important_factors.py"],
 		classifiers=[

@@ -143,7 +143,7 @@ def add_bindetect_arguments(parser):
 	optargs.add_argument('--prefix', metavar="<prefix>", help="Prefix for overview files in --outdir folder (default: bindetect)", default="bindetect")
 	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
 	runargs.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	runargs.add_argument('--debug', help=argparse.SUPPRESS, action='store_true')
+	runargs.add_argument('--debug', help=argparse.SUPPRESS, action='store_true')	#creates extra output for debugging
 	
 	runargs = add_logger_args(runargs)
 
