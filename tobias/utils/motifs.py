@@ -96,7 +96,8 @@ class MotifList(list):
 
 		super(MotifList, self).__init__(iter(lst))
 
-		self.bg = self.get_background() if len(self) > 0 else np.array([0.25] * 4) # (A,C,G,T). Default is equal background if not overwritten by MEME (See OneMotif)
+		#Update global background when joining motifs with different backgrounds
+		self.set_background()
 
 	def __str__(self):
 		return("\n".join([str(onemotif) for onemotif in self]))
@@ -122,15 +123,11 @@ class MotifList(list):
 			proba_flag = False  # read letter-probabilities
 			new_motif = True 	# initialize vars for new motif
 			
-			# init global vars for file, which might be overwritten by input
-			bases = ["A", "C", "G", "T"]	#default DNA alphabet
-			strand = "+ -"					#default meme strands
-			bg = np.array([0.25] * 4)		#default background
-
+			#Read meme input line by line
 			lines = content.split("\n")
 			for line in lines:
 
-				# init/ reset motif vars
+				# init/ reset current motif
 				if new_motif:
 					new_motif = False
 					probability_matrix = []
@@ -155,7 +152,7 @@ class MotifList(list):
 
 					bg_and_freq = re.split(r"(?<=\d)\s+", line.strip()) # split after every number followed by a whitespace
 					bg_dict = {key: float(value) for key, value in [el.split(" ") for el in bg_and_freq]}
-					bg = np.array([bg_dict[base] for base in bases])
+					bg = np.array([bg_dict[base] for base in self[-1].bases])
 					self[-1].bg = bg	#list of 4 if ACGT
 
 				# parse id, name
@@ -181,7 +178,8 @@ class MotifList(list):
 						key_value_split = re.split(r"(?<!=)\s+", key_value_string)	#Split on any space not preceeded by =
 						key_value_lists = [re.split(r"=\s*", pair) for pair in key_value_split]
 						key_value_dict = {pair[0]: pair[1] for pair in key_value_lists}
-						self[-1].info = key_value_dict #Add meme-read information to info-dict
+						info = key_value_dict
+						self[-1].info = info #Add meme-read information to info-dict
 
 						if "nsites" in info:
 							self[-1].n = int(info["nsites"])
@@ -193,8 +191,8 @@ class MotifList(list):
 						columns = list(map(float, line.split()))
 
 						# check for correct number of columns
-						if not len(columns) == len(bases):
-							sys.exit("Error when reading probability matrix from {0}! Expected {1} columns found {2}!".format(path, len(bases), len(columns)))
+						if not len(columns) == len(self[-1].bases):
+							sys.exit("Error when reading probability matrix from {0}! Expected {1} columns found {2}!".format(path, len(self[-1].bases), len(columns)))
 
 						# append a single row split into its columns
 						probability_matrix.append(columns)
@@ -205,7 +203,7 @@ class MotifList(list):
 						new_motif = True
 
 						# transpose and convert probability matrix to count
-						count_matrix = (np.array(probability_matrix).T * n).tolist()
+						count_matrix = (np.array(probability_matrix).T * self[-1].n).tolist()
 
 						#Set counts for current OneMotif object
 						self[-1].set_counts(count_matrix)	#this also checks for format
@@ -219,7 +217,6 @@ class MotifList(list):
 
 		else:
 			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
-
 
 		#Final changes to motifs
 		for motif in self:
@@ -266,13 +263,12 @@ class MotifList(list):
 
 		header = True
 		for motif in self:
-			# Add a single header at the beginning as it is required in meme format. (For other formats ignored)
+			# Add a single header for the first motif as it is required in meme format. (For other formats ignored)
 			out_string += motif.as_string(output_format=output_format, header=header)
 			header = False
 
-
 		return(out_string)
-
+	
 	def get_background(self):
 		"""
 		Combines background of all motifs to a global background.
@@ -293,6 +289,13 @@ class MotifList(list):
 
 		return global_bg / total_n
 
+	def set_background(self):
+		"""
+		Set the background using get_background. Sets self.bg to default if there are no motifs in list
+		"""
+
+		self.bg = self.get_background() if len(self) > 0 else np.array([0.25] * 4) # (A,C,G,T). Default is equal background if not overwritten by MEME (See OneMotif)
+
 	#---------------- Functions for moods scanning ------------------------#
 
 	def setup_moods_scanner(self, strand="."):
@@ -310,11 +313,11 @@ class MotifList(list):
 		
 		# forward scanner
 		if strand in ["+", "."]:
-			self.moods_scanner_forward, self.forward = self.__init_scanner(strand="+")
+			self.moods_scanner_forward, self.forward_parameters = self.__init_scanner(strand="+")
 
 		# reverse scanner
 		if strand in ["-", "."]:
-			self.moods_scanner_reverse, self.reverse = self.__init_scanner(strand="-")
+			self.moods_scanner_reverse, self.reverse_parameters = self.__init_scanner(strand="-")
 
 	def __init_scanner(self, strand="+"):
 		"""
@@ -329,23 +332,25 @@ class MotifList(list):
 			motifs = self
 		elif strand == "-":
 			motifs = self.get_reverse()
+			motifs.set_background()	#updates background in case of unequal G/C
 
-		# calculate pssm
+		# calculate pssm if needed
 		for motif in motifs:
-			motif.get_pssm()
+			if pssm is None:
+				motif.get_pssm()
 
-		#Set lists of names/thresholds used for scanning		
-		tups = [(motif.prefix, motif.pssm, motif.threshold) for motif in motifs]
+		#Set lists of names/thresholds used for scanning	
+		parameters = {'names': [], 'matrices': [], 'thresholds': []}
+		for motif in motifs:
+			parameters["names"].append(motif.prefix)
+			parameters["matrices"].append(motif.pssm)
+			parameters["thresholds"].append(motif.threshold)
 
-		if len(tups) > 0:
-			parameter = {**dict(), **dict(zip(["names", "matrices", "thresholds"], zip(*tups)))}
-		else:
-			parameter = {'names': [], 'matrices': [], 'thresholds': []}
-
+		#Setup scanner
 		scanner = MOODS.scan.Scanner(7)
-		scanner.set_motifs(parameter["matrices"], motifs.get_background(), parameter["thresholds"])
+		scanner.set_motifs(parameters["matrices"], motifs.bg, parameters["thresholds"])
 
-		return (scanner, parameter)
+		return (scanner, parameters)
 
 	def scan_sequence(self, seq, region, strand="."):
 		"""
@@ -362,24 +367,25 @@ class MotifList(list):
 		"""
 		sites = RegionList()	#Empty regionlist
 
+		#Check that scanners have been initialized
 		if strand in ["+", "."] and self.moods_scanner_forward == None:
 			self.setup_moods_scanner("+")
+			
 		if strand in ["-", "."] and self.moods_scanner_reverse == None:
 			self.setup_moods_scanner("-")
 
+		#Scan sequence on either + or - strand (or both)
 		if strand in ["+", "."]:
-			# Scan sequence
 			sites += self.__stranded_scan(seq=seq, region=region, strand="+")
 
 		if strand in ["-", "."]:
-			# Scan sequence
 			sites += self.__stranded_scan(seq=seq, region=region, strand="-")
 
 		return(sites)
 
 	def __stranded_scan(self, seq, region, strand="+"):
 		"""
-		Scan the sequence based on the given strand.
+		Scan the sequence based on the given strand. Assumes that the sequence is 5'-3' on the + strand.
 
 		Parameter:
 			seq (string): DNA sequence
@@ -393,16 +399,16 @@ class MotifList(list):
 
 		if strand == "+":
 			scanner = self.moods_scanner_forward
-			parameter = self.forward
+			parameters = self.forward_parameters
 		elif strand == "-":
 			scanner = self.moods_scanner_reverse
-			parameter = self.reverse
+			parameters = self.reverse_parameters
 
 		# scan sequence
 		results = scanner.scan(seq)
 
-		# combine results and parameter to RegionList
-		for (matrix, name, result) in zip(parameter["matrices"], parameter["names"], results):
+		# combine results and parameters to RegionList
+		for (matrix, name, result) in zip(parameters["matrices"], parameters["names"], results):
 			motif_length = len(matrix[0])
 
 			for match in result:
@@ -454,6 +460,7 @@ class MotifList(list):
 
 	def create_consensus(self):
 		""" Create consensus motif from MotifList """
+
 		from gimmemotifs.comparison import MotifComparer
 
 		self = [motif.get_gimmemotifs() if motif.gimme_obj is None else motif for motif in self]	#fill in gimme_obj if it is not found
@@ -728,7 +735,7 @@ class OneMotif:
 	name = "" # motif name (does not have to be unique)
 	bases = ["A", "C", "G", "T"] # alphabet order must correspont with counts matrix!
 	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
-	strand = "+ -"		# default meme strand
+	strands = "+ -"		# default meme strands
 	n = 20				# default number of sites used for creating motif
 	length = None 		# length of the motif
  
@@ -742,11 +749,10 @@ class OneMotif:
 	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid, counts, name=None, strand="+ -"):
+	def __init__(self, motifid, counts, name=None):
 
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
-		self.strand = strand
 
 		# sets counts, length and n
 		self.set_counts(counts)
@@ -814,11 +820,10 @@ class OneMotif:
 		rev_counts[1] = self.counts[2][::-1] # rev G => C
 		rev_counts[2] = self.counts[1][::-1] # rev C => G
 		rev_counts[3] = self.counts[0][::-1] # rev A => T
-		
-		rev_bg = self.bg[[3, 2, 1, 0]]	# reverse background
+		rev_bg = self.bg[[3, 2, 1, 0]]	# reverse background; will be the same if A/T, C/G ratios are balanced
 
 		# Create reverse motif obj and fill in 
-		reverse_motif = OneMotif(motifid=self.id, counts=rev_counts, name=self.name, strand=self.strand)
+		reverse_motif = OneMotif(motifid=self.id, counts=rev_counts, name=self.name)
 		reverse_motif.info = self.info 	# add info from original motif
 		reverse_motif.bg = rev_bg		# add background
 		reverse_motif.prefix = self.prefix
