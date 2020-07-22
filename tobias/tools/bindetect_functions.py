@@ -225,7 +225,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 
 		#Scan for motifs across sequence from fasta
 		seq = fasta_obj.fetch(region.chrom, region.start, region.end)
-		region_TFBS = motifs_obj.scan_sequence(seq, region)		#RegionList of TFBS
+		region_TFBS = motifs_obj.scan_sequence(seq, region)		#RegionList of TFBS, automatically scanned on both plus/minus strands
 
 		#Extend all TFBS with extra columns from peaks and bigwigs 
 		extra_columns = region
