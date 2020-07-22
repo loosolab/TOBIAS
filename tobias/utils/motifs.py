@@ -80,13 +80,16 @@ class MotifList(list):
 
 	# initialize vars
 	#Set by setup moods scanner
-	names = []
-	matrices = [] 	#pssms
-	strands = []
-	thresholds = []
+	forward = {'names': [], 
+			'matrices': [], # pssms
+			'thresholds': []}
+	reverse = {'names': [], 
+			'matrices': [] , # pssms
+			'thresholds': []}
 
 	#Scanner
-	moods_scanner = None
+	moods_scanner_forward = None
+	moods_scanner_reverse = None
  
 	def __init__(self, lst=[]):
 		""" Initialize the MotifList object with a list of OneMotif objects (lst) or empty """
@@ -292,28 +295,59 @@ class MotifList(list):
 
 	#---------------- Functions for moods scanning ------------------------#
 
-	def setup_moods_scanner(self):
-		""" Sets self.moods_scanner object """
+	def setup_moods_scanner(self, strand="."):
+		""" 
+		Sets self.moods_scanner_forward and self.moods_scanner_reverse objects 
+
+		Parameters:
+			strand (string): Initialize scanner for given strand. '+', '-' or '.' for both.
+		"""
 
 		# make sure everything necessary exists
 		for motif in self:
 			if len(motif.prefix) <= 0 or motif.threshold == None:
 				raise Exception("Missing prefix and/or threshold! Please consider running 'motif.set_prefix()' and 'motif.get_threshold()' on the respective motif(s).")
+		
+		# forward scanner
+		if strand in ["+", "."]:
+			self.moods_scanner_forward, self.forward = self.__init_scanner(strand="+")
 
-		#Set lists of names/strands/thresholds used for scanning		
-		tups = [(motif.prefix, motif.moods_strand, motif.pssm, motif.threshold) for motif in self] 		#list of tups
+		# reverse scanner
+		if strand in ["-", "."]:
+			self.moods_scanner_reverse, self.reverse = self.__init_scanner(strand="-")
+
+	def __init_scanner(self, strand="+"):
+		"""
+		Create a new scanner.
+
+		Parameter:
+			strand (string): Strand on which the scanner should search. Either "+" or "-".
+		Returns:
+			Tuple of scanner and parameter dict.
+		"""
+		if strand == "+":
+			motifs = self
+		elif strand == "-":
+			motifs = self.get_reverse()
+
+		# calculate pssm
+		for motif in motifs:
+			motif.get_pssm()
+
+		#Set lists of names/thresholds used for scanning		
+		tups = [(motif.prefix, motif.pssm, motif.threshold) for motif in motifs]
 
 		if len(tups) > 0:
-			self.names, self.strands, self.matrices, self.thresholds = list(map(list, zip(*tups))) 	#get "columns"
+			parameter = {**dict(), **dict(zip(["names", "matrices", "thresholds"], zip(*tups)))}
 		else:
-			self.names, self.strands, self.matrices, self.thresholds = ([], [], [], [])
+			parameter = {'names': [], 'matrices': [], 'thresholds': []}
 
 		scanner = MOODS.scan.Scanner(7)
-		scanner.set_motifs(self.matrices, self.bg, self.thresholds)
+		scanner.set_motifs(parameter["matrices"], motifs.get_background(), parameter["thresholds"])
 
-		self.moods_scanner = scanner
+		return (scanner, parameter)
 
-	def scan_sequence(self, seq, region):
+	def scan_sequence(self, seq, region, strand="."):
 		"""
 		Scan sequence with the motifs in self 
 		
@@ -323,27 +357,63 @@ class MotifList(list):
 			DNA sequence
 		region : OneRegion
 			OneRegion object fitting seq
+		strand : string
+			One of "+", "-", "." to indiciate one which strand to search.
 		"""
-
-		if self.moods_scanner == None:
-			self.setup_moods_scanner()
-
-		#Scan sequence
-		results = self.moods_scanner.scan(seq)
-
-		#Convert results to RegionList
 		sites = RegionList()	#Empty regionlist
-		for (matrix, name, strand, result) in zip(self.matrices, self.names, self.strands, results):
-			motif_length = len(matrix[0])
-			for match in result:
-				start = region.start + match.pos 	#match pos is 1 based
-				end = start + motif_length		
-				score = round(match.score, 5)
 
-				site = OneRegion([region.chrom, start, end, name, score, strand])	#Create OneRegion obj
-				sites.append(site)
+		if strand in ["+", "."] and self.moods_scanner_forward == None:
+			self.setup_moods_scanner("+")
+		if strand in ["-", "."] and self.moods_scanner_reverse == None:
+			self.setup_moods_scanner("-")
+
+		if strand in ["+", "."]:
+			# Scan sequence
+			sites += self.__stranded_scan(seq=seq, region=region, strand="+")
+
+		if strand in ["-", "."]:
+			# Scan sequence
+			sites += self.__stranded_scan(seq=seq, region=region, strand="-")
 
 		return(sites)
+
+	def __stranded_scan(self, seq, region, strand="+"):
+		"""
+		Scan the sequence based on the given strand.
+
+		Parameter:
+			seq (string): DNA sequence
+			region (OneRegion): Object fitting the sequence.
+			strand (string): Either "+" or "-".
+		Returns:
+			List of matches as RegionList object.
+		"""
+
+		sites = RegionList()
+
+		if strand == "+":
+			scanner = self.moods_scanner_forward
+			parameter = self.forward
+		elif strand == "-":
+			scanner = self.moods_scanner_reverse
+			parameter = self.reverse
+
+		# scan sequence
+		results = scanner.scan(seq)
+
+		# combine results and parameter to RegionList
+		for (matrix, name, result) in zip(parameter["matrices"], parameter["names"], results):
+			motif_length = len(matrix[0])
+
+			for match in result:
+				start = region.start + match.pos # match pos is 1 based
+				end = start + motif_length
+				score = round(match.score, 5)
+
+				site = OneRegion([region.chrom, start, end, name, score, strand])
+				sites.append(site)
+
+		return sites
 
 	#---------------- Functions for motif clustering ----------------------#
 	def cluster(self, threshold=0.5, metric = "pcc", clust_method = "average"):
@@ -483,6 +553,11 @@ class MotifList(list):
 				seen[m_id] += 1
 
 		return(self)
+
+	def get_reverse(self):
+		""" Returns a motiflist of reversed motifs."""
+
+		return MotifList([motif.get_reverse() for motif in self])
 
 #--------------------------------------------------------------------------------------------------------#
 def gimmemotif_to_onemotif(gimmemotif_obj):
@@ -654,7 +729,6 @@ class OneMotif:
 	bases = ["A", "C", "G", "T"] # alphabet order must correspont with counts matrix!
 	bg = np.array([0.25,0.25,0.25,0.25]) # background set to equal by default
 	strand = "+ -"		# default meme strand
-	moods_strand = "+"	# default strand for moods output
 	n = 20				# default number of sites used for creating motif
 	length = None 		# length of the motif
  
@@ -668,10 +742,11 @@ class OneMotif:
 	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid, counts, name=None):
+	def __init__(self, motifid, counts, name=None, strand="+ -"):
 
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
+		self.strand = strand
 
 		# sets counts, length and n
 		self.set_counts(counts)
@@ -733,16 +808,6 @@ class OneMotif:
 	def get_reverse(self):
 		""" Reverse complement motif """
 
-		if self.moods_strand == "+":
-			rev_strand = "-"
-		elif self.moods_strand == "-":
-			rev_strand = "+"
-		else:
-			rev_strand = self.moods_strand  #could be "."
-
-		rev_id = self.id
-		rev_name = self.name
-
 		# reverse counts
 		rev_counts = [[],[],[],[]]
 		rev_counts[0] = self.counts[3][::-1] # rev T => A
@@ -753,10 +818,11 @@ class OneMotif:
 		rev_bg = self.bg[[3, 2, 1, 0]]	# reverse background
 
 		# Create reverse motif obj and fill in 
-		reverse_motif = OneMotif(motifid=rev_id, counts=rev_counts, name=rev_name)
-		reverse_motif.moods_strand = rev_strand
+		reverse_motif = OneMotif(motifid=self.id, counts=rev_counts, name=self.name, strand=self.strand)
 		reverse_motif.info = self.info 	# add info from original motif
 		reverse_motif.bg = rev_bg		# add background
+		reverse_motif.prefix = self.prefix
+		reverse_motif.threshold = self.threshold
 
 		return(reverse_motif)	#OneMotif object
 
