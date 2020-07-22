@@ -18,9 +18,6 @@ import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
-#from matplotlib.text import TextPath
-#from matplotlib.patches import PathPatch
-#from matplotlib.font_manager import FontProperties
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 import scipy.spatial.distance as ssd
@@ -122,28 +119,27 @@ class MotifList(list):
 			proba_flag = False  # read letter-probabilities
 			new_motif = True 	# initialize vars for new motif
 			
-			# init global vars for file
+			# init global vars for file, which might be overwritten by input
 			bases = ["A", "C", "G", "T"]	#default DNA alphabet
-			strand = "+ -"	#default meme strands
-			bg = np.array([0.25] * 4)
+			strand = "+ -"					#default meme strands
+			bg = np.array([0.25] * 4)		#default background
 
 			lines = content.split("\n")
 			for line in lines:
+
 				# init/ reset motif vars
 				if new_motif:
 					new_motif = False
-
-					n = 20 # defined as default number of sites in MEME format
-					info = {}
 					probability_matrix = []
+					self.append(OneMotif(motifid="", counts=[[],[],[],[]]))	#initialize dummy OneMotif for filling in
 
 				# parse alphabet
 				if line.startswith("ALPHABET= "): # TODO implement for custom alphabet
-					bases = list(line.replace("ALPHABET= ", ""))
+					self[-1].bases = list(line.replace("ALPHABET= ", ""))
 
 				# parse strands
 				elif line.startswith("strands"):
-					strand = line.replace("strands: ", "")	#strand string from header
+					self[-1].strands = line.replace("strands: ", "")	#strand string from header
 
 				# find background freq
 				elif line.startswith("Background letter frequencies"):
@@ -157,6 +153,7 @@ class MotifList(list):
 					bg_and_freq = re.split(r"(?<=\d)\s+", line.strip()) # split after every number followed by a whitespace
 					bg_dict = {key: float(value) for key, value in [el.split(" ") for el in bg_and_freq]}
 					bg = np.array([bg_dict[base] for base in bases])
+					self[-1].bg = bg	#list of 4 if ACGT
 
 				# parse id, name
 				elif line.startswith("MOTIF"):
@@ -165,6 +162,9 @@ class MotifList(list):
 						motif_id, name = columns[1], columns[2]
 					elif len(columns) == 2: # MOTIF, ID
 						motif_id, name = columns[1], ""	# name not given
+					
+					self[-1].id = motif_id
+					self[-1].name = name
 
 				# find and parse letter probability matrix header
 				elif line.startswith("letter-probability matrix"):
@@ -178,13 +178,14 @@ class MotifList(list):
 						key_value_split = re.split(r"(?<!=)\s+", key_value_string)	#Split on any space not preceeded by =
 						key_value_lists = [re.split(r"=\s*", pair) for pair in key_value_split]
 						key_value_dict = {pair[0]: pair[1] for pair in key_value_lists}
-						info.update(key_value_dict) 	#Add meme-read information to info-dict
+						self[-1].info = key_value_dict #Add meme-read information to info-dict
 
 						if "nsites" in info:
-							n = int(info["nsites"])
+							self[-1].n = int(info["nsites"])
 
 				# parse probability matrix or save motif
 				elif proba_flag:
+
 					if re.match(r"^[\s]*([\d\.\s]+)$", line):
 						columns = list(map(float, line.split()))
 
@@ -203,13 +204,8 @@ class MotifList(list):
 						# transpose and convert probability matrix to count
 						count_matrix = (np.array(probability_matrix).T * n).tolist()
 
-						# create and append new OneMotif object
-						obj = OneMotif(motifid=motif_id, counts=count_matrix, name=name, strand=strand)
-						obj.info = info
-						obj.bases = bases
-						obj.bg = bg
-						obj.strand = strand
-						self.append(obj)
+						#Set counts for current OneMotif object
+						self[-1].set_counts(count_matrix)	#this also checks for format
 
 		# parse PFM/ JASPAR
 		elif file_format in biopython_formats:
@@ -221,14 +217,6 @@ class MotifList(list):
 		else:
 			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
 
-		#Gimmemotifs functionality removed in 0.11.0
-		"""
-		elif file_format in gimmemotif_formats:
-			gimme_motif_list = read_motifs(infile = path, fmt = file_format)
-			for gimmemotif in gimme_motif_list:
-				onemotif_obj = gimmemotif_to_onemotif(gimmemotif)
-				self.append(onemotif_obj)	#add OneMotif object to list
-		"""
 
 		#Final changes to motifs
 		for motif in self:
@@ -891,11 +879,9 @@ class OneMotif:
 		if len(set(lengths)) != 1:
 			raise ValueError("All lists in counts must be of same length.")
 
-		# add counts
+		# add counts and associated length/n to OneMotif object
 		self.counts = counts
-		# update motif length
-		self.length = lengths[0]
-		# update number of sites
+		self.length = lengths[0]	#update motif length
 		self.n = np.sum([row[0] for row in counts])
 
 		return self
