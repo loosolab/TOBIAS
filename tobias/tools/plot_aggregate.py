@@ -12,14 +12,12 @@ import os
 import sys
 import argparse
 import numpy as np
+import copy
+import itertools
 
 import matplotlib as mpl
 mpl.use("Agg")	#non-interactive backend
 import matplotlib.pyplot as plt
-
-#import copy
-
-import itertools
 import scipy
 import sklearn
 from sklearn import preprocessing
@@ -163,17 +161,14 @@ def run_aggregate(args):
 		else:
 			motif_widths[regions_id] = 0
 
-	# Set width (centered on mid)
-	args.width = args.flank*2
-	for regions_id in regions_dict:
-		regions_dict[regions_id].apply_method(OneRegion.set_width, args.width)
-
 
 	#########################################################################################
 	############################ Read signal for bigwig per site ############################
 	#########################################################################################
 
 	logger.info("Reading signal from bigwigs")
+
+	args.width = args.flank*2	#output regions will be of args.width
 
 	signal_dict = {} 
 	for i, signal_f in enumerate(args.signals):
@@ -183,9 +178,26 @@ def run_aggregate(args):
 
 		#Open pybw to read signal
 		pybw = pyBigWig.open(signal_f)
+		boundaries = pybw.chroms()	#dictionary of {chrom: length}
 
 		logger.info("- Reading signal from {0}".format(signal_name))
 		for regions_id in regions_dict:
+
+			original = copy.deepcopy(regions_dict[regions_id])
+
+			# Set width (centered on mid)
+			regions_dict[regions_id].apply_method(OneRegion.set_width, args.width)
+
+			#Check that regions are within boundaries and remove if not
+			invalid = [i for i, region in enumerate(regions_dict[regions_id]) if region.check_boundary(boundaries, action="remove") == None] 
+			for invalid_idx in invalid[::-1]:	#idx from higher to lower
+				logger.warning("Region '{reg}' ('{orig}' before flank extension) from bed regions '{id}' is out of chromosome boundaries. This region will be excluded from output.".format(
+																									reg=regions_dict[regions_id][invalid_idx].pretty(),
+																									orig=original[invalid_idx].pretty(),
+																									id=regions_id))
+				del regions_dict[regions_id][invalid_idx]
+
+			#Get signal from remaining regions
 			for one_region in regions_dict[regions_id]:
 				tup = one_region.tup()	#(chr, start, end, strand)
 				if tup not in signal_dict[signal_name]:	#only get signal if it was not already read previously
@@ -208,30 +220,43 @@ def run_aggregate(args):
 			
 			signalmat = np.array([signal_dict[signal_name][reg.tup()] for reg in regions_dict[region_name]])
 
+			#Check shape of signalmat
+			if signalmat.shape[0] == 0: #no regions
+				logger.warning("No regions left for '{0}'. The aggregate for this signal will be set to 0.".format(signal_name))
+				aggregate = np.zeros(args.width)
+			else:	
+				#Exclude outlier rows 
 			#Exclude outlier rows 
-			max_values = np.max(signalmat, axis=1)
-			upper_limit = np.percentile(max_values, [100*args.remove_outliers])[0]	#remove-outliers is a fraction
+				#Exclude outlier rows 
+			#Exclude outlier rows 
+				#Exclude outlier rows 
+				max_values = np.max(signalmat, axis=1)
+				upper_limit = np.percentile(max_values, [100*args.remove_outliers])[0]	#remove-outliers is a fraction
+				logical = max_values <= upper_limit 
 			logical = max_values <= upper_limit 
-			logger.debug("{0}:{1}\tUpper limit: {2} (regions removed: {3})".format(signal_name, region_name, upper_limit, len(signalmat) - sum(logical)))
-			signalmat = signalmat[logical]
-						
-			#Log-transform values before aggregating
-			if args.log_transform:
-				signalmat_abs = np.abs(signalmat)
-				signalmat_log = np.log2(signalmat_abs + 1)
-				signalmat_log[signalmat < 0] *= -1	 #original negatives back to <0
-				signalmat = signalmat_log
-			
-			aggregate = np.nanmean(signalmat, axis=0)
+				logical = max_values <= upper_limit 
+			logical = max_values <= upper_limit 
+				logical = max_values <= upper_limit 
+				logger.debug("{0}:{1}\tUpper limit: {2} (regions removed: {3})".format(signal_name, region_name, upper_limit, len(signalmat) - sum(logical)))
+				signalmat = signalmat[logical]
+							
+				#Log-transform values before aggregating
+				if args.log_transform:
+					signalmat_abs = np.abs(signalmat)
+					signalmat_log = np.log2(signalmat_abs + 1)
+					signalmat_log[signalmat < 0] *= -1	 #original negatives back to <0
+					signalmat = signalmat_log
+				
+				aggregate = np.nanmean(signalmat, axis=0)
 
-			#normalize between 0-1
-			if args.normalize:
-				aggregate = preprocessing.minmax_scale(aggregate)
+				#normalize between 0-1
+				if args.normalize:
+					aggregate = preprocessing.minmax_scale(aggregate)
 
-			if args.smooth > 1:
-				aggregate_extend = np.pad(aggregate, args.smooth, "edge")
-				aggregate_smooth = fast_rolling_math(aggregate_extend.astype('float64'), args.smooth, "mean")
-				aggregate = aggregate_smooth[args.smooth:-args.smooth]
+				if args.smooth > 1:
+					aggregate_extend = np.pad(aggregate, args.smooth, "edge")
+					aggregate_smooth = fast_rolling_math(aggregate_extend.astype('float64'), args.smooth, "mean")
+					aggregate = aggregate_smooth[args.smooth:-args.smooth]
 
 			aggregate_dict[signal_name][region_name] = aggregate
 			signalmat = None	#free up space
@@ -285,7 +310,6 @@ def run_aggregate(args):
 	combis = itertools.combinations(plots, 2)
 
 	for ax1, ax2 in combis:
-
 		signal1, region1 = ax1
 		signal2, region2 = ax2
 		agg1 = aggregate_dict[signal1][region1]

@@ -54,6 +54,10 @@ class OneRegion(list):
 	def tup(self):
 		return((self.chrom, self.start, self.end, self.strand))
 	
+	def pretty(self):
+		""" Pretty print of coordinates in the format chr:start-stop(strand) """
+		return("{0}:{1}-{2}({3})".format(self.chrom, self.start, self.end, self.strand))
+
 	def update(self):
 
 		self[0] = self.chrom
@@ -138,18 +142,21 @@ class OneRegion(list):
 			if action == "cut":
 				self.start = max([0, self.start])
 				self.end = min([boundaries_dict[self.chrom], self.end])
+				
+				#Update positions in list
+				self[1] = self.start
+				self[2] = self.end
+
+				#If the region has been cut to be 0 of less length; remove
+				if self.get_length() <= 0:
+					self = None
+
 			elif action == "remove":
 				self = None
+				
 			elif action == "exit":
 				logger.error("Region \"{0}\" is outside of the chromosome boundaries ({1}: {2})".format(self, self.chrom, boundaries_dict[self.chrom]))
 				sys.exit()
-		
-		#If the region has been cut to be 0 of less length; remove
-		if self.get_length() <= 0:
-			self = None
-
-		self[1] = self.start
-		self[2] = self.end
 
 		return(self)
 

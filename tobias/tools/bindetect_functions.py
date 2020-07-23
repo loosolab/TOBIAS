@@ -196,7 +196,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		extra_columns = region
 		
 		#Check whether region is within boundaries
-		if region.end >= chrom_boundaries[region.chrom]:
+		if region.end > chrom_boundaries[region.chrom]:
 			logger.error("Input region {0} is beyond chromosome boundaries ({1}: {2})".format(region, region.chrom, chrom_boundaries[region.chrom]))
 			raise Exception 
 
