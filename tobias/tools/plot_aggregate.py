@@ -225,17 +225,10 @@ def run_aggregate(args):
 				logger.warning("No regions left for '{0}'. The aggregate for this signal will be set to 0.".format(signal_name))
 				aggregate = np.zeros(args.width)
 			else:	
-				#Exclude outlier rows 
-			#Exclude outlier rows 
-				#Exclude outlier rows 
-			#Exclude outlier rows 
+
 				#Exclude outlier rows 
 				max_values = np.max(signalmat, axis=1)
 				upper_limit = np.percentile(max_values, [100*args.remove_outliers])[0]	#remove-outliers is a fraction
-				logical = max_values <= upper_limit 
-			logical = max_values <= upper_limit 
-				logical = max_values <= upper_limit 
-			logical = max_values <= upper_limit 
 				logical = max_values <= upper_limit 
 				logger.debug("{0}:{1}\tUpper limit: {2} (regions removed: {3})".format(signal_name, region_name, upper_limit, len(signalmat) - sum(logical)))
 				signalmat = signalmat[logical]
