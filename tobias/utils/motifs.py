@@ -152,7 +152,7 @@ class MotifList(list):
 
 					bg_and_freq = re.split(r"(?<=\d)\s+", line.strip()) # split after every number followed by a whitespace
 					bg_dict = {key: float(value) for key, value in [el.split(" ") for el in bg_and_freq]}
-					bg = np.array([bg_dict[base] for base in self[-1].bases])
+					bg = np.array([bg_dict[base] for base in bases])
 
 				### Motif content ###
 				# parse id, name
@@ -1006,7 +1006,7 @@ class OneMotif:
 				# TODO read meme version from original file (or default to version 4)
 				meme_header = "MEME version 4\n\n"
 				meme_header += "ALPHABET= {0}\n\n".format("".join(self.bases))
-				meme_header += "strands: {0}\n\n".format(self.strand)
+				meme_header += "strands: {0}\n\n".format(self.strands)
 				meme_header += "Background letter frequencies\n"
 				meme_header += " ".join([f"{self.bases[i]} {self.bg[i]}" for i in range(4)]) + "\n\n"
 
