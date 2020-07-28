@@ -122,24 +122,24 @@ class MotifList(list):
 			bg_flag = False 	# read background letter frequencies
 			proba_flag = False  # read letter-probabilities
 			new_motif = True 	# initialize vars for new motif
+
+			#Intialize header variables
+			bases = None
+			strands = None
+			bg = None
 			
 			#Read meme input line by line
 			lines = content.split("\n")
 			for line in lines:
 
-				# init/ reset current motif
-				if new_motif:
-					new_motif = False
-					probability_matrix = []
-					self.append(OneMotif(motifid=""))	#initialize dummy OneMotif for filling in
-
+				### Header content ###
 				# parse alphabet
 				if line.startswith("ALPHABET= "): # TODO implement for custom alphabet
-					self[-1].bases = list(line.replace("ALPHABET= ", ""))
+					bases = list(line.replace("ALPHABET= ", ""))
 
 				# parse strands
 				elif line.startswith("strands"):
-					self[-1].strands = line.replace("strands: ", "")	#strand string from header
+					strands = line.replace("strands: ", "")	#strand string from header
 
 				# find background freq
 				elif line.startswith("Background letter frequencies"):
@@ -153,10 +153,15 @@ class MotifList(list):
 					bg_and_freq = re.split(r"(?<=\d)\s+", line.strip()) # split after every number followed by a whitespace
 					bg_dict = {key: float(value) for key, value in [el.split(" ") for el in bg_and_freq]}
 					bg = np.array([bg_dict[base] for base in self[-1].bases])
-					self[-1].bg = bg	#list of 4 if ACGT
 
+				### Motif content ###
 				# parse id, name
 				elif line.startswith("MOTIF"):
+
+					#Initialize motif
+					probability_matrix = []
+					self.append(OneMotif(motifid=""))	#initialize dummy OneMotif for filling in
+
 					columns = line.split()
 					if len(columns) > 2: # MOTIF, ID, NAME
 						motif_id, name = columns[1], columns[2]
@@ -165,6 +170,14 @@ class MotifList(list):
 					
 					self[-1].id = motif_id
 					self[-1].name = name
+
+					#Set any information collected from header (overwrites defaults from OneMotif)
+					if bases is not None:
+						self[-1].bases = bases
+					if strands is not None:
+						self[-1].strands = strands
+					if bg is not None:
+						self[-1].bg = bg
 
 				# find and parse letter probability matrix header
 				elif line.startswith("letter-probability matrix"):
@@ -182,7 +195,7 @@ class MotifList(list):
 						self[-1].info = info #Add meme-read information to info-dict
 
 						if "nsites" in info:
-							self[-1].n = int(info["nsites"])
+							self[-1].n = int(info["nsites"]) #overwrites OneMotif default
 
 				# parse probability matrix or save motif
 				elif proba_flag:
@@ -197,10 +210,9 @@ class MotifList(list):
 						# append a single row split into its columns
 						probability_matrix.append(columns)
 
-					# motif ended; save and start new motif
+					# motif ended; save this motif
 					else:
 						proba_flag = False
-						new_motif = True
 
 						# transpose and convert probability matrix to count
 						count_matrix = (np.array(probability_matrix).T * self[-1].n).tolist()
