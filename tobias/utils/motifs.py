@@ -1008,7 +1008,7 @@ class OneMotif:
 				meme_header += "ALPHABET= {0}\n\n".format("".join(self.bases))
 				meme_header += "strands: {0}\n\n".format(self.strands)
 				meme_header += "Background letter frequencies\n"
-				meme_header += " ".join([f"{self.bases[i]} {self.bg[i]}" for i in range(4)]) + "\n\n"
+				meme_header += " ".join([f"{self.bases[i]} {self.bg[i]}" for i in range(4)]) + "\n"
 
 				out_string += meme_header
 
