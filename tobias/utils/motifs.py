@@ -828,6 +828,7 @@ class OneMotif:
 		reverse_motif.bg = rev_bg		# add background
 		reverse_motif.prefix = self.prefix
 		reverse_motif.threshold = self.threshold
+		# TODO reverse strand; only applicable for meme files
 
 		return(reverse_motif)	#OneMotif object
 
@@ -850,6 +851,7 @@ class OneMotif:
 
 		pssm_tuple = tuple([tuple(row) for row in self.pssm])
 		self.threshold = MOODS.tools.threshold_from_p(pssm_tuple, self.bg, pvalue, 4)
+
 		return(self)
 
 	def information_content(self, ps=0.01):

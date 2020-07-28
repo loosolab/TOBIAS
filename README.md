@@ -75,7 +75,7 @@ Overview and command-line examples
 * [FilterFragments](https://github.com/loosolab/TOBIAS/wiki/Additional): Filter fragments from a .bam-file using a .bed-file of regions
 * [Additional utility tools](https://github.com/loosolab/TOBIAS/wiki/Additional)
 
-  
+
 Pipelines
 ----------------
 While each TOBIAS tool can be run independently, they are developed to be run as part of an analysis pipeline. We provide ready-made pipelines for performing bias-correction, footprinting, differential binding and visualization for multiple conditions automatically.
