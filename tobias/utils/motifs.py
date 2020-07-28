@@ -131,7 +131,7 @@ class MotifList(list):
 				if new_motif:
 					new_motif = False
 					probability_matrix = []
-					self.append(OneMotif(motifid="", counts=[[],[],[],[]]))	#initialize dummy OneMotif for filling in
+					self.append(OneMotif(motifid=""))	#initialize dummy OneMotif for filling in
 
 				# parse alphabet
 				if line.startswith("ALPHABET= "): # TODO implement for custom alphabet
@@ -749,13 +749,14 @@ class OneMotif:
 	pfm = None # position frequency matrix, i.e. counts / sum of counts per position
 	pssm = None # The log-odds scoring matrix (pssm) calculated from get_pssm.
 
-	def __init__(self, motifid, counts, name=None):
+	def __init__(self, motifid, counts=None, name=None):
 
 		self.id = motifid if motifid != None else ""		#should be unique
 		self.name = name if name != None else "" 			#does not have to be unique
 
 		# sets counts, length and n
-		self.set_counts(counts)
+		if not counts is None:
+			self.set_counts(counts)
 
 	def __str__(self):
 		""" Format used for printing """
