@@ -249,7 +249,7 @@ class MotifList(list):
 		path : string
 			Output path
 		fmt : string
-			Format of motif file (pfm/jaspar/meme/transfac)
+			Format of motif file (pfm/jaspar/meme)
 		"""
 
 		out_string = self.as_string(fmt)
@@ -1023,6 +1023,10 @@ class OneMotif:
 			precision = 6
 			for row in self.pfm.T: #add frequency per position
 				out_string += " {0}\n".format("  ".join(map(lambda f: format(round(f, precision), f".{precision}f"), row)))
+
+		# TODO also implementation in from_file needed
+		#elif output_format == "transfac":
+		#	out_string += self.get_gimmemotif().gimme_obj.to_transfac()
 
 		else:
 			raise ValueError("Format " + output_format + " is not supported")
