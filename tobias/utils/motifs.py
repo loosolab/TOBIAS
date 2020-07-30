@@ -852,7 +852,10 @@ class OneMotif:
 			self.get_pfm()
 
 		bg_col = self.bg.reshape((-1,1))
-		self.pssm = np.log(self.pfm + ps) - np.log(bg_col)	#pfm/bg - assumes that self.pfm is calculated from get_pfm()
+		pseudo_vector = ps * bg_col
+
+		pfm_pseudocount = np.true_divide(self.pfm + pseudo_vector, np.sum(self.pfm + pseudo_vector, axis=0)) #pfm with added pseudocounts
+		self.pssm = np.log(pfm_pseudocount) - np.log(bg_col) #pfm/bg
 
 		return(self)
 

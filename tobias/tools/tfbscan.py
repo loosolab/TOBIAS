@@ -18,8 +18,6 @@ import itertools
 
 import pysam	#for reading fastafile
 
-import tobias
-import tobias.utils.sequences
 
 from tobias.parsers import add_tfbscan_arguments
 from tobias.utils.utilities import *
