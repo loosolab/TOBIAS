@@ -18,11 +18,13 @@ import itertools
 
 import pysam	#for reading fastafile
 
+import tobias
+import tobias.utils.sequences
 
 from tobias.parsers import add_tfbscan_arguments
 from tobias.utils.utilities import *
 from tobias.utils.regions import *
-from tobias.utils.sequences import * 
+from tobias.utils.sequences import get_gc_content
 from tobias.utils.motifs import *
 from tobias.utils.logger import *
 
@@ -30,12 +32,11 @@ from tobias.utils.logger import *
 def motif_scanning(regions, args, motifs_obj):
 	""" motifs_obj is a MotifList object """
 
-	motifs_obj.setup_moods_scanner()	#setup scanner in object
 	fasta_obj = pysam.FastaFile(args.fasta)
 	qs = args.qs
 
 	#Scan motifs_obj against sequences per region
-	all_TFBS = {name:RegionList() for name in [motif.prefix for motif in motifs_obj]}
+	all_TFBS = {name: RegionList() for name in [motif.prefix for motif in motifs_obj]}
 
 	for region in regions:
 
@@ -172,10 +173,7 @@ def run_tfbscan(args):
 	
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
-
-	reverse_motifs = [motif.get_reverse() for motif in motif_list]
-	motif_list.extend(reverse_motifs)
-	for motif in motif_list:	#now with reverse motifs as well
+	for motif in motif_list:
 		motif.set_prefix(args.naming)
 		motif.bg = bg
 		motif.get_pssm()
