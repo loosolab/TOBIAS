@@ -94,5 +94,5 @@ setup(name='tobias',
 			'Topic :: Scientific/Engineering :: Bio-Informatics',
 			'Programming Language :: Python :: 3'
 		],
-		zip_safe=True
+		zip_safe=False	#gives cython import error if True
 		)
