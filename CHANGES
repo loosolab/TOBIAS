@@ -1,7 +1,18 @@
+<<<<<<< HEAD
 ## 0.11.5-b 
 - Internal changes to OneMotif/MotifList classes to support reading more info from meme files
 - Added '--output-peaks' to BINDetect to enable output of a subset of '--peak' regions
 - Added '--output-txt' and calculation of agg-differences to PlotAggregate 
+=======
+## 0.11.6 (2020-07-23)
+- Mess up of merge in 0.11.5. Same changes.
+
+## 0.11.5 (2020-07-23)
+- Fixed "out of bounds" bugs within BINDetect and PlotAggregate
+
+## 0.11.4 (2020-07-20)
+- Added noninteractive backend to all plot modules to fix tkinter error 
+>>>>>>> master
 
 ## 0.11.3 (2020-06-02)
 - Fixed bug of undefined exit statement
