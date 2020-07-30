@@ -193,7 +193,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 
 	######## Scan for motifs in each region ######
 	logger.debug("Scanning for motif occurrences")
-	all_TFBS = {TF: RegionList() for TF in motifs_obj.names} 	# Dict for saving sites before writing
+	all_TFBS = {motif.prefix: RegionList() for motif in motifs_obj} 	# Dict for saving sites before writing
 	for i, region in enumerate(regions):
 		logger.spam("Processing region: {0}".format(region.tup()))
 	
@@ -242,7 +242,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 
 		#Split regions to single TFs
 		for TFBS in region_TFBS:
-			all_TFBS[TFBS.name].append(TFBS)
+			all_TFBS[TFBS.name].append(TFBS)	#TFBS.name is the prefix of motif
 
 	####### All input regions have been scanned #######
 	global_TFBS = RegionList()	#across all TFs

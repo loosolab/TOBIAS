@@ -346,9 +346,9 @@ class MotifList(list):
 			motifs = self.get_reverse()
 			motifs.set_background()	#updates background in case of unequal G/C
 
-		# calculate pssm if needed
+		#Calculate pssm if needed
 		for motif in motifs:
-			if pssm is None:
+			if motif.pssm is None:
 				motif.get_pssm()
 
 		#Set lists of names/thresholds used for scanning	

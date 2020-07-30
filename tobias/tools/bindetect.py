@@ -335,10 +335,11 @@ def run_bindetect(args):
 	results = None
 
 	#Add missing TF overlaps (if some TFs had zero sites)
-	for TF1 in plus_motifs:
+	for TF1 in motif_list:
 		if TF1.prefix not in TF_overlaps:
 			TF_overlaps[TF1.prefix] = 0
-		for TF2 in plus_motifs:
+
+		for TF2 in motif_list:
 			tup = (TF1.prefix, TF2.prefix)
 			if tup not in TF_overlaps:
 				TF_overlaps[tup] = 0
@@ -657,12 +658,11 @@ def run_bindetect(args):
 			y_min = np.percentile(yvalues[yvalues > 0], 5)	#5% smallest pvalues
 			x_min, x_max = np.percentile(xvalues, [5, 95])	#5% smallest and largest changes
 
-			#Make copy of motifs and fill in with metadata
-			comparison_motifs = [motif for motif in motif_list if motif.strand == "+"] 	#copy.deepcopy(motif_list) - swig pickle error, just overwrite motif_list
-			for motif in comparison_motifs:
+			#Fill motifs with metadata (.change, .pvalue, .logpvalue etc.)
+			for motif in motif_list:
 				name = motif.prefix
-				motif.change = float(info_table.at[name, base + "_change"])
-				motif.pvalue = float(info_table.at[name, base + "_pvalue"])
+				motif.change = float(info_table.at[name, base + "_change"])	#change for this comparison
+				motif.pvalue = float(info_table.at[name, base + "_pvalue"])	#pvalue for this comparison
 				motif.logpvalue = -np.log10(motif.pvalue) if motif.pvalue > 0 else -np.log10(1e-308)
 
 				#Assign each motif to group
@@ -675,13 +675,13 @@ def run_bindetect(args):
 					motif.group = "n.s."
 
 			#Bindetect plot
-			fig = plot_bindetect(comparison_motifs, clustering, [cond1, cond2], args)
+			fig = plot_bindetect(motif_list, clustering, [cond1, cond2], args)
 			figure_pdf.savefig(fig, bbox_inches='tight')
 			plt.close(fig)
 
 			#Interactive BINDetect plot
 			html_out = os.path.join(args.outdir, "bindetect_" + base + ".html")
-			plot_interactive_bindetect(comparison_motifs, [cond1, cond2], html_out)
+			plot_interactive_bindetect(motif_list, [cond1, cond2], html_out)
 			
 
 	#-------------------------------------------------------------------------------------------------------------#	
