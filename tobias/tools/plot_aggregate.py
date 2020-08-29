@@ -39,6 +39,27 @@ def forceSquare(ax):
 		x0,x1 = ax.get_xlim()
 		y0,y1 = ax.get_ylim()
 		ax.set_aspect((x1-x0)/(y1-y0))
+
+def fontsize_func(l):
+	""" Function to set the fontsize based on the length (l) of the label """
+
+	#Empirically defined thresholds
+	lmin = 35
+	lmax = 90
+
+	if l < lmin:
+		return(12)	#fontsize 12
+	elif l > lmax:
+		return(5)	#fontsize 5
+	else:
+
+		#Map lengths between min/max with linear equation
+		p1 = (lmin,12)
+		p2 = (lmax,5)
+
+		a = (p2[1] - p1[1]) / (p2[0] - p1[0])
+		b = (p2[1] - (a * p2[0]))
+		return(a * l + b)
 	
 #----------------------------------------------------------------------------------------------------#
 def run_aggregate(args):
@@ -371,12 +392,19 @@ def run_aggregate(args):
 
 	#Title of plot and grid
 	plt.suptitle(" "*7 + args.title, fontsize=16)	#Add a little whitespace to center the title on the plot; not the frame
-	
-	for col in range(n_cols):
-		axarr[0, col].set_title(col_names[col].replace(" ","\n"))
 
+	#Titles per column
+	for col in range(n_cols):
+		title = col_names[col].replace(" ","\n")
+		l = max([len(line) for line in title.split("\n")]) 	#length of longest line in title
+		s = fontsize_func(l) 								#decide fontsize based on length
+		axarr[0, col].set_title(title, fontsize=s)
+
+	#Titles (ylabels) per row
 	for row in range(n_rows):
-		axarr[row, 0].set_ylabel(row_names[row], fontsize=12)
+		label = row_names[row]
+		l = max([len(line) for line in label.split("\n")])
+		axarr[row, 0].set_ylabel(label, fontsize=fontsize_func(l))
 
 	#Colors
 	colors = mpl.cm.brg(np.linspace(0, 1, len(signal_names) + len(region_names)))
@@ -422,11 +450,16 @@ def run_aggregate(args):
 				#Compare across rows and cols
 				if col_compare: 	#compare between different columns by adding one more column	
 					axarr[row, -1].plot(xvals, aggregate, color=colors[row+col], linewidth=1, alpha=0.8, label=col_names[col])
-					axarr[row, -1].legend(loc="lower right")
+
+					s = min([ax.title.get_fontproperties()._size for ax in axarr[0,:]])	#smallest fontsize of all columns
+					axarr[row, -1].legend(loc="lower right", fontsize=s)
 
 				if row_compare:	#compare between different rows by adding one more row
+
 					axarr[-1, col].plot(xvals, aggregate, color=colors[row+col], linewidth=1, alpha=0.8, label=row_names[row])
-					axarr[-1, col].legend(loc="lower right")
+
+					s = min([ax.yaxis.label.get_fontproperties()._size for ax in axarr[:,0]])	#smallest fontsize of all rows
+					axarr[-1, col].legend(loc="lower right", fontsize=s)
 
 				#Diagonal comparison
 				if n_rows == n_cols and col_compare and row_compare and col == row:
