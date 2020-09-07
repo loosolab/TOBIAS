@@ -160,8 +160,8 @@ class OneRegion(list):
 
 		return(self)
 
-	def get_signal(self, pybw, numpy_bool = True, logger=TobiasLogger()):
-		""" Get signal from bigwig in region """
+	def get_signal(self, pybw, numpy_bool = True, logger=TobiasLogger(), key=None):
+		""" Get signal from bigwig in region. key is a string which will be written in case of an error """
 
 		try:
 			#Define whether pybigwig was compiled with numpy
@@ -177,7 +177,11 @@ class OneRegion(list):
 				signal = values
 				
 		except Exception as e:
-			logger.error("Error reading region: {0} from pybigwig object. Exception is: {1}".format(self.tup(), e))
+			if key is not None:
+				logger.error("Error reading region: {0} from pybigwig object ({1}). Exception is: {2}".format(self.tup(), key, e))
+			else:
+				logger.error("Error reading region: {0} from pybigwig object. Exception is: {1}".format(self.tup(), e))
+
 			traceback.print_tb(e.__traceback__)
 			raise e
 			

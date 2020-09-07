@@ -209,7 +209,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		#Read footprints in region
 		footprints = {}
 		for condition in args.cond_names:
-			footprints[condition] = region.get_signal(pybw[condition], logger=logger)
+			footprints[condition] = region.get_signal(pybw[condition], logger=logger, key=condition)
 				
 			if len(footprints[condition]) == 0:
 				logger.error("ERROR IN REGION: {0}".format(region))
