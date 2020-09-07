@@ -116,10 +116,10 @@ def run_network(args):
 	logger.debug("Match tuples: {0}".format(sorted_matching))
 
 	#Columns for matching
-	source_col_tfbs = sites_table.columns[3]	#Source is the 4th column of the bedfile 
-	source_col_origin = [match[1] for match in sorted_matching if match[0] == source_col_tfbs][0]  #source id in the origin table
-	target_col_tfbs = [match[0] for match in sorted_matching if match[0] != source_col_tfbs][0]	 #target id in from sites 
-	target_col_origin = [match[1] for match in sorted_matching if match[0] != source_col_tfbs][0]	 #target id in the origin table
+	source_col_tfbs = sites_table.columns[3]	#Source id (TF name) is the 4th column of the sites bedfile 
+	source_col_origin = [match[1] for match in sorted_matching if match[0] == source_col_tfbs][0]  	#source id column (TF name) in the origin table
+	target_col_tfbs = [match[0] for match in sorted_matching if match[0] != source_col_tfbs][0]	 	#target id (gene id) column from sites 
+	target_col_origin = [match[1] for match in sorted_matching if match[0] != source_col_tfbs][0]	#target id (gene id) in the origin table
 		
 	#Intersect of sources and targets
 	source_ids_tfbs = set(sites_table[source_col_tfbs])
@@ -139,8 +139,16 @@ def run_network(args):
 		missing_ids = source_ids_tfbs - common_ids
 		logger.warning("Source ids from TFBS could not be found in the --origin table: {0}".format(missing_ids))
 
-		#Subset sites_table to those of common_ids
+		#Subset sites_table to those with source within common_ids
+		n_rows = sites_table.shape[0]
 		sites_table = sites_table[sites_table[source_col_tfbs].isin(common_ids)]
+		logger.warning("Subset {0} sites to {1} sites with source id in --origin table".format(n_rows, sites_table.shape[0]))
+
+		#Subset sites_table to targets within target_ids_origin (through origin table) - e.g. only keep targets which are TFs
+		valid_targets = origin_table[target_ids_origin]
+		sites_table = sites_table[sites_table[target_ids_tfbs].isin(valid_targets)]
+
+		logger.warning("Subset {0} sites to {1} sites with valid source/target ids in --origin".format(n_rows, sites_table.shape[0]))
 
 	#Add target motif id to sites
 	sites_table_convert = sites_table.merge(origin_table[[source_col_origin, target_col_origin]], left_on=target_col_tfbs, right_on=target_col_origin, how="inner")
