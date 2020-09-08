@@ -59,13 +59,25 @@ def sigmoid(x, a, b, L, shift):
 	y = L / (1 + np.exp(-b*(x-a))) + shift
 	return y
 
+
 class ArrayNorm:
 
-	def __init__(self, popt):
-		self.popt = popt
+	def __init__(self, p, value_max):
+
+		self.p_func = p	#function for getting normalization factor
+
+		self.value_max = value_max	#value max is set to prevent spurious normalization factors at high values,
+									#which can happen due to oscillations from p_func() at high number of degrees
 
 	def normalize(self, arr):
-		return(arr * sigmoid(arr, *self.popt))
+		""" Arr can be a value (float/int) or a numpy array """
+
+		#Set the cap for arr at self.value_max
+		#this prevents outliers of breaking the previously predicted p_func
+		arr_capped = arr * (arr <= self.value_max) + self.value_max * (arr > self.value_max)
+
+		return(arr * self.p_func(arr_capped))
+
 
 def dict_to_tab(dict_list, fname, chosen_columns, header=False):
 
@@ -87,52 +99,83 @@ def dict_to_tab(dict_list, fname, chosen_columns, header=False):
 	f.close()
 
 #Quantile normalization 
-def quantile_normalization(list_of_arrays): #lists paired values to normalize
+def quantile_normalization(list_of_arrays, names, pdfpages=None): #lists paired values to normalize
 
-	n = len(list_of_arrays) #number of arrays to normalize
+	n = len(list_of_arrays)
+	norm_objects = {}	#keys will be the strings in 'names'
 
 	#Calculate 
-	quantiles = np.linspace(0.2,0.999,500)
+	quantiles = np.linspace(0.05,1,500, endpoint=True)	#the lower bound excludes most 0's from quantiles
 	array_quantiles = [np.quantile([0] if sum(arr > 0) == 0 else arr[arr > 0], quantiles) for arr in list_of_arrays]
 	mean_array_quantiles = [np.mean([array_quantiles[i][j] for i in range(n)]) for j in range(len(quantiles))]
 
-	norm_objects = []
-	for i in range(n):
+	#Plot overview of quantile-quantile
+	if pdfpages is not None:
+		fig, ax = plt.subplots()
+		for i in range(n):
+			plt.plot(array_quantiles[i], mean_array_quantiles, label="Quantiles for '{0}'".format(names[i]))
 		
-		#Plot q-q
-		#f, ax = plt.subplots()
-		#plt.scatter(array_quantiles[i], mean_array_quantiles)
-		#ax.set_xlim(0,1)
-		#ax.set_ylim(0,1)
-		#ax.plot([0, 1], [0, 1], transform=ax.transAxes)
-		#plt.close()
-		#plt.show()
-		
-		#Plot normalizyation factors
-		#f, ax = plt.subplots()
+		plt.title("Quantile-quantile plot")
+		ax.set_xlabel("Value quantiles")
+		ax.set_ylabel("Mean quantiles")
+		ax.plot([0, 1], [0, 1], transform=ax.transAxes, linestyle="dashed", color="black", label="Expected")
+		plt.legend()
+		pdfpages.savefig(fig, bbox_inches='tight')
+		plt.close()
+
+	#Estimate necessary correction
+	for i, bigwig in enumerate(names):
+
 		xdata = array_quantiles[i]
 		ydata = mean_array_quantiles/xdata	#gives NA if xdata is 0
-		#plt.scatter(xdata, ydata)
-		#plt.close()
 
-		#If any values > 0 were found:
-		if np.max(xdata) > 0:
-			popt, pcov = curve_fit(sigmoid, xdata, ydata, bounds=((0,-np.inf, 0, 0), (np.inf, np.inf, np.inf, np.inf)))
-		else:
-			popt = [1,1,0,0]	#returns y=0
+		fig, ax = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
+		residual_list = []
+		poly_functions = {}
+		degrees = list(range(1,10))
+		for deg in degrees:
 
-		norm_objects.append(ArrayNorm(popt))
+			o = np.polyfit(xdata, ydata, deg, full=True)
+			z, residuals, rank, singular_values, rcond = o	#unpack values
 
-		#y_est = sigmoid(xdata, *popt)
-		#plt.plot(xdata, y_est)
-		#plt.close()
+			if len(residuals) == 0:
+				residuals = [0]	#if residuals is empty, the fit is exact
 
-	#Normalize each array using means per rank
-	normed = []
-	for i in range(n):	#for each array
-		normed.append(norm_objects[i].normalize(list_of_arrays[i]))
+			residual_list.append(residuals[0])
+			p = np.poly1d(z)
+			poly_functions[deg] = p
+			ax[0].plot(xdata, p(xdata), linestyle='dashed', label="fit deg = {0} (residual: {1})".format(deg, round(residuals[0], 3)))
+	
+		ax[0].set_xlabel("Original value")
+		ax[0].set_ylabel("Multiplication factor")
+		ax[0].set_title("Multiplication needed for normalization of '{0}'".format(bigwig))
+		ax[0].plot(xdata, ydata, color="black", linewidth=2, label="Original")
+		ax[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-	return((normed, norm_objects))
+		#Use knee-plot to estimate how many degrees to use
+		try:
+			kneedle = KneeLocator(degrees, residual_list, S=1, curve='convex', direction='decreasing')
+			n_degrees = kneedle.knee + 1
+
+		except: #if knee was not found
+			n_degrees = 5
+
+		ax[1].set_title("Number of degrees chosen for fit")
+		ax[1].plot(degrees, residual_list)
+		ax[1].axvline(n_degrees, label="Number of degrees chosen", color="black")
+		ax[1].set_xlabel("Number of degrees")
+		ax[1].set_ylabel("Residuals of fit")
+		ax[1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+		#plt.adjust_subplots()
+
+		if pdfpages is not None:
+			pdfpages.savefig(fig,  bbox_inches="tight")
+		plt.close()
+
+		norm_objects[bigwig] = ArrayNorm(poly_functions[n_degrees], value_max=np.max(xdata))
+
+	return(norm_objects)
 
 def plot_score_distribution(list_of_arr, labels=[], title="Score distribution"):
 
@@ -201,7 +244,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		extra_columns = region
 		
 		#Check whether region is within boundaries
-		if region.end >= chrom_boundaries[region.chrom]:
+		if region.end > chrom_boundaries[region.chrom]:
 			logger.error("Input region {0} is beyond chromosome boundaries ({1}: {2})".format(region, region.chrom, chrom_boundaries[region.chrom]))
 			raise Exception 
 
@@ -287,6 +330,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	no_cond = len(args.cond_names)
 	comparisons = args.comparisons
 
+	#Set distribution function 
+	diff_dist = scipy.stats.norm
+	
 	#Subset analysis to args.output_peaks if these were given
 	if args.output_peaks is not None:
 		output_peaks_bt = BedTool(args.output_peaks)
@@ -320,7 +366,15 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 		for condition in args.cond_names:
 			threshold = args.thresholds[condition]
 			line[condition + "_score"] = float(line[condition + "_score"])
-			line[condition + "_score"] = round(args.norm_objects[condition].normalize(line[condition + "_score"] ), 5)
+			original = line[condition + "_score"]
+
+			line[condition + "_score"] = args.norm_objects[condition].normalize(line[condition + "_score"])  #normalize score
+			line[condition + "_score"] = line[condition + "_score"] if line[condition + "_score"]  > 0 else 0 # any scores below 0 -> 0
+			line[condition + "_score"] = round(line[condition + "_score"], 5)
+
+			if line[condition + "_score"] < 0:
+				logger.error("negative values: {0}. Original: {1}".format(line[condition + "_score"], original))
+
 			line[condition + "_bound"] = 1 if line[condition + "_score"] > threshold else 0
 
 		#Comparison specific
@@ -409,9 +463,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 			#Estimate mean/std
 			bg_params = log2fc_params[(cond1, cond2)]
-			obs_params = scipy.stats.norm.fit(observed_log2fcs)
+			obs_params = diff_dist.fit(observed_log2fcs)
 
-			obs_mean, obs_std = obs_params
+			obs_mean, obs_std = obs_params	#only for scipy.stats.norm
 			bg_mean, bg_std = bg_params
 			obs_no = np.min([len(observed_log2fcs), 50000])		#Set cap on obs_no to prevent super small p-values
 			n_obs = len(observed_log2fcs)
@@ -430,7 +484,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			np.random.seed(n_obs)
 			sample_changes = []
 			for i in range(100):
-				sample = scipy.stats.norm.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
+				sample = diff_dist.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
 				sample_mean, sample_std = np.mean(sample), np.std(sample)
 				sample_change = (sample_mean - bg_mean) / np.mean([sample_std, bg_std])
 				sample_changes.append(sample_change)
@@ -444,19 +498,19 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			#Estimate p-value by comparing sampling to observed mean
 			ttest = scipy.stats.ttest_1samp(sample_changes, info_table.at[TF_name, base + "_change"])
 			info_table.at[TF_name, base + "_pvalue"] = ttest[1]
-			
+
 			#### Plot comparison ###
 			fig, ax = plt.subplots(1,1)
 			ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
 			xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
 			
 			#Observed distribution
-			pdf = scipy.stats.norm.pdf(xvals, *obs_params)
+			pdf = diff_dist.pdf(xvals, *obs_params)
 			ax.plot(xvals, pdf, label="Observed distribution (fit)", color="red", linestyle="--")
 			ax.axvline(obs_mean, color="red", label="Observed mean")
 			
 			#Background distribution
-			pdf = scipy.stats.norm.pdf(xvals, *bg_params)
+			pdf = diff_dist.pdf(xvals, *bg_params)
 			ax.plot(xvals, pdf, label="Background distribution (fit)", color="Black", linestyle="--")
 			ax.axvline(bg_mean, color="black", label="Background mean")
 
@@ -594,22 +648,21 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	########### Dendrogram over similarities of TFs #######
 	
 	#Only plot dendrogram if there was more than one TF
-	if n_IDS > 1:
+	if len(IDS) > 1:
 		dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=list(IDS), no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
 		labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
-
 		ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
 
 		ax3.set_ylabel("Transcription factor clustering based on TFBS overlap", rotation=270, labelpad=20)
 		ax3.yaxis.set_label_position("right")
+
+		#Set aspect of dendrogram/changes
+		x0,x1 = ax3.get_xlim()
+		y0,y1 = ax3.get_ylim()
+		ax3.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)
 	else:
-		labels = IDS
 		ax3.axis('off')
-	
-	#Set aspect of dendrogram/changes
-	x0,x1 = ax3.get_xlim()
-	y0,y1 = ax3.get_ylim()
-	ax3.set_aspect(((x1-x0)/(y1-y0)) * n_IDS/10)
+		labels = IDS
 
 	########## Differential binding scores per TF ##########
 	ax2.set_xlabel("Differential binding score\n" + "(" + cond2 + r' $\leftarrow$' + r'$\rightarrow$ ' + cond1 + ")") #First position in comparison equals numerator in log2fc division

@@ -2,6 +2,20 @@
 - Internal changes to OneMotif/MotifList classes to support reading more info from meme files
 - Added '--output-peaks' to BINDetect to enable output of a subset of '--peak' regions
 - Added '--output-txt' and calculation of agg-differences to PlotAggregate 
+- Improved quantile normalization between conditions in BINDetect
+
+## 0.11.7 (2020-09-07)
+- Fix for BINDetect error when running with one input motif 
+- Introduced dynamic fontsizes for PlotAggregate to deal with long TFBS/bigwig label names
+- Bumped svist4get version to 1.2.24 due to missing font
+
+## 0.11.6 (2020-07-23)
+- Mess up of merge in 0.11.5. Same changes.
+
+## 0.11.5 (2020-07-23)
+- Fixed "out of bounds" bugs within BINDetect and PlotAggregate
+>>>>>>> master
+>>>>>>> bindetect-normalization
 
 ## 0.11.4 (2020-07-20)
 - Added noninteractive backend to all plot modules to fix tkinter error 
