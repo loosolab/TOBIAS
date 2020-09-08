@@ -237,7 +237,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 
 	######## Scan for motifs in each region ######
 	logger.debug("Scanning for motif occurrences")
-	all_TFBS = {TF: RegionList() for TF in motifs_obj.names} 	# Dict for saving sites before writing
+	all_TFBS = {motif.prefix: RegionList() for motif in motifs_obj} 	# Dict for saving sites before writing
 	for i, region in enumerate(regions):
 		logger.spam("Processing region: {0}".format(region.tup()))
 	
@@ -286,7 +286,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 
 		#Split regions to single TFs
 		for TFBS in region_TFBS:
-			all_TFBS[TFBS.name].append(TFBS)
+			all_TFBS[TFBS.name].append(TFBS)	#TFBS.name is the prefix of motif
 
 	####### All input regions have been scanned #######
 	global_TFBS = RegionList()	#across all TFs
@@ -648,7 +648,8 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	########### Dendrogram over similarities of TFs #######
 	
 	#Only plot dendrogram if there was more than one TF
-	if len(IDS) > 1:
+	n_ids = len(IDS)
+	if n_ids > 1:
 		dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=list(IDS), no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
 		labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
 		ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
@@ -659,7 +660,7 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 		#Set aspect of dendrogram/changes
 		x0,x1 = ax3.get_xlim()
 		y0,y1 = ax3.get_ylim()
-		ax3.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)
+		ax3.set_aspect(((x1-x0)/(y1-y0)) * n_ids/10)
 	else:
 		ax3.axis('off')
 		labels = IDS

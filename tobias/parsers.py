@@ -509,7 +509,7 @@ def add_motifclust_arguments(parser):
 	optional.add_argument("-t", "--threshold", metavar="", help="Clustering threshold (Default = 0.3)", type=float, default=0.3)  
 	optional.add_argument('--dist_method', metavar="", help="Method for calculating similarity between motifs (default: pcc)", choices=["pcc", "seqcor", "ed", "distance", "wic", "chisq", "akl", "sdd"], default="pcc")
 	optional.add_argument('--clust_method', metavar="", help="Method for clustering (See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)", default="average", choices=["single","complete","average","weighted","centroid","median","ward"])
-	optional.add_argument("-a", "--cons_format", metavar="", choices= ['transfac', 'meme', 'pwm', 'pfm', 'jaspar'], help="Format of consensus motif file [‘transfac’, ‘meme’, ‘pwm’, 'pfm', 'jaspar'] (Default: jaspar)", default="jaspar")
+	optional.add_argument("-a", "--cons_format", metavar="", choices= ['meme', 'pfm', 'jaspar'], help="Format of consensus motif file [‘meme’, 'pfm', 'jaspar'] (Default: jaspar)", default="jaspar")
 	optional.add_argument("-p", "--prefix", metavar="", help="Output prefix (default: 'motif_comparison')", default="motif_comparison")
 	optional.add_argument("-o", "--outdir", metavar="", help="Output directory (default: 'clustermotifs_output')", default="clustermotifs_output")
 	optional = add_logger_args(optional)
