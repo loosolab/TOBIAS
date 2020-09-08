@@ -178,7 +178,14 @@ def run_atacorrect(args):
 	# Process peaks
 	peak_regions = RegionList().from_bed(args.peaks)
 	peak_regions.merge()
-	peak_regions.apply_method(OneRegion.check_boundary, bam_chrom_info, "cut")	#regions are cut/removed from list
+	for i in range(len(peak_regions)-1, -1, -1):
+		region = peak_regions[i]
+
+		peak_regions[i] = region.check_boundary(bam_chrom_info, "cut")	#regions are cut/removed from list
+		if peak_regions[i] is None:
+			logger.warning("Peak region {0} was removed at it is either out of bounds or not in the chromosomes given in genome/bam.".format(region.tup(), i+1))
+			del peak_regions[i]
+
 	nonpeak_regions = deepcopy(genome_regions).subtract(peak_regions)
 
 	# Process specific input regions if given

@@ -52,7 +52,7 @@ class OneRegion(list):
 		return("{0}".format("\t".join(str(x) for x in self)))
 	
 	def tup(self):
-		return((self.chrom, self.start, self.end, self.strand))
+		return((self.chrom, self.start, self.end, self.name, self.strand))
 	
 	def pretty(self):
 		""" Pretty print of coordinates in the format chr:start-stop(strand) """
@@ -210,7 +210,7 @@ class RegionList(list):
 
 		#Read all lines
 		bedlines = open(bedfile_f).readlines()
-		self = RegionList([None]*len(bedlines))
+		self = RegionList([None]*len(bedlines))	#intialize to prevent appending for large bedfiles
 		for i, line in enumerate(bedlines):
 		
 			if line.startswith("#"): #comment lines are excluded
@@ -231,6 +231,11 @@ class RegionList(list):
 
 			region = OneRegion(columns)
 			self[i] = region
+		
+		#Remove any None's in list
+		for i in range(len(self)-1, -1, -1):	#counting down so that index in list does not change as None's are removed
+			if self[i] is None:
+				del self[i]
 
 		return(self)
 
