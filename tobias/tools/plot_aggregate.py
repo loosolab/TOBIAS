@@ -222,7 +222,7 @@ def run_aggregate(args):
 			for one_region in regions_dict[regions_id]:
 				tup = one_region.tup()	#(chr, start, end, strand)
 				if tup not in signal_dict[signal_name]:	#only get signal if it was not already read previously
-					signal_dict[signal_name][tup] = one_region.get_signal(pybw) 	#returns signal
+					signal_dict[signal_name][tup] = one_region.get_signal(pybw, logger=logger, key=signal_name) 	#returns signal
 
 		pybw.close()
 

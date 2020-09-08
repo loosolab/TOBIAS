@@ -123,7 +123,7 @@ def run_scorebed(args):
 					if chrom in pybw_headers[bigwig_f]:	#only get score if chromosome is in bigwig; to prevent error from pybigwig.values
 						
 						region = OneRegion([chrom, start, end])
-						signal = region.get_signal(pybw[bigwig_f], numpy_bool=True, logger=logger)
+						signal = region.get_signal(pybw[bigwig_f], numpy_bool=True, logger=logger, key=bigwig_f)
 
 						if len(signal) > 0:
 							signal = np.nan_to_num(signal)
