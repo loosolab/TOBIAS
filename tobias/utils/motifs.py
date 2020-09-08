@@ -134,8 +134,8 @@ class MotifList(list):
 
 				### Header content ###
 				# parse alphabet
-				if line.startswith("ALPHABET= "): # TODO implement for custom alphabet
-					bases = list(line.replace("ALPHABET= ", ""))
+				if line.startswith("ALPHABET="): # TODO implement for custom alphabet
+					bases = list(line.replace("ALPHABET=", "").lstrip().rstrip())
 
 				# parse strands
 				elif line.startswith("strands"):
@@ -152,6 +152,9 @@ class MotifList(list):
 
 					bg_and_freq = re.split(r"(?<=\d)\s+", line.strip()) # split after every number followed by a whitespace
 					bg_dict = {key: float(value) for key, value in [el.split(" ") for el in bg_and_freq]}
+					if bases is None:
+						bases = sorted(bg_dict.keys())
+					
 					bg = np.array([bg_dict[base] for base in bases])
 
 				### Motif content ###
@@ -214,8 +217,10 @@ class MotifList(list):
 					else:
 						proba_flag = False
 
-						# transpose and convert probability matrix to count
-						count_matrix = (np.array(probability_matrix).T * self[-1].n).tolist()
+						# transpose and convert probability matrix to count using saved .n
+						count_matrix = np.array(probability_matrix).T * self[-1].n
+						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
+						count_matrix = count_matrix.tolist()
 
 						#Set counts for current OneMotif object
 						self[-1].set_counts(count_matrix)	#this also checks for format
