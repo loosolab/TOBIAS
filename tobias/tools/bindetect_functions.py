@@ -244,7 +244,7 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 		extra_columns = region
 		
 		#Check whether region is within boundaries
-		if region.end >= chrom_boundaries[region.chrom]:
+		if region.end > chrom_boundaries[region.chrom]:
 			logger.error("Input region {0} is beyond chromosome boundaries ({1}: {2})".format(region, region.chrom, chrom_boundaries[region.chrom]))
 			raise Exception 
 
@@ -648,22 +648,21 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	########### Dendrogram over similarities of TFs #######
 	
 	#Only plot dendrogram if there was more than one TF
-	if n_IDS > 1:
+	if len(IDS) > 1:
 		dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=list(IDS), no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
 		labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
-
 		ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
 
 		ax3.set_ylabel("Transcription factor clustering based on TFBS overlap", rotation=270, labelpad=20)
 		ax3.yaxis.set_label_position("right")
+
+		#Set aspect of dendrogram/changes
+		x0,x1 = ax3.get_xlim()
+		y0,y1 = ax3.get_ylim()
+		ax3.set_aspect(((x1-x0)/(y1-y0)) * no_IDS/10)
 	else:
-		labels = IDS
 		ax3.axis('off')
-	
-	#Set aspect of dendrogram/changes
-	x0,x1 = ax3.get_xlim()
-	y0,y1 = ax3.get_ylim()
-	ax3.set_aspect(((x1-x0)/(y1-y0)) * n_IDS/10)
+		labels = IDS
 
 	########## Differential binding scores per TF ##########
 	ax2.set_xlabel("Differential binding score\n" + "(" + cond2 + r' $\leftarrow$' + r'$\rightarrow$ ' + cond1 + ")") #First position in comparison equals numerator in log2fc division
