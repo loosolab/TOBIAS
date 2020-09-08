@@ -95,9 +95,5 @@ setup(name='tobias',
 			'Topic :: Scientific/Engineering :: Bio-Informatics',
 			'Programming Language :: Python :: 3'
 		],
-<<<<<<< HEAD
-		zip_safe=False
-=======
 		zip_safe=False	#gives cython import error if True
->>>>>>> motif_classes
 		)
