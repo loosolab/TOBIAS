@@ -65,6 +65,7 @@ class ArrayNorm:
 	def __init__(self, p, value_max):
 
 		self.p_func = p	#function for getting normalization factor
+
 		self.value_max = value_max	#value max is set to prevent spurious normalization factors at high values,
 									#which can happen due to oscillations from p_func() at high number of degrees
 
@@ -73,7 +74,7 @@ class ArrayNorm:
 
 		#Set the cap for arr at self.value_max
 		#this prevents outliers of breaking the previously predicted p_func
-		arr_capped = arr * (arr < self.value_max) + self.value_max * (arr > self.value_max)
+		arr_capped = arr * (arr <= self.value_max) + self.value_max * (arr > self.value_max)
 
 		return(arr * self.p_func(arr_capped))
 
@@ -98,11 +99,10 @@ def dict_to_tab(dict_list, fname, chosen_columns, header=False):
 	f.close()
 
 #Quantile normalization 
-def quantile_normalization(list_of_arrays, names=None, pdfpages=None): #lists paired values to normalize
+def quantile_normalization(list_of_arrays, names, pdfpages=None): #lists paired values to normalize
 
 	n = len(list_of_arrays)
-	norm_objects = {}
-	names = [""]*n if names == None else names
+	norm_objects = {}	#keys will be the strings in 'names'
 
 	#Calculate 
 	quantiles = np.linspace(0.05,1,500, endpoint=True)	#the lower bound excludes most 0's from quantiles
@@ -129,7 +129,7 @@ def quantile_normalization(list_of_arrays, names=None, pdfpages=None): #lists pa
 		xdata = array_quantiles[i]
 		ydata = mean_array_quantiles/xdata	#gives NA if xdata is 0
 
-		fig, ax = plt.subplots(nrows=2, ncols=1)
+		fig, ax = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
 		residual_list = []
 		poly_functions = {}
 		degrees = list(range(1,10))
@@ -137,6 +137,9 @@ def quantile_normalization(list_of_arrays, names=None, pdfpages=None): #lists pa
 
 			o = np.polyfit(xdata, ydata, deg, full=True)
 			z, residuals, rank, singular_values, rcond = o	#unpack values
+
+			if len(residuals) == 0:
+				residuals = [0]	#if residuals is empty, the fit is exact
 
 			residual_list.append(residuals[0])
 			p = np.poly1d(z)
@@ -149,9 +152,6 @@ def quantile_normalization(list_of_arrays, names=None, pdfpages=None): #lists pa
 		ax[0].plot(xdata, ydata, color="black", linewidth=2, label="Original")
 		ax[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-		if pdfpages is not None:
-			pdfpages.savefig(fig, bbox_inches="tight")
-
 		#Use knee-plot to estimate how many degrees to use
 		try:
 			kneedle = KneeLocator(degrees, residual_list, S=1, curve='convex', direction='decreasing')
@@ -162,10 +162,12 @@ def quantile_normalization(list_of_arrays, names=None, pdfpages=None): #lists pa
 
 		ax[1].set_title("Number of degrees chosen for fit")
 		ax[1].plot(degrees, residual_list)
-		ax[1].axvline(n_degrees, label="Number of degrees chosen")
+		ax[1].axvline(n_degrees, label="Number of degrees chosen", color="black")
 		ax[1].set_xlabel("Number of degrees")
 		ax[1].set_ylabel("Residuals of fit")
 		ax[1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+		#plt.adjust_subplots()
 
 		if pdfpages is not None:
 			pdfpages.savefig(fig,  bbox_inches="tight")
@@ -328,6 +330,9 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	no_cond = len(args.cond_names)
 	comparisons = args.comparisons
 
+	#Set distribution function 
+	diff_dist = scipy.stats.norm
+	
 	#Subset analysis to args.output_peaks if these were given
 	if args.output_peaks is not None:
 		output_peaks_bt = BedTool(args.output_peaks)
@@ -458,16 +463,16 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 
 			#Estimate mean/std
 			bg_params = log2fc_params[(cond1, cond2)]
-			obs_params = scipy.stats.skewnorm.fit(observed_log2fcs)
-			
-			obs_mean, obs_std, _ = obs_params
-			bg_mean, bg_std, _ = bg_params
+			obs_params = diff_dist.fit(observed_log2fcs)
+
+			obs_mean, obs_std = obs_params	#only for scipy.stats.norm
+			bg_mean, bg_std = bg_params
 			obs_no = np.min([len(observed_log2fcs), 50000])		#Set cap on obs_no to prevent super small p-values
 			n_obs = len(observed_log2fcs)
 
 			#If there was any change found at all (0 can happen if two bigwigs are the same)
 			if obs_mean != bg_mean: 
-				info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / np.mean([obs_std])  #effect size
+				info_table.at[TF_name, base + "_change"] = (obs_mean - bg_mean) / np.mean([obs_std, bg_std])  #effect size
 				info_table.at[TF_name, base + "_change"] = np.round(info_table.at[TF_name, base + "_change"], 5)
 			
 			#Else not possible to compare groups
@@ -478,10 +483,10 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			#Sample from background distribution
 			np.random.seed(n_obs)
 			sample_changes = []
-			for i in range(1000):
-				sample = scipy.stats.skewnorm.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
+			for i in range(100):
+				sample = diff_dist.rvs(*log2fc_params[(cond1, cond2)], size=n_obs)	
 				sample_mean, sample_std = np.mean(sample), np.std(sample)
-				sample_change = (sample_mean - bg_mean) / np.mean([sample_std])
+				sample_change = (sample_mean - bg_mean) / np.mean([sample_std, bg_std])
 				sample_changes.append(sample_change)
 
 			#Write out differential scores
@@ -491,22 +496,21 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 				f.close()
 
 			#Estimate p-value by comparing sampling to observed mean
-			z = (info_table.at[TF_name, base + "_change"] - np.mean(sample_changes)) / np.std(sample_changes)
-			pval = scipy.stats.norm.sf(abs(z))*2
-			info_table.at[TF_name, base + "_pvalue"] = pval
-			
+			ttest = scipy.stats.ttest_1samp(sample_changes, info_table.at[TF_name, base + "_change"])
+			info_table.at[TF_name, base + "_pvalue"] = ttest[1]
+
 			#### Plot comparison ###
 			fig, ax = plt.subplots(1,1)
 			ax.hist(observed_log2fcs, bins='auto', label="Observed log2fcs", density=True)
 			xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
 			
 			#Observed distribution
-			pdf = scipy.stats.norm.pdf(xvals, *obs_params)
+			pdf = diff_dist.pdf(xvals, *obs_params)
 			ax.plot(xvals, pdf, label="Observed distribution (fit)", color="red", linestyle="--")
 			ax.axvline(obs_mean, color="red", label="Observed mean")
 			
 			#Background distribution
-			pdf = scipy.stats.norm.pdf(xvals, *bg_params)
+			pdf = diff_dist.pdf(xvals, *bg_params)
 			ax.plot(xvals, pdf, label="Background distribution (fit)", color="Black", linestyle="--")
 			ax.axvline(bg_mean, color="black", label="Background mean")
 

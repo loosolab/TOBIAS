@@ -332,7 +332,7 @@ def run_bindetect(args):
 	writer_pool.join() 
 
 	#-------------------------------------------------------------------------------------------------------------#
-	#---------------------------- Process information on background scores and overlaps --------------------------#
+	#---------------------------------- Process information on background scores  --------------------------------#
 	#-------------------------------------------------------------------------------------------------------------#
 
 	logger.info("Merging results from subsets")
@@ -374,20 +374,29 @@ def run_bindetect(args):
 	args.norm_objects = {}
 
 	if args.debug: 
-		args.norm_objects = quantile_normalization(list_of_vals, names=args.cond_names, pdfpages=debug_pdf)
+		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, pdfpages=debug_pdf)
 	else:
-		args.norm_objects = quantile_normalization(list_of_vals)
+		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names)
 
 	#Normalize background and visualize score distribution
 	for bigwig in args.cond_names:
-		background["signal"][bigwig] = args.norm_objects[bigwig].normalize(background["signal"][bigwig])
+		normalized = args.norm_objects[bigwig].normalize(background["signal"][bigwig])
+		
+		#Replace negative values with 0
+		negatives = normalized < 0
+		normalized[negatives] = 0
+
+		background["signal"][bigwig] = normalized
 	
 	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
 	figure_pdf.savefig(fig, bbox_inches='tight')
 	plt.close()
 
 
-	############ Estimate bound/unbound threshold ################
+	#-------------------------------------------------------------------------------------------------------------#
+	#-------------------------------------- Estimate bound/unbound threshold -------------------------------------#
+	#-------------------------------------------------------------------------------------------------------------#
+
 	logger.info("Estimating bound/unbound threshold")
 
 	#Prepare scores (remove 0's etc.)
@@ -399,7 +408,7 @@ def run_bindetect(args):
 
 	x_max = np.percentile(bg_values, [99]) 
 	bg_values = bg_values[bg_values < x_max]
-		
+
 	#Fit mixture of normals
 	lowest_bic = np.inf
 	for n_components in [2]:	#2 components
@@ -419,7 +428,6 @@ def run_bindetect(args):
 	chosen_i = np.argmax(means) 	#Mixture with largest mean
 
 	log_params = scipy.stats.lognorm.fit(bg_values[bg_values < x_max], f0=sds[chosen_i], fscale=np.exp(means[chosen_i]))
-	#all_log_params[bigwig] = log_params
 
 	#Mode of distribution
 	mode = scipy.optimize.fmin(lambda x: -scipy.stats.lognorm.pdf(x, *log_params), 0, disp=False)[0]
@@ -443,7 +451,7 @@ def run_bindetect(args):
 	threshold = round(scipy.stats.norm.ppf(1-args.bound_pvalue, *norm_params), 5)
 
 	args.thresholds = {bigwig: threshold for bigwig in args.cond_names}
-	logger.stats("- Threshold estimated at: {0}".format( threshold))
+	logger.stats("- Threshold estimated at: {0}".format(threshold))
 
 	#Only plot if args.debug is True
 	if args.debug:
@@ -471,10 +479,12 @@ def run_bindetect(args):
 		plt.legend(fontsize=8)
 		plt.xlim((0,x_max))
 
-		figure_pdf.savefig(fig)
+		debug_pdf.savefig(fig)
 		plt.close(fig)
 
-	############ Foldchanges between conditions ################
+	#-------------------------------------------------------------------------------------------------------------#
+	#--------------------------------------- Foldchanges between conditions --------------------------------------#
+	#-------------------------------------------------------------------------------------------------------------#
 
 	logger.comment("")
 	log2fc_params = {}
@@ -498,29 +508,31 @@ def run_bindetect(args):
 			lower, upper = np.percentile(log2fcs, [1,99])
 			log2fcs_fit = log2fcs[np.logical_and(log2fcs >= lower, log2fcs <= upper)]
 			
-			norm_params = scipy.stats.skewnorm.fit(log2fcs_fit)
+			#Decide on diff_dist
+			diff_dist = scipy.stats.norm
+			norm_params = diff_dist.fit(log2fcs_fit)
 
-			logger.debug("({0} / {1}) Background log2fc normal distribution: {2}".format(bigwig1, bigwig2, norm_params))
+			logger.debug("({0} / {1}) Background log2fc distribution: {2}".format(bigwig1, bigwig2, norm_params))
 			log2fc_params[(bigwig1, bigwig2)] = norm_params
 
-			#Plot background log2fc to figures
-			fig, ax = plt.subplots(1, 1)
-			plt.hist(log2fcs, density=True, bins='auto', label="Background log2fc ({0} / {1})".format(bigwig1, bigwig2))
-
-			xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
-			pdf = scipy.stats.norm.pdf(xvals, *log2fc_params[(bigwig1, bigwig2)])
-			plt.plot(xvals, pdf, label="Normal distribution fit")
-			plt.title("Background log2FCs ({0} / {1})".format(bigwig1, bigwig2))
-
-			plt.xlabel("Log2 fold change")
-			plt.ylabel("Density")
+			#If debug: plot background log2fc to figures
 			if args.debug:
-				debug_pdf.savefig(fig, bbox_inches='tight')
+				fig, ax = plt.subplots(1, 1)
+				plt.hist(log2fcs, density=True, bins='auto', label="Background log2fc ({0} / {1})".format(bigwig1, bigwig2))
 
-				f = open(os.path.join(args.outdir, "{0}_{1}_log2fcs.txt".format(bigwig1, bigwig2)), "w")
-				f.write("\n".join([str(val) for val in log2fcs]))
-				f.close()
-			plt.close()			
+				xvals = np.linspace(plt.xlim()[0], plt.xlim()[1], 100)
+				pdf = diff_dist.pdf(xvals, *log2fc_params[(bigwig1, bigwig2)])	
+				plt.plot(xvals, pdf, label="Distribution fit")
+				plt.title("Background log2FCs ({0} / {1})".format(bigwig1, bigwig2))
+				plt.xlabel("Log2 fold change")
+				plt.ylabel("Density")
+		
+				debug_pdf.savefig(fig, bbox_inches='tight')
+				plt.close()
+				
+				#f = open(os.path.join(args.outdir, "{0}_{1}_log2fcs.txt".format(bigwig1, bigwig2)), "w")
+				#f.write("\n".join([str(val) for val in log2fcs]))
+				#f.close()
 			
 	background = None	 #free up space 
 
@@ -661,7 +673,7 @@ def run_bindetect(args):
 		#Plotting bindetect per comparison
 		for (cond1, cond2) in comparisons:
 
-			logger.info("- {0} / {1}".format(cond1, cond2))
+			logger.info("- {0} / {1} (static plot)".format(cond1, cond2))
 			base = cond1 + "_" + cond2
 
 			#Define which motifs to show
@@ -693,6 +705,7 @@ def run_bindetect(args):
 			plt.close(fig)
 
 			#Interactive BINDetect plot
+			logger.info("- {0} / {1} (interactive plot)".format(cond1, cond2))
 			html_out = os.path.join(args.outdir, "bindetect_" + base + ".html")
 			plot_interactive_bindetect(comparison_motifs, [cond1, cond2], html_out)
 			
