@@ -5,7 +5,7 @@ TOBIAS - Transcription factor Occupancy prediction By Investigation of ATAC-seq 
 [![PyPI Version](https://img.shields.io/pypi/v/tobias.svg?style=plastic)](https://pypi.org/project/tobias/)
 [![PyPI download month](https://img.shields.io/pypi/dm/tobias.svg?style=plastic)](https://pypi.python.org/pypi/tobias/)
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=plastic)](http://bioconda.github.io/recipes/tobias/README.html)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=plastic)](https://GitHub.com/loosolab/TOBIAS.js/graphs/commit-activity)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=plastic)](https://GitHub.com/loosolab/TOBIAS/graphs/commit-activity)
 [![publication](https://img.shields.io/badge/Publication-NatComm-blue.svg?style=plastic)](https://doi.org/10.1038/s41467-020-18035-1)
 
 Introduction 
