@@ -89,6 +89,12 @@ You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow ca
 **Nextflow kubernetes/de.NBI cloud aware pipeline**  
 We also provide the TOBIAS nextflow pipeline for a cloud computing environment. One version utilizes a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_MAPOKS), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_MACSEK).
 
+How to cite
+------------
+
+Bentsen, M., Goymann, P., Schultheis, H. et al. ATAC-seq footprinting unravels kinetics of transcription factor binding during zygotic genome activation. Nat Commun 11, 4267 (2020). 
+
+DOI: https://doi.org/10.1038/s41467-020-18035-1
 
 License
 ------------
