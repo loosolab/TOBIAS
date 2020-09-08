@@ -1,4 +1,4 @@
-## 0.11.5-b 
+## 0.12.0 
 - Internal changes to OneMotif/MotifList classes to support reading more info from meme files
 - Added '--output-peaks' to BINDetect to enable output of a subset of '--peak' regions
 - Added '--output-txt' and calculation of agg-differences to PlotAggregate 
