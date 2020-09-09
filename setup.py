@@ -80,7 +80,7 @@ setup(name='tobias',
 			'adjustText',
 			'pyBigWig>=0.3',		#to use values(numpy=True)
 			'MOODS-python',
-			'svist4get==1.2.24',	#pin due to changes in API
+			'svist4get>=1.2.24',	#pin due to changes in API
 			#'gimmemotifs',			#only used for MotifClust; now warns for this tool if it is not there
 			'logomaker',
 			'seaborn>=0.9.1',
