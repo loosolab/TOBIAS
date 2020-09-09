@@ -1,4 +1,4 @@
-## 0.12.0 
+## 0.12.0 (2020-09-09)
 - Improvement of internal OneMotif/MotifList class structure for reading/writing/scanning
 - Added '--output-peaks' to BINDetect to enable output of a subset of '--peak' regions
 - Added '--output-txt' and calculation of agg-differences to PlotAggregate 
