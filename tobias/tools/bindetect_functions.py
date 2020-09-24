@@ -61,10 +61,10 @@ def sigmoid(x, a, b, L, shift):
 
 
 class ArrayNorm:
-
+	""" Class to save normalization functions and normalize new arrays """
 	def __init__(self, p, value_max):
 
-		self.p_func = p	#function for getting normalization factor
+		self.p_func = p				#function for getting normalization factor
 
 		self.value_max = value_max	#value max is set to prevent spurious normalization factors at high values,
 									#which can happen due to oscillations from p_func() at high number of degrees
@@ -105,7 +105,7 @@ def quantile_normalization(list_of_arrays, names, pdfpages=None): #lists paired 
 	norm_objects = {}	#keys will be the strings in 'names'
 
 	#Calculate 
-	quantiles = np.linspace(0.05,1,500, endpoint=True)	#the lower bound excludes most 0's from quantiles
+	quantiles = np.linspace(0.05,0.95,500, endpoint=True)	#the lower bound excludes most 0's from quantiles
 	array_quantiles = [np.quantile([0] if sum(arr > 0) == 0 else arr[arr > 0], quantiles) for arr in list_of_arrays]
 	mean_array_quantiles = [np.mean([array_quantiles[i][j] for i in range(n)]) for j in range(len(quantiles))]
 
@@ -422,7 +422,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			writer.save()
 
 		except Exception as e:
-			logger.error("Error writing excelfile for TF {0}. Exception was: {1}".format(TF_name, e))
+			logger.warning("Could not write excelfile for TF {0}. Exception was: {1}".format(TF_name, e))
 
 	etime_excel = datetime.now()
 	etime = datetime.now()
