@@ -216,18 +216,15 @@ def run_bindetect(args):
 	logger.debug("Getting motifs ready")
 	motif_list.bg = bg
 
-	logger.debug("Getting reverse motifs")
-	motif_list.extend([motif.get_reverse() for motif in motif_list])	
-
 	#Set prefixes
-	for motif in motif_list:	#now with reverse motifs as well
+	for motif in motif_list:
 		motif.set_prefix(args.naming)
 		motif.bg = bg
 
 		logger.spam("Getting pssm for motif {0}".format(motif.name))
 		motif.get_pssm()
 	
-	motif_names = list(set([motif.prefix for motif in motif_list]))
+	motif_names = [motif.prefix for motif in motif_list]
 
 	#Get threshold for motifs
 	logger.debug("Getting match threshold per motif")
@@ -250,21 +247,19 @@ def run_bindetect(args):
 	#----------------------------------------- Plot logos for all motifs -----------------------------------------#
 	#-------------------------------------------------------------------------------------------------------------#
 
-	plus_motifs = [motif for motif in motif_list if motif.strand == "+"]
-	logo_filenames = {motif.prefix: os.path.join(args.outdir, motif.prefix, motif.prefix + ".png") for motif in plus_motifs}
+	logo_filenames = {motif.prefix: os.path.join(args.outdir, motif.prefix, motif.prefix + ".png") for motif in motif_list}
 
 	logger.info("Plotting sequence logos for each motif")
-	task_list = [pool.apply_async(OneMotif.logo_to_file, (motif, logo_filenames[motif.prefix], )) for motif in plus_motifs]
+	task_list = [pool.apply_async(OneMotif.logo_to_file, (motif, logo_filenames[motif.prefix], )) for motif in motif_list]
 	monitor_progress(task_list, logger)
 	results = [task.get() for task in task_list]
 	logger.comment("")
 
 	logger.debug("Getting base64 strings per motif")
 	for motif in motif_list:
-		if motif.strand == "+":
-			#motif.get_base() 
-			with open(logo_filenames[motif.prefix], "rb") as png:
-				motif.base = base64.b64encode(png.read()).decode("utf-8") 
+		#motif.get_base() 
+		with open(logo_filenames[motif.prefix], "rb") as png:
+			motif.base = base64.b64encode(png.read()).decode("utf-8") 
 
 	#-------------------------------------------------------------------------------------------------------------#
 	#--------------------- Motif scanning: Find binding sites and match to footprint scores ----------------------#
@@ -293,7 +288,7 @@ def run_bindetect(args):
 		q = manager.Queue()
 		qs_list.append(q)
 
-		writer_pool.apply_async(file_writer, args=(q, dict(zip(TF_names_sub,files)), args))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
+		writer_pool.apply_async(file_writer, args=(q, dict(zip(TF_names_sub, files)), args))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
 		for TF in TF_names_sub:
 			writer_qs[TF] = q
 	writer_pool.close() #no more jobs applied to writer_pool
@@ -341,10 +336,11 @@ def run_bindetect(args):
 	results = None
 
 	#Add missing TF overlaps (if some TFs had zero sites)
-	for TF1 in plus_motifs:
+	for TF1 in motif_list:
 		if TF1.prefix not in TF_overlaps:
 			TF_overlaps[TF1.prefix] = 0
-		for TF2 in plus_motifs:
+
+		for TF2 in motif_list:
 			tup = (TF1.prefix, TF2.prefix)
 			if tup not in TF_overlaps:
 				TF_overlaps[tup] = 0
@@ -581,7 +577,7 @@ def run_bindetect(args):
 	clustering.cluster()
 
 	#Convert full ids to alt ids
-	convert = {motif.prefix:motif.name for motif in motif_list}
+	convert = {motif.prefix: motif.name for motif in motif_list}
 	for cluster in clustering.clusters:
 		for name in convert:
 			clustering.clusters[cluster]["cluster_name"] = clustering.clusters[cluster]["cluster_name"].replace(name, convert[name])
@@ -682,12 +678,11 @@ def run_bindetect(args):
 			y_min = np.percentile(yvalues[yvalues > 0], 5)	#5% smallest pvalues
 			x_min, x_max = np.percentile(xvalues, [5, 95])	#5% smallest and largest changes
 
-			#Make copy of motifs and fill in with metadata
-			comparison_motifs = [motif for motif in motif_list if motif.strand == "+"] 	#copy.deepcopy(motif_list) - swig pickle error, just overwrite motif_list
-			for motif in comparison_motifs:
+			#Fill motifs with metadata (.change, .pvalue, .logpvalue etc.)
+			for motif in motif_list:
 				name = motif.prefix
-				motif.change = float(info_table.at[name, base + "_change"])
-				motif.pvalue = float(info_table.at[name, base + "_pvalue"])
+				motif.change = float(info_table.at[name, base + "_change"])	#change for this comparison
+				motif.pvalue = float(info_table.at[name, base + "_pvalue"])	#pvalue for this comparison
 				motif.logpvalue = -np.log10(motif.pvalue) if motif.pvalue > 0 else -np.log10(1e-308)
 
 				#Assign each motif to group
@@ -700,14 +695,14 @@ def run_bindetect(args):
 					motif.group = "n.s."
 
 			#Bindetect plot
-			fig = plot_bindetect(comparison_motifs, clustering, [cond1, cond2], args)
+			fig = plot_bindetect(motif_list, clustering, [cond1, cond2], args)
 			figure_pdf.savefig(fig, bbox_inches='tight')
 			plt.close(fig)
 
 			#Interactive BINDetect plot
 			logger.info("- {0} / {1} (interactive plot)".format(cond1, cond2))
 			html_out = os.path.join(args.outdir, "bindetect_" + base + ".html")
-			plot_interactive_bindetect(comparison_motifs, [cond1, cond2], html_out)
+			plot_interactive_bindetect(motif_list, [cond1, cond2], html_out)
 			
 
 	#-------------------------------------------------------------------------------------------------------------#	

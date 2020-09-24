@@ -52,7 +52,7 @@ class OneRegion(list):
 		return("{0}".format("\t".join(str(x) for x in self)))
 	
 	def tup(self):
-		return((self.chrom, self.start, self.end, self.strand))
+		return((self.chrom, self.start, self.end, self.name, self.strand))
 	
 	def pretty(self):
 		""" Pretty print of coordinates in the format chr:start-stop(strand) """
@@ -160,8 +160,8 @@ class OneRegion(list):
 
 		return(self)
 
-	def get_signal(self, pybw, numpy_bool = True, logger=TobiasLogger()):
-		""" Get signal from bigwig in region """
+	def get_signal(self, pybw, numpy_bool = True, logger=TobiasLogger(), key=None):
+		""" Get signal from bigwig in region. key is a string which will be written in case of an error """
 
 		try:
 			#Define whether pybigwig was compiled with numpy
@@ -177,7 +177,11 @@ class OneRegion(list):
 				signal = values
 				
 		except Exception as e:
-			logger.error("Error reading region: {0} from pybigwig object. Exception is: {1}".format(self.tup(), e))
+			if key is not None:
+				logger.error("Error reading region: {0} from pybigwig object ({1}). Exception is: {2}".format(self.tup(), key, e))
+			else:
+				logger.error("Error reading region: {0} from pybigwig object. Exception is: {1}".format(self.tup(), e))
+
 			traceback.print_tb(e.__traceback__)
 			raise e
 			
@@ -210,7 +214,7 @@ class RegionList(list):
 
 		#Read all lines
 		bedlines = open(bedfile_f).readlines()
-		self = RegionList([None]*len(bedlines))
+		self = RegionList([None]*len(bedlines))	#intialize to prevent appending for large bedfiles
 		for i, line in enumerate(bedlines):
 		
 			if line.startswith("#"): #comment lines are excluded
@@ -231,6 +235,11 @@ class RegionList(list):
 
 			region = OneRegion(columns)
 			self[i] = region
+		
+		#Remove any None's in list
+		for i in range(len(self)-1, -1, -1):	#counting down so that index in list does not change as None's are removed
+			if self[i] is None:
+				del self[i]
 
 		return(self)
 

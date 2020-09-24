@@ -1,9 +1,12 @@
 TOBIAS - Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal 
 =======================================
 
+
 [![PyPI Version](https://img.shields.io/pypi/v/tobias.svg?style=plastic)](https://pypi.org/project/tobias/)
+[![PyPI download month](https://img.shields.io/pypi/dm/tobias.svg?style=plastic)](https://pypi.python.org/pypi/tobias/)
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=plastic)](http://bioconda.github.io/recipes/tobias/README.html)
-[![bioRxiv badge](https://img.shields.io/badge/bioRxiv-10.1101%2F869560-blue?style=plastic)](https://www.biorxiv.org/content/10.1101/869560v2)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=plastic)](https://GitHub.com/loosolab/TOBIAS/graphs/commit-activity)
+[![publication](https://img.shields.io/badge/Publication-NatComm-blue.svg?style=plastic)](https://doi.org/10.1038/s41467-020-18035-1)
 
 Introduction 
 ------------
@@ -89,6 +92,12 @@ You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow ca
 **Nextflow kubernetes/de.NBI cloud aware pipeline**  
 We also provide the TOBIAS nextflow pipeline for a cloud computing environment. One version utilizes a [kubernetes framework](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_MAPOKS), and a second version utilizing a webbased job scheduler, started automatically within a local TOBIAS run, making use of the de.NBI [cloud](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow/tree/master/TOBIAS_MACSEK).
 
+How to cite
+------------
+
+Bentsen, M., Goymann, P., Schultheis, H. et al. ATAC-seq footprinting unravels kinetics of transcription factor binding during zygotic genome activation. Nat Commun 11, 4267 (2020). 
+
+DOI: https://doi.org/10.1038/s41467-020-18035-1
 
 License
 ------------

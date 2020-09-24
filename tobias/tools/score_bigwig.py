@@ -51,7 +51,7 @@ def calculate_scores(regions, args):
 		reg_key = (region.chrom, region.start+flank, region.end-flank)	#output region
 
 		#Get bigwig signal in region
-		signal = region.get_signal(pybw_signal)
+		signal = region.get_signal(pybw_signal, logger=logger)
 		signal = np.nan_to_num(signal).astype("float64")
 
 		#-------- Prepare signal for score calculation -------#

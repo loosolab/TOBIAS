@@ -1,5 +1,11 @@
-## 0.11.8-b
-- Improved quantile normalization between conditions in BINDetect
+## 0.12.0 (2020-09-09)
+- Improvement of internal OneMotif/MotifList class structure for reading/writing/scanning
+- Added '--output-peaks' to BINDetect to enable output of a subset of '--peak' regions
+- Added '--output-txt' and calculation of agg-differences to PlotAggregate 
+- Improved robustness of quantile normalization between conditions in BINDetect
+- Fixed Nonetype error for peaks in ATACorrect
+- Improved debug with added name of bigwig to bigwig reading error in BINDetect, ScoreBed and PlotAggregate
+- Bugfixes to CreateNetwork for mismatches between --TFBS/--origin
 
 ## 0.11.7 (2020-09-07)
 - Fix for BINDetect error when running with one input motif 
@@ -11,7 +17,6 @@
 
 ## 0.11.5 (2020-07-23)
 - Fixed "out of bounds" bugs within BINDetect and PlotAggregate
->>>>>>> master
 
 ## 0.11.4 (2020-07-20)
 - Added noninteractive backend to all plot modules to fix tkinter error 
