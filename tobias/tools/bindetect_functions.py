@@ -16,6 +16,7 @@ from datetime import datetime
 import itertools
 import xlsxwriter
 import random
+from scipy import interpolate
 
 #Plotting
 import matplotlib
@@ -62,21 +63,24 @@ def sigmoid(x, a, b, L, shift):
 
 class ArrayNorm:
 	""" Class to save normalization functions and normalize new arrays """
-	def __init__(self, p, value_max):
+	def __init__(self, p, value_min, value_max):
 
 		self.p_func = p				#function for getting normalization factor
 
-		self.value_max = value_max	#value max is set to prevent spurious normalization factors at high values,
-									#which can happen due to oscillations from p_func() at high number of degrees
+		#Value min/max are set to prevent normalization of values outside of the bonds considered during estimation
+		self.value_min = value_min
+		self.value_max = value_max
 
 	def normalize(self, arr):
 		""" Arr can be a value (float/int) or a numpy array """
 
-		#Set the cap for arr at self.value_max
+		#Set the cap for arr at self.value_max and self.value_max
 		#this prevents outliers of breaking the previously predicted p_func
-		arr_capped = arr * (arr <= self.value_max) + self.value_max * (arr > self.value_max)
+		arr_capped = arr * (arr <= self.value_max) + self.value_max * (arr > self.value_max)	#cap to value_max
+		arr_capped = arr_capped * (arr_capped >= self.value_min) + self.value_min * (arr_capped < self.value_min)	#cap to value_min
 
-		return(arr * self.p_func(arr_capped))
+		normalized = arr * self.p_func(arr_capped)
+		return(normalized)
 
 
 def dict_to_tab(dict_list, fname, chosen_columns, header=False):
@@ -104,12 +108,12 @@ def quantile_normalization(list_of_arrays, names, pdfpages=None): #lists paired 
 	n = len(list_of_arrays)
 	norm_objects = {}	#keys will be the strings in 'names'
 
-	#Calculate 
-	quantiles = np.linspace(0.05,0.95,500, endpoint=True)	#the lower bound excludes most 0's from quantiles
+	#Calculate quantiles per array
+	quantiles = np.linspace(0.05,0.99,1000, endpoint=True)	#the lower bound excludes most 0's from quantiles
 	array_quantiles = [np.quantile([0] if sum(arr > 0) == 0 else arr[arr > 0], quantiles) for arr in list_of_arrays]
 	mean_array_quantiles = [np.mean([array_quantiles[i][j] for i in range(n)]) for j in range(len(quantiles))]
 
-	#Plot overview of quantile-quantile
+	#Plot overview of quantile-quantile relationships
 	if pdfpages is not None:
 		fig, ax = plt.subplots()
 		for i in range(n):
@@ -129,51 +133,45 @@ def quantile_normalization(list_of_arrays, names, pdfpages=None): #lists paired 
 		xdata = array_quantiles[i]
 		ydata = mean_array_quantiles/xdata	#gives NA if xdata is 0
 
+		#Smooth ydata before fit
+		pad = 100 #window to use for smoothing
+		ydata_pad = np.pad(ydata, pad, "edge")
+		ydata_smooth = fast_rolling_math(ydata_pad, pad, "mean")
+		ydata_smooth = ydata_smooth[pad:-pad]
+
+		#Interpolate values 
+		p = interpolate.interp1d(xdata, ydata_smooth, fill_value="extrapolate")
+		
+		#Plot normalization factors
 		fig, ax = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
-		residual_list = []
-		poly_functions = {}
-		degrees = list(range(1,10))
-		for deg in degrees:
-
-			o = np.polyfit(xdata, ydata, deg, full=True)
-			z, residuals, rank, singular_values, rcond = o	#unpack values
-
-			if len(residuals) == 0:
-				residuals = [0]	#if residuals is empty, the fit is exact
-
-			residual_list.append(residuals[0])
-			p = np.poly1d(z)
-			poly_functions[deg] = p
-			ax[0].plot(xdata, p(xdata), linestyle='dashed', label="fit deg = {0} (residual: {1})".format(deg, round(residuals[0], 3)))
+		xvals = np.linspace(np.min(xdata), np.max(xdata), 1000)	#xvals across the entire range of values
 	
 		ax[0].set_xlabel("Original value")
 		ax[0].set_ylabel("Multiplication factor")
 		ax[0].set_title("Multiplication needed for normalization of '{0}'".format(bigwig))
-		ax[0].plot(xdata, ydata, color="black", linewidth=2, label="Original")
+		ax[0].plot(xdata, ydata, color="black", linewidth=3, label="Original")
+		ax[0].plot(xdata, ydata_smooth, color="blue", linewidth=1, label="Smooth")
+		ax[0].plot(xvals, p(xvals), linestyle='dashed', color="red", label="Interpolation")
 		ax[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-		#Use knee-plot to estimate how many degrees to use
-		try:
-			kneedle = KneeLocator(degrees, residual_list, S=1, curve='convex', direction='decreasing')
-			n_degrees = kneedle.knee + 1
+		#Create norm object for this bigwig
+		value_min = np.min(xdata)
+		value_max = np.max(xdata)
+		norm_objects[bigwig] = ArrayNorm(p, value_min=value_min, value_max=value_max)
 
-		except: #if knee was not found
-			n_degrees = 5
+		#Plot across all values (not only quantiles)
+		arr = sorted(list_of_arrays[i])
+		normalized = norm_objects[bigwig].normalize(arr)
 
-		ax[1].set_title("Number of degrees chosen for fit")
-		ax[1].plot(degrees, residual_list)
-		ax[1].axvline(n_degrees, label="Number of degrees chosen", color="black")
-		ax[1].set_xlabel("Number of degrees")
-		ax[1].set_ylabel("Residuals of fit")
-		ax[1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-		#plt.adjust_subplots()
+		ax[1].set_title("Normalized vs. original")
+		ax[1].plot(arr, normalized)
+		ax[1].set_xlabel("Original")
+		ax[1].set_ylabel("Normalized values")
+		ax[1].grid()
 
 		if pdfpages is not None:
 			pdfpages.savefig(fig,  bbox_inches="tight")
 		plt.close()
-
-		norm_objects[bigwig] = ArrayNorm(poly_functions[n_degrees], value_max=np.max(xdata))
 
 	return(norm_objects)
 
@@ -219,6 +217,7 @@ def get_gc_content(regions, fasta):
 #---------------------------------------------------------------------------------------------------------#
 #------------------------------------------- Main functions ----------------------------------------------#
 #---------------------------------------------------------------------------------------------------------#
+
 def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	""" Scanning and scoring runs in parallel for subsets of regions """
 	
@@ -368,7 +367,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			line[condition + "_score"] = float(line[condition + "_score"])
 			original = line[condition + "_score"]
 
-			line[condition + "_score"] = args.norm_objects[condition].normalize(line[condition + "_score"])  #normalize score
+			line[condition + "_score"] = args.norm_objects[condition].normalize(original)  #normalize score
 			line[condition + "_score"] = line[condition + "_score"] if line[condition + "_score"]  > 0 else 0 # any scores below 0 -> 0
 			line[condition + "_score"] = round(line[condition + "_score"], 5)
 

@@ -1,3 +1,6 @@
+## 0.12.1 (2020-09-28)
+- Fixed bug in quantile normalization (from 0.12.0) leading to spurious normalization factors at high footprint values
+
 ## 0.12.0 (2020-09-09)
 - Improvement of internal OneMotif/MotifList class structure for reading/writing/scanning
 - Added '--output-peaks' to BINDetect to enable output of a subset of '--peak' regions

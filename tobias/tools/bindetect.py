@@ -709,7 +709,7 @@ def run_bindetect(args):
 	#----------------------------- Make heatmap across conditions (for debugging)---------------------------------#	
 	#-------------------------------------------------------------------------------------------------------------#	
 
-	if args.debug:
+	if args.debug and len(args.signals) > 1:
 		logger.info("Plotting heatmap across conditions for debugging")
 		mean_columns = [cond + "_mean_score" for cond in args.cond_names]
 		heatmap_table = info_table[mean_columns]
