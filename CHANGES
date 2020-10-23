@@ -1,3 +1,6 @@
+## 0.12.3 (2020-10-23)
+- Fix of windows /r line-end in "cluster_sites_by_overlap.py"
+
 ## 0.12.2 (2020-10-23)
 - Fix to BINDetect bug occurring in case of duplicates in --motif input. Motifs are now given unique names if duplicated. 
 - Change of "Transcription factor similarities" to "Transcription factor distance" in BINDetect.
