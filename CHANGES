@@ -1,3 +1,8 @@
+## 0.12.2 (2020-10-23)
+- Fix to BINDetect bug occurring in case of duplicates in --motif input. Motifs are now given unique names if duplicated. 
+- Change of "Transcription factor similarities" to "Transcription factor distance" in BINDetect.
+- Added utility script "cluster_sites_by_overlap.py" to create a BINDetect-style dendrogram for overlapping .bed-file regions
+
 ## 0.12.1 (2020-09-28)
 - Fixed bug in quantile normalization (from 0.12.0) leading to spurious normalization factors at high footprint values
 

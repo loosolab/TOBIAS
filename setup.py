@@ -88,7 +88,8 @@ setup(name='tobias',
 			'pyyaml>5.1',			#requirement for norns full_load
 			'kneed'
 		],
-		scripts=["tobias/scripts/filter_important_factors.py"],
+		scripts=["tobias/scripts/filter_important_factors.py",
+				 "tobias/scripts/cluster_sites_by_overlap.py"],
 		classifiers=[
 			'License :: OSI Approved :: MIT License',
 			'Intended Audience :: Science/Research',
