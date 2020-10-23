@@ -19,6 +19,7 @@ import logging
 import itertools
 import pandas as pd
 import seaborn as sns
+from collections import Counter
 
 #Machine learning and statistics
 import sklearn
@@ -224,6 +225,25 @@ def run_bindetect(args):
 		logger.spam("Getting pssm for motif {0}".format(motif.name))
 		motif.get_pssm()
 	
+	#Check that prefixes are unique
+	motif_prefixes = [motif.prefix for motif in motif_list]
+	name_count = Counter(motif_prefixes)
+	if max(name_count.values()) > 1:
+
+		duplicated = [key for key, value in name_count.items() if value > 1]
+		logger.warning("The motif output names (as given by --naming) are not unique.")
+		logger.warning("The following names occur more than once: {0}".format(duplicated))
+		logger.warning("These motifs will be renamed with '_1', '_2' etc. To prevent this renaming, please make the names of the input --motifs unique")
+		
+		motif_count = {dup_motif: 1 for dup_motif in duplicated}
+		for i, motif in enumerate(motif_list):
+			if motif.prefix in duplicated:
+				
+				original_name = motif.prefix
+				motif.prefix = motif.prefix + "_{0}".format(motif_count[motif.prefix])	#Add number to make prefix unique
+				logger.debug("Renamed motif {0}: {1} -> {2}".format(i+1, original_name, motif.prefix))
+				motif_count[original_name] += 1
+
 	motif_names = [motif.prefix for motif in motif_list]
 
 	#Get threshold for motifs
@@ -281,6 +301,7 @@ def run_bindetect(args):
 
 	manager = mp.Manager()
 	TF_names_chunks = [motif_names[i::writer_cores] for i in range(writer_cores)]
+	writer_tasks = []
 	for TF_names_sub in TF_names_chunks:
 		logger.debug("Creating writer queue for {0}".format(TF_names_sub))
 		files = [os.path.join(args.outdir, TF, "beds", TF + ".tmp") for TF in TF_names_sub]
@@ -288,7 +309,7 @@ def run_bindetect(args):
 		q = manager.Queue()
 		qs_list.append(q)
 
-		writer_pool.apply_async(file_writer, args=(q, dict(zip(TF_names_sub, files)), args))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
+		writer_tasks.append(writer_pool.apply_async(file_writer, args=(q, dict(zip(TF_names_sub, files)), args)))	 #, callback = lambda x: finished.append(x) print("Writing time: {0}".format(x)))
 		for TF in TF_names_sub:
 			writer_qs[TF] = q
 	writer_pool.close() #no more jobs applied to writer_pool
@@ -318,6 +339,19 @@ def run_bindetect(args):
 	logger.debug("Stop all queues by inserting None")
 	for q in qs_list:
 		q.put((None, None))
+
+	#Wait for all writer tasks to finish
+	finished = 0
+	while finished == 0:
+		logger.debug("Writer task return status: {0}".format([task.get() if task.ready() else "NA" for task in writer_tasks]))
+		if sum([task.ready() for task in writer_tasks]) == len(writer_tasks):	
+			finished = 1
+			return_codes = [task.get() for task in writer_tasks]
+			if sum(return_codes) != 0:
+				logger.error("Bedfile writer finished with an error ({0})".format())
+			else:
+				logger.debug("Bedfile writer(s) finished!")
+		time.sleep(0.5) 
 
 	logger.debug("Joining bed_writer queues")
 	for i, q in enumerate(qs_list):

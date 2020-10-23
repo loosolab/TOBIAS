@@ -96,7 +96,7 @@ def file_writer(q, key_file_dict, args):
 		except Exception as e:
 			print("Error opening file {0} in file_writer. Exception was: '{1}'".format(fil, e))
 			raise e
-			return(0)
+			return(1)
 
 	#Assign handles to keys
 	handles = {}
@@ -123,7 +123,7 @@ def file_writer(q, key_file_dict, args):
 	for fil, handle in file2handle.items():
 		handle.close()
 		
-	return(1)	
+	return(0)	#success
 
 
 def bigwig_writer(q, key_file_dict, header, regions, args):

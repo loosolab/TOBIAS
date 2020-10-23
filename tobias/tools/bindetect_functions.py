@@ -308,9 +308,9 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 	fasta_obj.close()
 	for bigwig_f in pybw:
 		pybw[bigwig_f].close()
-			
+	
 	logger.stop()
-	logger.total_time
+	logger.debug("Done: 'scan_and_score' finished for this chunk of regions (time elapsed: {0})".format(logger.total_time))
 
 	return(background_signal, overlap)
 
@@ -651,7 +651,7 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	if n_ids > 1:
 		dendro_dat = dendrogram(cluster_obj.linkage_mat, labels=list(IDS), no_labels=True, orientation="right", ax=ax3, above_threshold_color="black", link_color_func=lambda k: cluster_obj.node_color[k])
 		labels = dendro_dat["ivl"]	#Now sorted for the order in dendrogram
-		ax3.set_xlabel("Transcription factor similarities\n(Clusters below threshold are colored)")
+		ax3.set_xlabel("Transcription factor distance\n(Clusters below threshold are colored)")
 
 		ax3.set_ylabel("Transcription factor clustering based on TFBS overlap", rotation=270, labelpad=20)
 		ax3.yaxis.set_label_position("right")
