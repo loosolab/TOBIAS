@@ -587,6 +587,8 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 				diff_scores[TF]["color"] = "blue"
 			elif diff_scores[TF]["change"] > 0:
 				diff_scores[TF]["color"] = "red"
+			else:
+				diff_scores[TF]["color"] = "black" #if change was 0
 		else:
 			diff_scores[TF]["show"] = False 
 			diff_scores[TF]["color"] = "black"
