@@ -404,19 +404,25 @@ def run_bindetect(args):
 	args.norm_objects = {}
 
 	if args.debug: 
-		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, pdfpages=debug_pdf)
+		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, pdfpages=debug_pdf, logger=logger)
 	else:
-		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names)
+		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, logger=logger)
 
 	#Normalize background and visualize score distribution
 	for bigwig in args.cond_names:
-		normalized = args.norm_objects[bigwig].normalize(background["signal"][bigwig])
+		
+		original = background["signal"][bigwig]
+
+		#Check for nan
+		logger.debug("Background nans ({0}): {1}".format(bigwig, sum(np.isnan(original))))
+		normalized = args.norm_objects[bigwig].normalize(original)
 		
 		#Replace negative values with 0
 		negatives = normalized < 0
 		normalized[negatives] = 0
 
 		background["signal"][bigwig] = normalized
+		logger.debug("Background nans after normalization ({0}): {1}".format(bigwig, sum(np.isnan(background["signal"][bigwig]))))
 	
 	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
 	figure_pdf.savefig(fig, bbox_inches='tight')
@@ -431,13 +437,16 @@ def run_bindetect(args):
 
 	#Prepare scores (remove 0's etc.)
 	bg_values = np.array([background["signal"][bigwig] for bigwig in args.cond_names]).flatten()	#scores from all conditions
+	logger.debug("Size of background array collected: {0}".format(bg_values.size))
 	bg_values = bg_values[np.logical_not(np.isclose(bg_values, 0.0))]	#only non-zero counts
+	logger.debug("Size of background array after filtering > 0: {0}".format(bg_values.size))
 	if len(bg_values) == 0:
 		logger.error("Error processing bigwig scores from background. It could be that there are no scores in the bigwig (= all scores are 0) assigned for the peaks. Please check your input files.")
 		sys.exit()
 
 	x_max = np.percentile(bg_values, [99]) 
 	bg_values = bg_values[bg_values < x_max]
+	logger.debug("Size of background array after filtering < x_max ({0}): {1}".format(x_max, bg_values.size))
 
 	#Fit mixture of normals
 	lowest_bic = np.inf
@@ -556,7 +565,7 @@ def run_bindetect(args):
 				plt.title("Background log2FCs ({0} / {1})".format(bigwig1, bigwig2))
 				plt.xlabel("Log2 fold change")
 				plt.ylabel("Density")
-		
+
 				debug_pdf.savefig(fig, bbox_inches='tight')
 				plt.close()
 				

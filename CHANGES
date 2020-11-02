@@ -1,5 +1,6 @@
-## 0.12.4 (in progress)
+## 0.12.4 (2020-11-02)
 - Fix for color keyerror in BINDetect (volcano plotting)
+- Fixed bug in BINDetect normalization leading to NA's in normalized values (and exit due to error). Fix now applies a robust sigmoid detection of norm factors per condition. NOTE: This introduces small changes in normalized values in comparison to versions 0.12+
 
 ## 0.12.3 (2020-10-23)
 - Fix of windows /r line-end in "cluster_sites_by_overlap.py"

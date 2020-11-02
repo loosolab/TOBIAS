@@ -55,21 +55,36 @@ import warnings
 #------------------------------------------------------------------------------------------------------#
 
 def sigmoid(x, a, b, L, shift):
-	""" a is the xvalue at the sigmoid midpoint """
+	""" 
+	- a is the x-value at the sigmoid midpoint 
+	- b controls the slope of the midpoint
+    - L is the range of the y-axis min-max values
+    - Shift is shift of the whole sigmoid on the y-axis
+	"""
 
 	y = L / (1 + np.exp(-b*(x-a))) + shift
-	return y
+	return(y)
 
 
 class ArrayNorm:
 	""" Class to save normalization functions and normalize new arrays """
-	def __init__(self, p, value_min, value_max):
+	def __init__(self, function, popt, value_min, value_max):
 
-		self.p_func = p				#function for getting normalization factor
+		self.func = function			#function for getting normalization factor; sigmoid or constant
+		self.popt = popt				#popt for 'sigmoid' or float for 'constant'
 
 		#Value min/max are set to prevent normalization of values outside of the bonds considered during estimation
 		self.value_min = value_min
 		self.value_max = value_max
+
+	def get_norm_factor(self, arr):
+		""" Evaluates the norm factor depending on self.func """
+
+		if self.func == "sigmoid":
+			norm_factor = sigmoid(arr, *self.popt) 
+		elif self.func == "constant":
+			norm_factor = arr*0 + self.popt	#ensures that output is the same size as arr
+		return(norm_factor)
 
 	def normalize(self, arr):
 		""" Arr can be a value (float/int) or a numpy array """
@@ -79,7 +94,10 @@ class ArrayNorm:
 		arr_capped = arr * (arr <= self.value_max) + self.value_max * (arr > self.value_max)	#cap to value_max
 		arr_capped = arr_capped * (arr_capped >= self.value_min) + self.value_min * (arr_capped < self.value_min)	#cap to value_min
 
-		normalized = arr * self.p_func(arr_capped)
+		#Normalize array
+		norm_factor = self.get_norm_factor(arr_capped)
+		normalized = arr * norm_factor
+
 		return(normalized)
 
 
@@ -103,7 +121,7 @@ def dict_to_tab(dict_list, fname, chosen_columns, header=False):
 	f.close()
 
 #Quantile normalization 
-def quantile_normalization(list_of_arrays, names, pdfpages=None): #lists paired values to normalize
+def quantile_normalization(list_of_arrays, names, pdfpages=None, logger=TobiasLogger()): #lists paired values to normalize
 
 	n = len(list_of_arrays)
 	norm_objects = {}	#keys will be the strings in 'names'
@@ -134,30 +152,47 @@ def quantile_normalization(list_of_arrays, names, pdfpages=None): #lists paired 
 		ydata = mean_array_quantiles/xdata	#gives NA if xdata is 0
 
 		#Smooth ydata before fit
-		pad = 100 #window to use for smoothing
+		pad = 50 #window to use for smoothing
 		ydata_pad = np.pad(ydata, pad, "edge")
 		ydata_smooth = fast_rolling_math(ydata_pad, pad, "mean")
-		ydata_smooth = ydata_smooth[pad:-pad]
+		ydata_smooth = ydata_smooth[pad:-pad]	#remove padded values
 
-		#Interpolate values 
-		p = interpolate.interp1d(xdata, ydata_smooth, fill_value="extrapolate")
-		
+		#Interpolate values to limit influence of outlier values (low values -> high changes between conditions) on fit
+		p = interpolate.interp1d(xdata, ydata_smooth, kind="linear", fill_value="extrapolate")
+		xvals = np.linspace(np.min(xdata), np.max(xdata), 1000)	#xvals across the entire range of values
+		y_inter = p(xvals)
+
+		#Filter out any NaNs from failed interpolation
+		xvals = xvals[~np.isnan(y_inter)]
+		y_inter = y_inter[~np.isnan(y_inter)]
+
+		#Fit sigmoid to prevent oscillations from low values in interpolation
+		try:
+			a_range = np.min(xdata), np.max(xdata)
+			L_range = np.diff(np.percentile(y_inter, [5,95]))
+			popt, pcov = curve_fit(sigmoid, xvals, y_inter, bounds=((a_range[0],-np.inf, 0, 0), (a_range[1], np.inf, L_range, np.inf)))
+			func = "sigmoid"
+
+		except: #if curve fit failed; fall back on a constant normalization factor
+			popt = np.mean(y_inter)	#popt is the factor used for normalization
+			logger.warning("Curve-fitting quantile normalization failed for '{0}'. Falling back to 'constant' normalization (factor = {1:.2f}).".format(bigwig, popt))
+			func = "constant"
+
+		#Create norm object for this bigwig
+		value_min = np.min(xdata)
+		value_max = np.max(xdata)
+		norm_objects[bigwig] = ArrayNorm(func, popt, value_min=value_min, value_max=value_max)
+
 		#Plot normalization factors
 		fig, ax = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
-		xvals = np.linspace(np.min(xdata), np.max(xdata), 1000)	#xvals across the entire range of values
 	
 		ax[0].set_xlabel("Original value")
 		ax[0].set_ylabel("Multiplication factor")
 		ax[0].set_title("Multiplication needed for normalization of '{0}'".format(bigwig))
 		ax[0].plot(xdata, ydata, color="black", linewidth=3, label="Original")
-		ax[0].plot(xdata, ydata_smooth, color="blue", linewidth=1, label="Smooth")
 		ax[0].plot(xvals, p(xvals), linestyle='dashed', color="red", label="Interpolation")
+		ax[0].plot(xdata, norm_objects[bigwig].get_norm_factor(xdata), label="Norm function")
 		ax[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-		#Create norm object for this bigwig
-		value_min = np.min(xdata)
-		value_max = np.max(xdata)
-		norm_objects[bigwig] = ArrayNorm(p, value_min=value_min, value_max=value_max)
 
 		#Plot across all values (not only quantiles)
 		arr = sorted(list_of_arrays[i])
@@ -375,6 +410,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 				logger.error("negative values: {0}. Original: {1}".format(line[condition + "_score"], original))
 
 			line[condition + "_bound"] = 1 if line[condition + "_score"] > threshold else 0
+
 
 		#Comparison specific
 		for i, (cond1, cond2) in enumerate(comparisons):
