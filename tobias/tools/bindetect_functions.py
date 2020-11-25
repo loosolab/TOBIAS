@@ -492,7 +492,7 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 			# Compare log2fcs to background log2fcs
 			included = np.logical_or(bed_table[cond1 + "_score"].values > 0, bed_table[cond2 + "_score"].values > 0)
 			subset = bed_table[included].copy() 		#included subset 
-			subset.loc[:,"peak_id"] = ["_".join([chrom, str(start), str(end)]) for (chrom, start, end) in zip(subset["peak_chr"].values, subset["peak_start"].values, subset["peak_end"].values)]	
+			subset.loc[:,"peak_id"] = ["_".join([chrom, str(start), str(end)]) for (chrom, start, end) in zip(subset.iloc[:,0].values, subset.iloc[:,1].values, subset.iloc[:,2].values)]	
 			
 			observed_log2fcs = subset.groupby('peak_id')[base + '_log2fc'].mean().reset_index()[base + "_log2fc"].values		#if more than one TFBS per peak -> take mean value
 
