@@ -161,6 +161,8 @@ class MotifList(list):
 				# parse id, name
 				elif line.startswith("MOTIF"):
 
+					#TODO: If 'MOTIF' immediately follows previous motif, write out collected probability_matrix to self[-1]
+
 					#Initialize motif
 					probability_matrix = []
 					self.append(OneMotif(motifid=""))	#initialize dummy OneMotif for filling in
@@ -203,7 +205,7 @@ class MotifList(list):
 				# parse probability matrix or save motif
 				elif proba_flag:
 
-					if re.match(r"^[\s]*([\d\.\s]+)$", line):
+					if re.match(r"^[\s]*([\d\.\se\-]+)$", line):
 						columns = list(map(float, line.split()))
 
 						# check for correct number of columns
@@ -222,8 +224,16 @@ class MotifList(list):
 						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
 						count_matrix = count_matrix.tolist()
 
+						#If w is given, check that it fits the length of the read motif
+						if "w" in self[-1].info:
+							w = int(self[-1].info["w"])
+							l = len(count_matrix[0])
+							if w != l:
+								sys.exit("Error reading motif '{3}' from {0}! 'w' given in 'letter-probability matrix'-line ({1}) does not match length of the motif read ({2})".format(path, w, l, self[-1].id))
+						
 						#Set counts for current OneMotif object
 						self[-1].set_counts(count_matrix)	#this also checks for format
+
 
 		# parse PFM/ JASPAR
 		elif file_format in biopython_formats:
@@ -968,7 +978,7 @@ class OneMotif:
   		"""
     	# check counts input
 		if len(counts) != 4:
-			raise ValueError("Input counts must be of length 4. Received length {0}".format(len(counts)))
+			raise ValueError("Input counts must be of length 4. Received length {0} for motif (id='{1}', name='{2}'). Input counts are: {3}".format(len(counts), self.id, self.name, counts))
 		lengths = [len(base) for base in counts]
 		if len(set(lengths)) != 1:
 			raise ValueError("All lists in counts must be of same length.")
