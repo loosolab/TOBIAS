@@ -205,7 +205,7 @@ class MotifList(list):
 				# parse probability matrix or save motif
 				elif proba_flag:
 
-					if re.match(r"^[\s]*([\d\.\se\-]+)$", line):
+					if re.match(r"^\s*(?![-\s]+)([\d\-\.\se\-]+?)$", line):
 						columns = list(map(float, line.split()))
 
 						# check for correct number of columns
