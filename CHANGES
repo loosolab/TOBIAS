@@ -1,3 +1,6 @@
+## 0.12.7 (in progress)
+- Fixed error reading in meme.txt files (due to "----"-lines)
+
 ## 0.12.6 (2020-11-25)
 - Fix for bug leading to keyerror when --peak-header did not contain "peak_chr"
 
