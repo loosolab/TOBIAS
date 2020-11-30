@@ -908,6 +908,25 @@ class OneMotif:
 
 		return(self)
 
+	def gc_content(self):
+		'''
+		Calculate the GC content of the motif.
+		The GC content is calculated in percent (0-1) and is stored in the .gc-variable.
+
+		Uses:
+		:self.pfm: Position probability matrix as dataframe where rows are positions and columns bases.
+		'''
+
+		if self.pfm is None:
+			self.get_pfm()
+
+		# Calculate GC content per position
+		self.gc_positions = self.pfm[self.bases.index('G')] + self.pfm[self.bases.index('C')]
+
+		self.gc = np.mean(self.gc_positions)
+
+		return(self)
+
 	def logo_to_file(self, filename):
 		""" Plots the motif to pdf/png/jpg file """
 
