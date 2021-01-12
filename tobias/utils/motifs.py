@@ -1088,6 +1088,27 @@ class OneMotif:
 
 		return self
 
+	@staticmethod
+	def from_fasta(fasta, motifid, name=None):
+		"""
+		Create motif from fasta.
+		Will use captital letters as motif sites (see JASPAR sites format).
+
+		Parameters:
+			fasta (string): Path to fasta file.
+
+			motifid (string): Unique id of the motif.
+
+			name (string): Name of the motif. Defaults to 'None'.
+
+		Returns:
+			OneMotif object
+		"""
+		with open(fasta) as handle:
+			motif = motifs.read(handle, "sites")
+
+		return OneMotif(motifid=motifid, counts=[motif.counts[base] for base in ["A", "C", "G", "T"]], name=name)
+
 ###########################################################
 
 def get_motif_format(content):
