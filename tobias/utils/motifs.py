@@ -1115,6 +1115,12 @@ class OneMotif:
 
 		return OneMotif(motifid=motifid, counts=[motif.counts[base] for base in ["A", "C", "G", "T"]], name=name)
 
+	def __repr__(self):
+		"""
+		OneMotif representation.
+		"""
+		return f"<OneMotif: {self.id}{' ' + self.name if len(self.name) > 0 else ''}>"
+
 
 ###########################################################
 
