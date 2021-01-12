@@ -593,6 +593,12 @@ class MotifList(list):
 
 		return MotifList([motif.get_reverse() for motif in self])
 
+	def __add__(self, other):
+		"""
+		Enable + operator to return MotifList.
+		"""
+		return MotifList(list(self) + list(other))
+
 #--------------------------------------------------------------------------------------------------------#
 def gimmemotif_to_onemotif(gimmemotif_obj):
 	""" Convert gimmemotif object to OneMotif object """
@@ -1108,6 +1114,7 @@ class OneMotif:
 			motif = motifs.read(handle, "sites")
 
 		return OneMotif(motifid=motifid, counts=[motif.counts[base] for base in ["A", "C", "G", "T"]], name=name)
+
 
 ###########################################################
 
