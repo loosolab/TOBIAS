@@ -593,6 +593,12 @@ class MotifList(list):
 
 		return MotifList([motif.get_reverse() for motif in self])
 
+	def __add__(self, other):
+		"""
+		Enable + operator to return MotifList.
+		"""
+		return MotifList(list(self) + list(other))
+
 #--------------------------------------------------------------------------------------------------------#
 def gimmemotif_to_onemotif(gimmemotif_obj):
 	""" Convert gimmemotif object to OneMotif object """
@@ -1087,6 +1093,34 @@ class OneMotif:
 			f.write(self.as_string(output_format=fmt))
 
 		return self
+
+	@staticmethod
+	def from_fasta(fasta, motifid, name=None):
+		"""
+		Create motif from fasta.
+		Will use captital letters as motif sites (see JASPAR sites format).
+
+		Parameters:
+			fasta (string): Path to fasta file.
+
+			motifid (string): Unique id of the motif.
+
+			name (string): Name of the motif. Defaults to 'None'.
+
+		Returns:
+			OneMotif object
+		"""
+		with open(fasta) as handle:
+			motif = motifs.read(handle, "sites")
+
+		return OneMotif(motifid=motifid, counts=[motif.counts[base] for base in ["A", "C", "G", "T"]], name=name)
+
+	def __repr__(self):
+		"""
+		OneMotif representation.
+		"""
+		return f"<OneMotif: {self.id}{' ' + self.name if len(self.name) > 0 else ''}>"
+
 
 ###########################################################
 
