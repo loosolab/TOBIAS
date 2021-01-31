@@ -18,7 +18,7 @@ dependencies:
   - scipy
   - pypdf2
   - scikit-learn
-  - svist4get==1.2.22
+  - svist4get>=1.2.24
   - pyyaml>=5.1
   - boto3
   - adjustText

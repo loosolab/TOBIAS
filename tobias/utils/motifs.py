@@ -205,7 +205,7 @@ class MotifList(list):
 				# parse probability matrix or save motif
 				elif proba_flag:
 
-					if re.match(r"^[\s]*([\d\.\se\-]+)$", line):
+					if re.match(r"^\s*(?![-\s]+)([\d\-\.\se\-]+?)$", line):
 						columns = list(map(float, line.split()))
 
 						# check for correct number of columns
@@ -593,6 +593,12 @@ class MotifList(list):
 
 		return MotifList([motif.get_reverse() for motif in self])
 
+	def __add__(self, other):
+		"""
+		Enable + operator to return MotifList.
+		"""
+		return MotifList(list(self) + list(other))
+
 #--------------------------------------------------------------------------------------------------------#
 def gimmemotif_to_onemotif(gimmemotif_obj):
 	""" Convert gimmemotif object to OneMotif object """
@@ -909,6 +915,25 @@ class OneMotif:
 
 		return(self)
 
+	def gc_content(self):
+		'''
+		Calculate the GC content of the motif.
+		The GC content is calculated in percent (0-1) and is stored in the .gc-variable.
+
+		Uses:
+		:self.pfm: Position probability matrix as dataframe where rows are positions and columns bases.
+		'''
+
+		if self.pfm is None:
+			self.get_pfm()
+
+		# Calculate GC content per position
+		self.gc_positions = self.pfm[self.bases.index('G')] + self.pfm[self.bases.index('C')]
+
+		self.gc = np.mean(self.gc_positions)
+
+		return(self)
+
 	def logo_to_file(self, filename):
 		""" Plots the motif to pdf/png/jpg file """
 
@@ -1069,6 +1094,34 @@ class OneMotif:
 			f.write(self.as_string(output_format=fmt))
 
 		return self
+
+	@staticmethod
+	def from_fasta(fasta, motifid, name=None):
+		"""
+		Create motif from fasta.
+		Will use captital letters as motif sites (see JASPAR sites format).
+
+		Parameters:
+			fasta (string): Path to fasta file.
+
+			motifid (string): Unique id of the motif.
+
+			name (string): Name of the motif. Defaults to 'None'.
+
+		Returns:
+			OneMotif object
+		"""
+		with open(fasta) as handle:
+			motif = motifs.read(handle, "sites")
+
+		return OneMotif(motifid=motifid, counts=[motif.counts[base] for base in ["A", "C", "G", "T"]], name=name)
+
+	def __repr__(self):
+		"""
+		OneMotif representation.
+		"""
+		return f"<OneMotif: {self.id}{' ' + self.name if len(self.name) > 0 else ''}>"
+
 
 ###########################################################
 
