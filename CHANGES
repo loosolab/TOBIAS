@@ -1,4 +1,4 @@
-## 0.12.7 (2020-02-01)
+## 0.12.7 (2021-02-01)
 - Fixed error reading in meme.txt files (due to "----"-lines)
 - Internal additions of motif-specific functions (e.g. GC-content, motifs from fasta)
 - Capped motif similarities at 1 (influence rare cases where correlation < 0) 
