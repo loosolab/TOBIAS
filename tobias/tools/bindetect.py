@@ -155,7 +155,16 @@ def run_bindetect(args):
 	logger.info("Reading peaks")
 	peaks = RegionList().from_bed(args.peaks)
 	logger.info("- Found {0} regions in input peaks".format(len(peaks)))
-	peaks = peaks.merge()	#merge overlapping peaks
+
+	#Check number of columns in peaks
+	n_cols = len(peaks[0])
+	for i, peak in enumerate(peaks):
+		if len(peak) != n_cols:
+			logger.error("The lines in --peaks have a varying number of columns. Line 1 has {0} columns, but line {1} has {2} columns! Please adjust the format of this file to run TOBIAS BINDetect.".format(n_cols, i+1, len(peak)))
+			sys.exit()
+
+	#Merge overlapping peaks
+	peaks = peaks.merge()	
 	logger.info("- Merged to {0} regions".format(len(peaks)))
 
 	if len(peaks) == 0:
@@ -164,6 +173,7 @@ def run_bindetect(args):
 		
 	#Read header and check match with number of peak columns
 	peak_columns = len(peaks[0]) #number of columns
+	logger.debug("--peaks have {0} columns".format(peak_columns))
 	if args.peak_header != None:
 		content = open(args.peak_header, "r").read()
 		args.peak_header_list = content.split()

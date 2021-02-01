@@ -1,5 +1,8 @@
-## 0.12.7 (in progress)
+## 0.12.7 (2020-02-01)
 - Fixed error reading in meme.txt files (due to "----"-lines)
+- Internal additions of motif-specific functions (e.g. GC-content, motifs from fasta)
+- Capped motif similarities at 1 (influence rare cases where correlation < 0) 
+- Added error for input '--peak'-files with varying number of columns in BINDetect
 
 ## 0.12.6 (2020-11-25)
 - Fix for bug leading to keyerror when --peak-header did not contain "peak_chr"
