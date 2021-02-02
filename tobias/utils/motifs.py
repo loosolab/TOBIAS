@@ -636,7 +636,7 @@ def generate_similarity_matrix(score_dict):
 	for i, m1 in enumerate(m1_keys):
 		for j, m2 in enumerate(m2_keys):    
 			score = round(1 - np.mean([score_dict[m1][m2][0], score_dict[m2][m1][0]]), 3)
-			score = max(score, 1) #fixes that score can go above 1 if the similarity was negative
+			score = min(score, 1) #fixes that score can go above 1 if the similarity was negative
 			
 			similarity_dict[m1_labels[i]][m2_labels[j]] = score
 			similarity_dict[m2_labels[j]][m1_labels[i]] = score

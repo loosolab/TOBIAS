@@ -1,3 +1,6 @@
+## 0.12.8 (2021-02-02)
+- Fix for similarity score error introduced in 0.12.7 (wrongly applied max instead of min)
+
 ## 0.12.7 (2021-02-01)
 - Fixed error reading in meme.txt files (due to "----"-lines)
 - Internal additions of motif-specific functions (e.g. GC-content, motifs from fasta)
