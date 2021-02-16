@@ -118,12 +118,20 @@ def run_network(args):
 	sorted_matching = sorted(matching, key = lambda tup: -tup[-1])
 	logger.debug("Match tuples: {0}".format(sorted_matching))
 
-	#Columns for matching
+	#Match source columns
 	source_col_tfbs = sites_table.columns[3]	#Source id (TF name) is the 4th column of the sites bedfile 
 	source_col_origin = [match[1] for match in sorted_matching if match[0] == source_col_tfbs][0]  	#source id column (TF name) in the origin table
-	target_col_tfbs = [match[0] for match in sorted_matching if match[0] != source_col_tfbs][0]	 	#target id (gene id) column from sites 
-	target_col_origin = [match[1] for match in sorted_matching if match[0] != source_col_tfbs][0]	#target id (gene id) in the origin table
-		
+	
+	#Remove tfbs->origin columns from list
+	sorted_matching = [tup for tup in sorted_matching if not ((tup[0] == source_col_tfbs) or (tup[1] == source_col_origin))]
+	
+	#Find match-pair for targets
+	target_col_tfbs = [match[0] for match in sorted_matching if match[0] != source_col_tfbs][0]	 	#target id (gene id) column from sites
+	target_col_origin = [match[1] for match in sorted_matching if (match[0] != source_col_tfbs)][0]	#target id (gene id) in the origin table
+	
+	logger.debug("From TFBS table: source_col='{0}' | target_col='{1}'".format(source_col_tfbs, target_col_tfbs))
+	logger.debug("From origin table: source_col='{0}' | target_col='{1}'".format(source_col_origin, target_col_origin))
+	
 	#Intersect of sources and targets
 	source_ids_tfbs = set(sites_table[source_col_tfbs])
 	logger.debug("Source ids from TFBS: {0}".format(", ".join(list(source_ids_tfbs)[:4]) + " (...)"))

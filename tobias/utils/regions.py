@@ -225,7 +225,8 @@ class RegionList(list):
 				logger.error("Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
 				sys.exit()
 
-			columns = line.rstrip().split("\t")
+			columns = line.split("\t") #split (and then .rstrip() afterwards)
+			columns[-1] = columns[-1].rstrip() # remove line-ending from last col
 			columns[1] = int(columns[1]) #start
 			columns[2] = int(columns[2]) #end
 			
