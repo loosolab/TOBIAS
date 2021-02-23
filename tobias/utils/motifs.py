@@ -934,8 +934,14 @@ class OneMotif:
 
 		return(self)
 
-	def logo_to_file(self, filename):
-		""" Plots the motif to pdf/png/jpg file """
+	def logo_to_file(self, filename, ylim=(0, 2)):
+		"""
+		Plots the motif to pdf/png/jpg file
+
+		Parameters:
+			filename (string): Name of the output file.
+			ylim (tuple, list or string): Forwarded to create_logo().
+		"""
 
 		ext = os.path.splitext(filename)[-1]
 
@@ -947,7 +953,7 @@ class OneMotif:
 			warnings.warn("The 'jpg' format is not supported for motif image. Type is set to 'png'")
 
 		#self.gimme_obj.to_img(filename)	
-		logo = self.create_logo()	#returns a logo object
+		logo = self.create_logo(ylim=ylim)	#returns a logo object
 		logo.fig.savefig(filename)
 		plt.close(logo.fig)
 
@@ -963,8 +969,18 @@ class OneMotif:
 
 		return(self)
 
-	def create_logo(self, ax = None, motif_len=None):
-		""" Creates motif logo in axes object """
+	def create_logo(self, ax = None, motif_len=None, ylim=(0, 2)):
+		"""
+		Creates motif logo in axes object
+
+		Parameters:
+			ax (matplitlib.axes): Axes object, where to logo should live. Default = None
+			motif_len (int): Number of bases displayed in plot. Default length of motif (all).
+			ylim (tuple, list or string): Either 'auto' to autoscale yaxis to max or tuple/ list of parameters (*args) to matplotlib.axes.Axes.set_ylim. Default 0 to 2.
+
+		Returns:
+			logomaker.Logo object
+		"""
 
 		# convert to pandas dataframe
 		df = pd.DataFrame(self.counts).transpose()
@@ -977,14 +993,23 @@ class OneMotif:
 		info_df = logomaker.transform_matrix(df, from_type="counts", to_type="information")
 		self.info_df = info_df
 
+		# compute y-axis limits and ticks
+		ylim = (0, info_df.sum(axis=1).max()) if ylim == "auto" else ylim
+		# validate ylim
+		if not isinstance(ylim, (list, tuple)):
+			raise ValueError("Parameter ylim should be either 'auto' or a list/ tuple of arguments to matplotlib.axes.Axes.set_ylim.")
+		tick_num = 4
+		step = (ylim[1] - ylim[0]) / tick_num
+		yticks = [ylim[0]+step*i for i in range(tick_num + 1)]
+
 		# create Logo object
 		logo = logomaker.Logo(info_df, ax = ax)
 
 		# style
 		logo.style_xticks(rotation=0, fmt='%d', anchor=0)
-		logo.ax.set_ylim(0, 2)
+		logo.ax.set_ylim(*ylim)
 		logo.ax.set_xlim(-0.5, motif_len-0.5)
-		logo.ax.set_yticks([0, 0.5, 1, 1.5, 2], minor=False)
+		logo.ax.set_yticks(yticks, minor=False)
 		logo.style_spines(visible=False)
 		logo.style_spines(spines=['left', 'bottom'], visible=True)
 		logo.ax.xaxis.set_ticks_position('none')
