@@ -940,7 +940,7 @@ class OneMotif:
 
 		Parameters:
 			filename (string): Name of the output file.
-			ylim (list or string): Forwarded to create_logo().
+			ylim (tuple, list or string): Forwarded to create_logo().
 		"""
 
 		ext = os.path.splitext(filename)[-1]
@@ -976,7 +976,7 @@ class OneMotif:
 		Parameters:
 			ax (matplitlib.axes): Axes object, where to logo should live. Default = None
 			motif_len (int): Number of bases displayed in plot. Default length of motif (all).
-			ylim (list or string): Either 'auto' to autoscale yaxis to max or list of parameters (*args) to matplotlib.axes.Axes.set_ylim. Default 0 to 2.
+			ylim (tuple, list or string): Either 'auto' to autoscale yaxis to max or tuple/ list of parameters (*args) to matplotlib.axes.Axes.set_ylim. Default 0 to 2.
 
 		Returns:
 			logomaker.Logo object
@@ -995,6 +995,9 @@ class OneMotif:
 
 		# compute y-axis limits and ticks
 		ylim = (0, info_df.sum(axis=1).max()) if ylim == "auto" else ylim
+		# validate ylim
+		if not isinstance(ylim, (list, tuple)):
+			raise ValueError("Parameter ylim should be either 'auto' or a list/ tuple of arguments to matplotlib.axes.Axes.set_ylim.")
 		tick_num = 4
 		step = (ylim[1] - ylim[0]) / tick_num
 		yticks = [ylim[0]+step*i for i in range(tick_num + 1)]
