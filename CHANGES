@@ -1,3 +1,6 @@
+## 0.12.10 (in progress)
+- Within motifs utils: Added ylim parameter for visualization of motifs with low bitscores (from hschult) 
+
 ## 0.12.9 (2021-02-16)
 - Fixed bug in ATACorrect causing "uncorrected == corrected" for 1bp read .bam-files
 - Fixed column matching in CreateNetwork so that target != source in the same file
