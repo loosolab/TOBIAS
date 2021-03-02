@@ -134,7 +134,7 @@ def bias_estimation(regions_list, params):
 				for read in read_lst_strand[strand]:
 					if read.cigartuples is not None:
 						first_tuple = read.cigartuples[-1] if read.is_reverse else read.cigartuples[0]
-						if first_tuple[0] == 0 and first_tuple[1] > params.k_flank + max(np.abs(params.read_shift)):	#Only include non-clipped reads
+						if first_tuple[0] == 0:	#Only include non-clipped reads
 							read_per_pos[read.cutsite] = read_per_pos.get(read.cutsite, []) + [read]
 
 				for cutsite in read_per_pos:

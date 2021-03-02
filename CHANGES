@@ -1,3 +1,6 @@
+## 0.8.1 (2021-02-02)
+- Fix for reading 1bp .bam's in ATACorrect
+
 ## 0.8.0 (2019-09-04)
 - Added CreateNetwork to tools
 - Smaller bugfixes
