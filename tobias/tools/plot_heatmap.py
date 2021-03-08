@@ -155,14 +155,27 @@ def run_heatmap(args):
 		bigwig_f = heatmap_info[col][0]["bigwig_f"]		#bigwig is the same for all rows, therefore row == 0
 		pybw = pyBigWig.open(bigwig_f, "rb") 			
 		
+		#Get bigwig chrom sizes
+		chrom_sizes = pybw.chroms()
+
 		for row in heatmap_info[col]:
 		
-			logger.info("- Reading {0} from {1}".format(heatmap_info[col][row]["bed_f"], bigwig_f))
+			logger.info("- Reading signal for '{0}' from '{1}'".format(heatmap_info[col][row]["bed_f"], bigwig_f))
 
+			#Check that regions are within boundaries and remove if not
+			regions = heatmap_info[col][row]["regions"]
+			invalid = [i for i, region in enumerate(regions) if region.check_boundary(chrom_sizes, action="remove") == None] 
+			for invalid_idx in invalid[::-1]:	#idx from higher to lower
+				logger.warning("Region '{0}' (after flank extension) is out of chromosome boundaries, and will therefore be excluded from output".format(
+																								regions[invalid_idx].pretty()))
+				del heatmap_info[col][row]["regions"][invalid_idx]
+
+			#Fetch signal from pybw object if there are any regions left
 			if len(heatmap_info[col][row]["regions"]) > 0:
 				heatmap_info[col][row]["signal_mat"] = np.array([region.get_signal(pybw) for region in heatmap_info[col][row]["regions"]]) 
 				heatmap_info[col][row]["aggregate"] = np.mean(heatmap_info[col][row]["signal_mat"], axis=0) 
 			else:
+				logger.warning("No valid regions left - plot will be empty for this region/bigwig combination")
 				heatmap_info[col][row]["signal_mat"] = None
 				heatmap_info[col][row]["aggregate"] = None
 		
@@ -208,8 +221,9 @@ def run_heatmap(args):
 			for row in heatmap_info[col]:
 				heatmap_info[col][row].update({"vmin":vmin, "vmax":vmax})
 
-	del mats
-	del joined
+	if len(mats) > 0:
+		del mats
+		del joined
 
 	# Estimate min/max for extra columns			
 	for i, name in enumerate(args.show_columns):

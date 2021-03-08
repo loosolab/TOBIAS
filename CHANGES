@@ -1,5 +1,6 @@
-## 0.12.10 (in progress)
+## 0.12.10 (2021-03-08)
 - Within motifs utils: Added ylim parameter for visualization of motifs with low bitscores (from hschult) 
+- Fixed bug in PlotHeatmap leading to error for out-of-bounds regions (#64)
 
 ## 0.12.9 (2021-02-16)
 - Fixed bug in ATACorrect causing "uncorrected == corrected" for 1bp read .bam-files
