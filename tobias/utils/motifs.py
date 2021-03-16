@@ -835,8 +835,13 @@ class OneMotif:
 			row = [self.counts[letter][pos_id] for letter in range(len(self.bases))] 	# each row represents one position in motif ( A C G T )
 			motif_rows.append(row)
 
-		self.gimme_obj = Motif(motif_rows) 	# generate gimmemotif motif instance
+		# generate gimmemotif motif instance
+		self.gimme_obj = Motif()
+  
+		# populate empty object
 		self.gimme_obj.id = self.id + " " + self.name
+		self.gimme_obj.pfm = motif_rows
+		self.gimme_obj.pwm = self.gimme_obj.pfm_to_pwm(motif_rows)
 
 		return(self)
 		
