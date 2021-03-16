@@ -490,7 +490,7 @@ class MotifList(list):
 
 		from gimmemotifs.comparison import MotifComparer
 
-		self = [motif.get_gimmemotifs() if motif.gimme_obj is None else motif for motif in self]	#fill in gimme_obj if it is not found
+		self = [motif.get_gimmemotif() if motif.gimme_obj is None else motif for motif in self]	#fill in gimme_obj if it is not found
 		motif_list = [motif.gimme_obj for motif in self]	#list of gimmemotif objects
 
 		if len(motif_list) > 1:
