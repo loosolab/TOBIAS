@@ -1,3 +1,6 @@
+## 0.12.11 (in progress)
+- Fix for Set cap on figure size in BINDetect for large number of motifs
+
 ## 0.12.10 (2021-03-08)
 - Within motifs utils: Added ylim parameter for visualization of motifs with low bitscores (from hschult) 
 - Fixed bug in PlotHeatmap leading to error for out-of-bounds regions (#64)

@@ -650,7 +650,9 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	#Make figure
 	no_rows, no_cols = 2,2	
 	h_ratios = [1,max(1,n_IDS/25)]
-	figsize = (8,10+7*(n_IDS/25))
+	l = 10+7*(n_IDS/25) 			#length of plot
+	l = 2**16 if l > 2**16 else l 	#set cap on length (due to matplotlib limit of 2**16)
+	figsize = (8,l)
 	
 	fig = plt.figure(figsize = figsize)
 	gs = gridspec.GridSpec(no_rows, no_cols, height_ratios=h_ratios)
