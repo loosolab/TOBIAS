@@ -881,7 +881,7 @@ class OneMotif:
 
 		return(self)
 
-	def get_threshold(self, pvalue):
+	def get_threshold(self, pvalue=0.0001):
 		""" Get threshold for moods scanning """
 
 		if self.pssm is None:
