@@ -221,7 +221,7 @@ class RegionList(list):
 				continue
 
 			#Test line format
-			if re.match(r"[^\s]+\t\d+\t\d+.", line) == None:
+			if re.match(r"[^\s]+\t\d+\t\d+\b.*", line) == None:
 				logger.error("Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
 				sys.exit()
 
@@ -231,7 +231,7 @@ class RegionList(list):
 			columns[2] = int(columns[2]) #end
 			
 			if columns[1] >= columns[2]:
-				logger.error("Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
+				logger.error("Start position is larger than end position in line {0} in {1}:\n{2}".format(i+1, bedfile_f, line))
 				sys.exit()
 
 			region = OneRegion(columns)
