@@ -245,6 +245,12 @@ class MotifList(list):
 		else:
 			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
 
+		#Check if any motifs have length 0 (length == None)
+		for motif in self:
+			if motif.length == None:
+
+				sys.exit("ERROR: No matrix could be read for motif '{0} {1}' - please check the format of the input motif file.".format(motif.id, motif.name))
+
 		#Final changes to motifs
 		for motif in self:
 
