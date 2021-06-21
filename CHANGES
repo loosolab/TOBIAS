@@ -1,6 +1,7 @@
-## 0.12.11 (in progress)
+## 0.12.11 (2021-06-21)
 - Set cap on figure size in BINDetect for large number of motifs
 - Fix for reading 1-bp .bed-files without "not proper bed format"-error in RegionList.from_bed
+- Fix for reading .meme-files without trailing empty line
 
 ## 0.12.10 (2021-03-08)
 - Within motifs utils: Added ylim parameter for visualization of motifs with low bitscores (from hschult) 
