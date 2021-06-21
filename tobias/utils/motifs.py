@@ -129,7 +129,7 @@ class MotifList(list):
 			bg = None
 			
 			#Read meme input line by line
-			lines = content.split("\n")
+			lines = content.split("\n") + [""] #make sure file ends with empty line
 			for line in lines:
 
 				### Header content ###
@@ -1021,6 +1021,7 @@ class OneMotif:
 		logo.ax.set_ylim(*ylim)
 		logo.ax.set_xlim(-0.5, motif_len-0.5)
 		logo.ax.set_yticks(yticks, minor=False)
+		logo.ax.set_xticklabels(range(1,motif_len+1)) #0 -> 1-based coordinates
 		logo.style_spines(visible=False)
 		logo.style_spines(spines=['left', 'bottom'], visible=True)
 		logo.ax.xaxis.set_ticks_position('none')
