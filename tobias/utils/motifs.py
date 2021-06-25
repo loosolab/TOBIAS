@@ -200,7 +200,7 @@ class MotifList(list):
 						self[-1].info = info #Add meme-read information to info-dict
 
 						if "nsites" in info:
-							self[-1].n = int(info["nsites"]) #overwrites OneMotif default
+							self[-1].n = int(float(info["nsites"])) #overwrites OneMotif default
 
 				# parse probability matrix or save motif
 				elif proba_flag:
