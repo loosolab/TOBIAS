@@ -161,9 +161,18 @@ class MotifList(list):
 				# parse id, name
 				elif line.startswith("MOTIF"):
 
-					#TODO: If 'MOTIF' immediately follows previous motif, write out collected probability_matrix to self[-1]
+					#If 'MOTIF' immediately follows previous motif, write out collected probability_matrix to self[-1]
+					if proba_flag == True:
 
-					#Initialize motif
+						# transpose and convert probability matrix to count using saved .n
+						count_matrix = np.array(probability_matrix).T * self[-1].n
+						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
+						count_matrix = count_matrix.tolist()
+
+						#Set counts for current OneMotif object
+						self[-1].set_counts(count_matrix)	#this also checks for format
+
+					#Initialize new motif
 					probability_matrix = []
 					self.append(OneMotif(motifid=""))	#initialize dummy OneMotif for filling in
 
@@ -224,13 +233,6 @@ class MotifList(list):
 						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
 						count_matrix = count_matrix.tolist()
 
-						#If w is given, check that it fits the length of the read motif
-						if "w" in self[-1].info:
-							w = int(self[-1].info["w"])
-							l = len(count_matrix[0])
-							if w != l:
-								sys.exit("Error reading motif '{3}' from {0}! 'w' given in 'letter-probability matrix'-line ({1}) does not match length of the motif read ({2})".format(path, w, l, self[-1].id))
-						
 						#Set counts for current OneMotif object
 						self[-1].set_counts(count_matrix)	#this also checks for format
 
@@ -245,10 +247,17 @@ class MotifList(list):
 		else:
 			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
 
+		#Check that 'w' fits the length of the read motif
+		for motif in self:
+			if "w" in motif.info:
+				w = int(motif.info["w"])
+				l = len(motif.counts[0])
+				if w != l:
+					sys.exit("Error reading motif '{3}' from {0}! 'w' given in 'letter-probability matrix'-line ({1}) does not match length of the motif read ({2})".format(path, w, l, motif.id))
+
 		#Check if any motifs have length 0 (length == None)
 		for motif in self:
 			if motif.length == None:
-
 				sys.exit("ERROR: No matrix could be read for motif '{0} {1}' - please check the format of the input motif file.".format(motif.id, motif.name))
 
 		#Final changes to motifs
