@@ -270,9 +270,13 @@ def run_motifclust(args):
 		from gimmemotifs.motif import Motif
 		from gimmemotifs.comparison import MotifComparer
 		sns.set_style("ticks")	#set style back to ticks, as this is set globally during gimmemotifs import
-	except:
+	except ModuleNotFoundError:
 		logger.error("MotifClust requires the python package 'gimmemotifs'. You can install it using 'pip install gimmemotifs' or 'conda install gimmemotifs'.")
-		sys.exit()
+		sys.exit(1)
+	except Exception as e:
+		logger.error("Tried to import package 'gimmemotifs' but failed with error: '{0}'".format(repr(e)))
+		logger.error("Please check that 'gimmemotifs' was successfully installed.")
+		sys.exit(1)
 
 	#---------------------------------------- Reading motifs from file(s) -----------------------------------#
 	logger.info("Reading input file(s)")
