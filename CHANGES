@@ -1,6 +1,8 @@
-## 0.12.12 (in progress)
+## 0.12.12 (2021-10-04)
 - Fix for reading .meme files with float 'nsites' and consecutive motifs in file
 - Better error message for missing 'gimmemotifs' import within ClusterMotifs
+- Performance improvement of remove_duplicates and resolve_overlaps within regions utils
+- Fix of bugs in ATACorrect (#94) related to setting bias threshold
 
 ## 0.12.11 (2021-06-21)
 - Set cap on figure size in BINDetect for large number of motifs
