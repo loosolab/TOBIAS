@@ -271,13 +271,13 @@ def bias_correction(regions_list, params, bias_obj):
 		overlaps = int(params.window / step)
 		window_starts = list(range(k_flank, reg_end-params.window, step))
 		window_ends = list(range(k_flank+params.window, reg_end, step))
-		window_ends[-1] = reg_len
 		windows = list(zip(window_starts, window_ends))
 
 		for strand in strands:
 
 			########### Estimate bias threshold ###########
 			bias_predictions = np.zeros((overlaps,reg_len))
+			bias_predictions[k_flank:reg_end] = np.nan #flanks stay 0 as no windows overlap
 			row = 0
 
 			for window in windows:
@@ -286,8 +286,6 @@ def bias_correction(regions_list, params, bias_obj):
 				bias_w = out_signals[reg_key]["bias"][strand][window[0]:window[1]]
 
 				signalmax = np.max(signal_w)
-				#biasmin = np.min(bias_w) 
-				#biasmax = np.max(bias_w)
 
 				if signalmax > 0:
 					try:
@@ -306,9 +304,10 @@ def bias_correction(regions_list, params, bias_obj):
 					bias_predict = np.zeros(window[1]-window[0])	
 
 				bias_predictions[row, window[0]:window[1]] = bias_predict
-				row += 1 if row < overlaps - 1 else 0
+				row = row + 1 if row < overlaps - 1 else 0
 
-			bias_prediction = np.mean(bias_predictions, axis=0)
+				bias_prediction = np.nanmean(bias_predictions, axis=0) #nanmean because ends of array contain nan (before windows are completely overlapping)
+
 			bias = bias_prediction 
 
 			######## Calculate expected signal ######
