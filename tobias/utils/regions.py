@@ -402,21 +402,22 @@ class RegionList(list):
 	def remove_duplicates(self):
 		""" Returns a unique list of sites """
 
-		self.loc_sort()
+		unique = deepcopy(self)
+		unique.loc_sort()
 		prev_chrom, prev_start, prev_end, prev_strand = "", 0, 0, ""
-		unique = RegionList()
 
-		for region in self:
+		for i, region in enumerate(unique):
 
 			curr_chrom, curr_start, curr_end, curr_strand = region.chrom, region.start, region.end, region.strand
 
 			if curr_chrom == prev_chrom and curr_start == prev_start and curr_end == prev_end and curr_strand == prev_strand:  #not unique
-				pass
-			else:
-				unique.append(region)
+				unique[i] = None
 
 			#Save as previous for next comparison
-			prev_chrom, prev_start, prev_end, prev_strand = region.chrom, region.start, region.end, region.strand
+			prev_chrom, prev_start, prev_end, prev_strand = curr_chrom, curr_start, curr_end, curr_strand
+
+		#Remove all None
+		unique = RegionList([region for region in unique if region is not None])
 
 		return(unique)
 
@@ -494,6 +495,7 @@ class RegionList(list):
 	def resolve_overlaps(self, priority="higher"):
 		""" Priority "higher" or "lower" """
 
+		self = deepcopy(self) #ensures that self is not changed
 		self.loc_sort()
 		no_regions = len(self)
 
@@ -532,10 +534,7 @@ class RegionList(list):
 					j = 1
 
 		#Remove all None
-		non_overlapping = RegionList()
-		for reg in self:
-			if reg != None:
-				non_overlapping.append(reg)
+		non_overlapping = RegionList([reg for reg in self if reg is not None])
 
 		return(non_overlapping)
 
