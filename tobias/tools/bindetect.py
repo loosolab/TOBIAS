@@ -100,12 +100,20 @@ def run_bindetect(args):
 	pool = mp.Pool(processes=worker_cores)
 	writer_pool = mp.Pool(processes=writer_cores)
 
-
 	#-------------------------------------------------------------------------------------------------------------#
 	#-------------------------- Pre-processing data: Reading motifs, sequences, peaks ----------------------------#
 	#-------------------------------------------------------------------------------------------------------------#
 
 	logger.info("----- Processing input data -----")
+
+	#Check that cond_names are the right length and are unique:
+	if len(args.cond_names) != len(args.signals):
+		logger.error("The given number of given '--cond-names' ({0}) differ from the given input '--signals' ({1}). Please enter one condition name per signal.".format(len(args.cond_names), len(args.signals)))
+		sys.exit()
+
+	if len(args.cond_names) != len(set(args.cond_names)):
+		logger.error("The condition names are not unique ({0}). Please use --cond-names to set a unique set of condition names.".format(args.cond_names))
+		sys.exit()
 
 	#Check opening/writing of files
 	logger.info("Checking reading/writing of files")
@@ -137,8 +145,9 @@ def run_bindetect(args):
 
 	#output and order
 	titles = []
-	titles.append("Raw score distributions")
-	titles.append("Normalized score distributions")
+	if no_conditions > 1:
+		titles.append("Raw score distributions")
+		titles.append("Normalized score distributions")
 	if args.debug:
 		for (cond1, cond2) in comparisons:
 			titles.append("Background log2FCs ({0} / {1})".format(cond1, cond2))	
@@ -235,8 +244,8 @@ def run_bindetect(args):
 		logger.spam("Getting pssm for motif {0}".format(motif.name))
 		motif.get_pssm()
 	
-	#Check that prefixes are unique
-	motif_prefixes = [motif.prefix for motif in motif_list]
+	#Check that prefixes are unique regardless of upper/lower case name
+	motif_prefixes = [motif.prefix.upper() for motif in motif_list]
 	name_count = Counter(motif_prefixes)
 	if max(name_count.values()) > 1:
 
@@ -247,12 +256,12 @@ def run_bindetect(args):
 		
 		motif_count = {dup_motif: 1 for dup_motif in duplicated}
 		for i, motif in enumerate(motif_list):
-			if motif.prefix in duplicated:
+			if motif.prefix.upper() in duplicated:
 				
 				original_name = motif.prefix
-				motif.prefix = motif.prefix + "_{0}".format(motif_count[motif.prefix])	#Add number to make prefix unique
+				motif.prefix = motif.prefix + "_{0}".format(motif_count[motif.prefix.upper()])	#Add number to make prefix unique
 				logger.debug("Renamed motif {0}: {1} -> {2}".format(i+1, original_name, motif.prefix))
-				motif_count[original_name] += 1
+				motif_count[original_name.upper()] += 1
 
 	motif_names = [motif.prefix for motif in motif_list]
 
