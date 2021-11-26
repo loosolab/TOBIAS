@@ -163,6 +163,11 @@ def run_atacorrect(args):
 	bam_references = [ref for ref in bam_references if ref in fasta_chrom_info]
 	chrom_in_common = [ref for ref in chrom_in_common if ref in bam_references]
 
+	#Check if any contigs were left; else exit
+	if len(chrom_in_common) == 0:
+		logger.error("No common contigs left to run ATACorrect on. Please check that '--bam' and '--fasta' are matching.")
+		sys.exit()
+
 	#----------------------------------------------------------------------------------------------------#
 	# Read regions from bedfiles
 	#----------------------------------------------------------------------------------------------------#
