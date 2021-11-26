@@ -1,3 +1,8 @@
+## 0.13.0 (2021-11-26)
+- Added option '--norm-off' to BINDetect. Can be used in cases where the conditions are already normalized, or in case of issues in normalization.
+- Fixed bug in BINDetect leading to errors when motif prefixes are the same, but in a different case (e.g. Jun/JUN). Fixed by making unique regardless of case.
+- More checks in ATACorrect and BINDetect.
+
 ## 0.12.12 (2021-10-04)
 - Fix for reading .meme files with float 'nsites' and consecutive motifs in file
 - Better error message for missing 'gimmemotifs' import within ClusterMotifs

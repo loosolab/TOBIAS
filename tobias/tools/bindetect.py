@@ -145,8 +145,8 @@ def run_bindetect(args):
 
 	#output and order
 	titles = []
-	if no_conditions > 1:
-		titles.append("Raw score distributions")
+	titles.append("Raw score distributions")
+	if no_conditions > 1 and args.norm_off == False:
 		titles.append("Normalized score distributions")
 	if args.debug:
 		for (cond1, cond2) in comparisons:
@@ -402,31 +402,30 @@ def run_bindetect(args):
 	for bigwig in args.cond_names:
 		background["signal"][bigwig] = np.array(background["signal"][bigwig])
 
-	args.norm_objects = {}
+	#Check how many values were fetched from background
+	n_bg_values = len(background["signal"][args.cond_names[0]])
+	logger.debug("Collected {0} values from background".format(n_bg_values))
+	if n_bg_values < 1000:
+		err_str = "Number of background values collected from peaks is low (={0}) ".format(n_bg_values)
+		err_str += "- this affects estimation of the bound/unbound threshold and the normalization between conditions. "
+		err_str += "To improve this estimation, please run BINDetect with --peaks = the full peak set across all conditions."
+		logger.warning(err_str) 
+
+	#Plot score distribution
+	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Raw scores per condition")
+	figure_pdf.savefig(fig, bbox_inches='tight')
+	plt.close()
 
 	#Normalize arrays
+	args.norm_objects = {}
 	if args.norm_off == True or len(args.cond_names) == 1: #if norm_off or length of cond is 1 - create constant normalization
 		for bigwig in args.cond_names:
 			args.norm_objects[bigwig] = ArrayNorm("constant", popt=1.0, value_min=0, value_max=1) #no normalization; min/max don't matter for constant norm
 
 	else:
-		#Check how many values were fetched from background
-		n_bg_values = len(background["signal"][args.cond_names[0]])
-		logger.debug("Collected {0} values from background".format(n_bg_values))
-		if n_bg_values < 1000:
-			err_str = "Number of background values collected from peaks is low (={0}) ".format(n_bg_values)
-			err_str += "- this affects estimation of the bound/unbound threshold and the normalization between conditions. "
-			err_str += "To improve this estimation, please run BINDetect with --peaks = the full peak set across all conditions."
-			logger.warning(err_str) 
-
-		#Normalize scores between conditions
 		logger.comment("")
-		logger.info("Estimating score distribution per condition")
-		fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Raw scores per condition")
-		figure_pdf.savefig(fig, bbox_inches='tight')
-		plt.close()
-
 		logger.info("Normalizing scores across conditions")
+
 		list_of_vals = [background["signal"][bigwig] for bigwig in args.cond_names]
 		if args.debug: 
 			args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, pdfpages=debug_pdf, logger=logger)
