@@ -56,10 +56,12 @@ import warnings
 
 def sigmoid(x, a, b, L, shift):
 	""" 
+	Parameters
+	-----------
 	- a is the x-value at the sigmoid midpoint 
 	- b controls the slope of the midpoint
-    - L is the range of the y-axis min-max values
-    - Shift is shift of the whole sigmoid on the y-axis
+	- L is the range of the y-axis min-max values
+	- shift is the shift of the whole sigmoid on the y-axis
 	"""
 
 	y = L / (1 + np.exp(-b*(x-a))) + shift
@@ -68,6 +70,7 @@ def sigmoid(x, a, b, L, shift):
 
 class ArrayNorm:
 	""" Class to save normalization functions and normalize new arrays """
+
 	def __init__(self, function, popt, value_min, value_max):
 
 		self.func = function			#function for getting normalization factor; sigmoid or constant
@@ -202,6 +205,10 @@ def quantile_normalization(list_of_arrays, names, pdfpages=None, logger=TobiasLo
 		ax[1].plot(arr, normalized)
 		ax[1].set_xlabel("Original")
 		ax[1].set_ylabel("Normalized values")
+		max_lim = max([ax[1].get_xlim()[1], ax[1].get_ylim()[1]])
+		ax[1].set_xlim(0,max_lim)
+		ax[1].set_ylim(0,max_lim)
+		ax[1].plot([0, 1], [0, 1], transform=ax[1].transAxes, ls="--", color="grey")
 		ax[1].grid()
 
 		if pdfpages is not None:

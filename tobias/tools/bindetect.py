@@ -392,51 +392,57 @@ def run_bindetect(args):
 	#Collect sampled background values
 	for bigwig in args.cond_names:
 		background["signal"][bigwig] = np.array(background["signal"][bigwig])
-	
-	#Check how many values were fetched from background
-	n_bg_values = len(background["signal"][args.cond_names[0]])
-	logger.debug("Collected {0} values from background".format(n_bg_values))
-	if n_bg_values < 1000:
-		err_str = "Number of background values collected from peaks is low (={0}) ".format(n_bg_values)
-		err_str += "- this affects estimation of the bound/unbound threshold and the normalization between conditions. "
-		err_str += "To improve this estimation, please run BINDetect with --peaks = the full peak set across all conditions."
-		logger.warning(err_str) 
 
-	#Normalize scores between conditions
-	logger.comment("")
-	logger.info("Estimating score distribution per condition")
-	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Raw scores per condition")
-	figure_pdf.savefig(fig, bbox_inches='tight')
-	plt.close()
-
-	logger.info("Normalizing scores across conditions")
-	list_of_vals = [background["signal"][bigwig] for bigwig in args.cond_names]
 	args.norm_objects = {}
 
-	if args.debug: 
-		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, pdfpages=debug_pdf, logger=logger)
+	#Normalize arrays
+	if args.norm_off == True or len(args.cond_names) == 1: #if norm_off or length of cond is 1 - create constant normalization
+		for bigwig in args.cond_names:
+			args.norm_objects[bigwig] = ArrayNorm("constant", popt=1.0, value_min=0, value_max=1) #no normalization; min/max don't matter for constant norm
+
 	else:
-		args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, logger=logger)
+		#Check how many values were fetched from background
+		n_bg_values = len(background["signal"][args.cond_names[0]])
+		logger.debug("Collected {0} values from background".format(n_bg_values))
+		if n_bg_values < 1000:
+			err_str = "Number of background values collected from peaks is low (={0}) ".format(n_bg_values)
+			err_str += "- this affects estimation of the bound/unbound threshold and the normalization between conditions. "
+			err_str += "To improve this estimation, please run BINDetect with --peaks = the full peak set across all conditions."
+			logger.warning(err_str) 
 
-	#Normalize background and visualize score distribution
-	for bigwig in args.cond_names:
+		#Normalize scores between conditions
+		logger.comment("")
+		logger.info("Estimating score distribution per condition")
+		fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Raw scores per condition")
+		figure_pdf.savefig(fig, bbox_inches='tight')
+		plt.close()
+
+		logger.info("Normalizing scores across conditions")
+		list_of_vals = [background["signal"][bigwig] for bigwig in args.cond_names]
+		if args.debug: 
+			args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, pdfpages=debug_pdf, logger=logger)
+		else:
+			args.norm_objects = quantile_normalization(list_of_vals, args.cond_names, logger=logger)
+
+		#Normalize background and visualize score distribution
+		for bigwig in args.cond_names:
+			
+			original = background["signal"][bigwig]
+
+			#Check for nan
+			logger.debug("Background nans ({0}): {1}".format(bigwig, sum(np.isnan(original))))
+			normalized = args.norm_objects[bigwig].normalize(original)
+			
+			#Replace negative values with 0
+			negatives = normalized < 0
+			normalized[negatives] = 0
+
+			background["signal"][bigwig] = normalized
+			logger.debug("Background nans after normalization ({0}): {1}".format(bigwig, sum(np.isnan(background["signal"][bigwig]))))
 		
-		original = background["signal"][bigwig]
-
-		#Check for nan
-		logger.debug("Background nans ({0}): {1}".format(bigwig, sum(np.isnan(original))))
-		normalized = args.norm_objects[bigwig].normalize(original)
-		
-		#Replace negative values with 0
-		negatives = normalized < 0
-		normalized[negatives] = 0
-
-		background["signal"][bigwig] = normalized
-		logger.debug("Background nans after normalization ({0}): {1}".format(bigwig, sum(np.isnan(background["signal"][bigwig]))))
-	
-	fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
-	figure_pdf.savefig(fig, bbox_inches='tight')
-	plt.close()
+		fig = plot_score_distribution([background["signal"][bigwig] for bigwig in args.cond_names], labels=args.cond_names, title="Normalized scores per condition")
+		figure_pdf.savefig(fig, bbox_inches='tight')
+		plt.close()
 
 
 	#-------------------------------------------------------------------------------------------------------------#

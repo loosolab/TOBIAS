@@ -137,13 +137,14 @@ def add_bindetect_arguments(parser):
 	optargs.add_argument('--output-peaks', metavar="<bed>", help="""Gives the possibility to set the output peak set differently than the input --peaks.
 													 				This will limit all analysis to the regions in --output-peaks. 
 																	NOTE: --peaks must still be set to the full peak set!""")
+	optargs.add_argument('--norm-off', action='store_true', help="Turn off normalization of footprint scores across conditions")
 
 	runargs = parser.add_argument_group("Run arguments")
 	runargs.add_argument('--outdir', metavar="<directory>", help="Output directory to place TFBS/plots in (default: bindetect_output)", default="bindetect_output")
 	optargs.add_argument('--prefix', metavar="<prefix>", help="Prefix for overview files in --outdir folder (default: bindetect)", default="bindetect")
 	runargs.add_argument('--cores', metavar="<int>", type=int, help="Number of cores to use for computation (default: 1)", default=1)
 	runargs.add_argument('--split', metavar="<int>", type=int, help="Split of multiprocessing jobs (default: 100)", default=100)
-	runargs.add_argument('--debug', help=argparse.SUPPRESS, action='store_true')	#creates extra output for debugging
+	runargs.add_argument('--debug', action='store_true', help="Creates an additional '_debug.pdf'-file with debug plots")	#creates extra output for debugging
 	
 	runargs = add_logger_args(runargs)
 
