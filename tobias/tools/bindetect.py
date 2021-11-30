@@ -473,24 +473,59 @@ def run_bindetect(args):
 	logger.debug("Size of background array after filtering < x_max ({0}): {1}".format(x_max, bg_values.size))
 
 	#Fit mixture of normals
+	log_vals = np.log(bg_values).reshape(-1, 1)
 	lowest_bic = np.inf
-	for n_components in [2]:	#2 components
+	for n_components in [2]:	#2 components; one for 0's and one for true signal
 		gmm = sklearn.mixture.GaussianMixture(n_components=n_components, random_state=1)
-		gmm.fit(np.log(bg_values).reshape(-1, 1))
+		gmm.fit(log_vals)
 		
-		bic = gmm.bic(np.log(bg_values).reshape(-1,1))
+		bic = gmm.bic(log_vals)
 		logger.debug("n_compontents: {0} | bic: {1}".format(n_components, bic))
 		if bic < lowest_bic:
 			lowest_bic = bic
 			best_gmm = gmm
 	gmm = best_gmm
 	
-	#Extract most-right gaussian 
+	#Obtain parameters for each component
 	means = gmm.means_.flatten()
-	sds = np.sqrt(gmm.covariances_).flatten()	
-	chosen_i = np.argmax(means) 	#Mixture with largest mean
+	stds = np.sqrt(gmm.covariances_).flatten()	
 
-	log_params = scipy.stats.lognorm.fit(bg_values[bg_values < x_max], f0=sds[chosen_i], fscale=np.exp(means[chosen_i]))
+	#Plot components for debugging
+	if args.debug:
+
+		fig, ax = plt.subplots(nrows=2, ncols=1, constrained_layout=True)
+
+		#Plot background distribution
+		ax[0].hist(log_vals, bins='auto', density=True, color="grey")  #log space
+		ax[1].hist(bg_values, bins='auto', density=True, color="grey") #normal space
+
+		#Plot components
+		x_log = np.linspace(np.min(log_vals), np.max(log_vals), 1000) 
+		x_norm = np.exp(x_log)
+		for i in range(len(means)):
+			pdf = scipy.stats.norm.pdf(x_log, loc=means[i], scale=stds[i])
+			ax[0].plot(x_log, pdf, label="Component {0}".format(i+1))
+
+			#Plot component in normal space
+			log_params = scipy.stats.lognorm.fit(bg_values, f0=stds[i], fscale=np.exp(means[i]))
+			pdf =  scipy.stats.lognorm.pdf(x_norm, *log_params)
+			ax[1].plot(x_norm, pdf, label="Component {0}".format(i+1))
+
+		ax[0].set_title("Background score distribution")
+		ax[0].set_xlabel("log(background score)")
+		ax[0].set_ylabel("Density")
+		ax[0].legend()
+
+		ax[1].set_xlabel("Background score")
+		ax[1].set_ylabel("Density")
+		ax[1].legend()
+
+		debug_pdf.savefig(fig)
+		plt.close()
+
+	#Extract most-right gaussian 
+	chosen_i = np.argmax(means) 	#Mixture with largest mean
+	log_params = scipy.stats.lognorm.fit(bg_values, f0=stds[chosen_i], fscale=np.exp(means[chosen_i]))
 
 	#Mode of distribution
 	mode = scipy.optimize.fmin(lambda x: -scipy.stats.lognorm.pdf(x, *log_params), 0, disp=False)[0]
@@ -504,7 +539,8 @@ def run_bindetect(args):
 	leftside_pdf = scipy.stats.lognorm.pdf(leftside_x, *log_params)
 
 	#Flip over
-	mirrored_x = np.concatenate([leftside_x, np.max(leftside_x) + leftside_x]).flatten()
+	leftside_x_scale = leftside_x - np.min(leftside_x) #scale to min 0
+	mirrored_x = np.concatenate([leftside_x, np.max(leftside_x) + leftside_x_scale]).flatten()
 	mirrored_pdf = np.concatenate([leftside_pdf, leftside_pdf[::-1]]).flatten()
 	popt, cov = scipy.optimize.curve_fit(lambda x, std, sc: sc * scipy.stats.norm.pdf(x, mode, std), mirrored_x, mirrored_pdf)
 	norm_params = (mode, popt[0])
@@ -519,7 +555,16 @@ def run_bindetect(args):
 	#Only plot if args.debug is True
 	if args.debug:
 
-		#Plot fit
+		#Plot mirrored data
+		fig, ax = plt.subplots(1,1)
+		ax.hist(bg_values[bg_values < x_max], bins='auto', density=True, label="Observed score distribution")
+		ax.plot(mirrored_x, mirrored_pdf, color="black")
+		plt.xlabel("Bigwig score")
+		plt.title("Theoretical normal")
+		debug_pdf.savefig(fig)
+		plt.close(fig)
+		
+		#Plot fit and threshold
 		fig, ax = plt.subplots(1, 1)
 		ax.hist(bg_values[bg_values < x_max], bins='auto', density=True, label="Observed score distribution")
 
