@@ -166,6 +166,8 @@ class MotifList(list):
 
 						# transpose and convert probability matrix to count using saved .n
 						count_matrix = np.array(probability_matrix).T * self[-1].n
+						self[-1].pfm = count_matrix.tolist() #MEME already gives pfm
+
 						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
 						count_matrix = count_matrix.tolist()
 
@@ -230,6 +232,8 @@ class MotifList(list):
 
 						# transpose and convert probability matrix to count using saved .n
 						count_matrix = np.array(probability_matrix).T * self[-1].n
+						self[-1].pfm = count_matrix.tolist() #MEME already gives pfm
+
 						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
 						count_matrix = count_matrix.tolist()
 
