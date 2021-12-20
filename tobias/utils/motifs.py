@@ -165,9 +165,9 @@ class MotifList(list):
 					if proba_flag == True:
 
 						# transpose and convert probability matrix to count using saved .n
-						count_matrix = np.array(probability_matrix).T * self[-1].n
-						self[-1].pfm = count_matrix.tolist() #MEME already gives pfm
+						self[-1].pfm = np.array(probability_matrix).T #MEME already gives pfm
 
+						count_matrix = self[-1].pfm * self[-1].n
 						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
 						count_matrix = count_matrix.tolist()
 
@@ -231,9 +231,9 @@ class MotifList(list):
 						proba_flag = False
 
 						# transpose and convert probability matrix to count using saved .n
-						count_matrix = np.array(probability_matrix).T * self[-1].n
-						self[-1].pfm = count_matrix.tolist() #MEME already gives pfm
+						self[-1].pfm = np.array(probability_matrix).T #MEME already gives pfm
 
+						count_matrix = self[-1].pfm * self[-1].n
 						count_matrix = np.round(count_matrix).astype(int) 	#counts are counted to integers
 						count_matrix = count_matrix.tolist()
 
@@ -247,7 +247,7 @@ class MotifList(list):
 				for m in motifs.parse(f, file_format):
 					self.append(OneMotif(motifid=m.matrix_id, name=m.name, counts=[m.counts[base] for base in ["A", "C", "G", "T"]]))
 					self[-1].biomotifs_obj = m		#biopython motif object	
-
+					self[-1].get_pfm()	#fill in .pfm
 		else:
 			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
 
