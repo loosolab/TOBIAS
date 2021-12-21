@@ -1,3 +1,6 @@
+## 0.13.2 (in progress)
+- Fix for bug introduced in 0.13.1 - faulty reading of motifs from .meme files
+
 ## 0.13.1 (2021-12-06)
 - Fix for #103 regarding BINDetect bound/unbound threshold
 - Fix for #107 for MEME motifs with nsites=1 leading to bad_alloc
