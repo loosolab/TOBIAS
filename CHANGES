@@ -1,4 +1,4 @@
-## 0.13.2 (in progress)
+## 0.13.2 (2021-12-21)
 - Fix for bug introduced in 0.13.1 - faulty reading of motifs from .meme files
 
 ## 0.13.1 (2021-12-06)
