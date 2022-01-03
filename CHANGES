@@ -1,3 +1,6 @@
+## 0.13.3 (in progress)
+- Fix of bug in utilities:match_lists leading to false list-to-list assignment in PlotChanges (#110)
+
 ## 0.13.2 (2021-12-21)
 - Fix for bug introduced in 0.13.1 - faulty reading of motifs from .meme files
 

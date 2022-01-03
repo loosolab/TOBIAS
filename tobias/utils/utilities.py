@@ -481,7 +481,7 @@ def match_lists(lofl): # list of lists
 			prefix = ""
 			suffix = ""
 
-		lofl[i] = [element.replace(prefix, "").replace(suffix, "") for element in lst]
+		lofl[i] = [re.sub("^" + prefix, "", re.sub(suffix + "$", "", element)) for element in lst]
 		prefixes.append(prefix)
 		suffixes.append(suffix)
 
