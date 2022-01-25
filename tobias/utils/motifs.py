@@ -855,12 +855,10 @@ class OneMotif:
 			motif_rows.append(row)
 
 		# generate gimmemotif motif instance
-		self.gimme_obj = Motif()
+		self.gimme_obj = Motif(pfm=motif_rows)
   
 		# populate empty object
 		self.gimme_obj.id = self.id + " " + self.name
-		self.gimme_obj.pfm = motif_rows
-		self.gimme_obj.pwm = self.gimme_obj.pfm_to_pwm(motif_rows)
 
 		return(self)
 		
