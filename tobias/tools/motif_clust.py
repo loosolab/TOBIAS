@@ -24,6 +24,8 @@ import itertools
 import warnings
 from Bio import motifs
 from matplotlib import pyplot as plt
+from packaging import version
+import platform
 
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 import scipy.spatial.distance as ssd
@@ -270,12 +272,39 @@ def run_motifclust(args):
 		from gimmemotifs.motif import Motif
 		from gimmemotifs.comparison import MotifComparer
 		sns.set_style("ticks")	#set style back to ticks, as this is set globally during gimmemotifs import
+
 	except ModuleNotFoundError:
 		logger.error("MotifClust requires the python package 'gimmemotifs'. You can install it using 'pip install gimmemotifs' or 'conda install gimmemotifs'.")
 		sys.exit(1)
+
+	except ImportError as e: #gimmemotifs was installed, but there was an error during import
+		
+		pandas_version = pd.__version__
+		python_version = platform.python_version()
+
+		if e.name == "collections" and (version.parse(python_version) >= version.parse("3.10.0")): #collections error from norns=0.1.5 and from other packages on python=3.10
+			logger.error("Due to package dependency errors, 'TOBIAS ClusterMotifs' is not available for python>=3.10. Current python version is '{0}'. Please downgrade python in order to use this tool.".format(python_version))
+			sys.exit(1)
+
+		elif e.name == "pandas.core.indexing" and (version.parse(pandas_version) >= version.parse("1.3.0")):
+			logger.error("Package 'gimmemotifs' version < 0.17.0 requires 'pandas' version < 1.3.0. Current pandas version is {0}.".format(pandas_version))
+			sys.exit(1) 
+		
+		else: #other import error
+			logger.error("Tried to import package 'gimmemotifs' but failed with error: '{0}'".format(repr(e)))
+			logger.error("Traceback:")
+			raise e
+
 	except Exception as e:
 		logger.error("Tried to import package 'gimmemotifs' but failed with error: '{0}'".format(repr(e)))
 		logger.error("Please check that 'gimmemotifs' was successfully installed.")
+		sys.exit(1)
+	
+	#Check gimmemotifs version vs. metric given
+	import gimmemotifs
+	gimme_version = gimmemotifs.__version__
+	if gimme_version == "0.17.0" and args.dist_method in ["pcc", "akl"]:
+		logger.warning("The dist_method given ('{0}') is invalid for gimmemotifs version 0.17.0. Please choose another --dist_method. See also: https://github.com/vanheeringen-lab/gimmemotifs/issues/243".format(args.dist_method))
 		sys.exit(1)
 
 	#---------------------------------------- Reading motifs from file(s) -----------------------------------#
@@ -315,7 +344,7 @@ def run_motifclust(args):
 	#---------------------------------------- Motif clustering ----------------------------------------------#
 	logger.info("Clustering motifs")
 
-	clusters = motif_list.cluster(threshold=args.threshold, metric = args.dist_method, clust_method=args.clust_method)
+	clusters = motif_list.cluster(threshold=args.threshold, metric=args.dist_method, clust_method=args.clust_method)
 	logger.stats("- Identified {0} clusters".format(len(clusters)))
 	
 	#Write out overview of clusters
@@ -340,7 +369,7 @@ def run_motifclust(args):
 
 	consensus_motifs = MotifList()
 	for cluster_id in clusters:
-		consensus = clusters[cluster_id].create_consensus() 	#MotifList object with create_consensus method
+		consensus = clusters[cluster_id].create_consensus(metric=args.dist_method) 	#MotifList object with create_consensus method
 		consensus.id = cluster_id if len(clusters[cluster_id]) > 1 else clusters[cluster_id][0].id 	#set original motif id if cluster length = 1
 
 		consensus_motifs.append(consensus)

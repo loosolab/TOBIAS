@@ -359,7 +359,7 @@ class Progress:
 def flatten_list(lst):
 
 	for element in lst:
-		if isinstance(element, collections.Iterable) and not isinstance(element, (str, bytes)):
+		if hasattr(element, "__iter__") and not isinstance(element, (str, bytes)):
 			yield from flatten_list(element)
 		else:
 			yield element
