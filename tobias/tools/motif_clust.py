@@ -340,7 +340,7 @@ def run_motifclust(args):
 
 	consensus_motifs = MotifList()
 	for cluster_id in clusters:
-		consensus = clusters[cluster_id].create_consensus() 	#MotifList object with create_consensus method
+		consensus = clusters[cluster_id].create_consensus(metric=args.dist_method) 	#MotifList object with create_consensus method
 		consensus.id = cluster_id if len(clusters[cluster_id]) > 1 else clusters[cluster_id][0].id 	#set original motif id if cluster length = 1
 
 		consensus_motifs.append(consensus)
