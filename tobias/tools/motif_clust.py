@@ -25,7 +25,6 @@ import warnings
 from Bio import motifs
 from matplotlib import pyplot as plt
 from packaging import version
-import pkg_resources
 import platform
 
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
