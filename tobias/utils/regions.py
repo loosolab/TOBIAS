@@ -127,7 +127,7 @@ class OneRegion(list):
 		if self.chrom not in boundaries_dict:
 			if action == "exit":
 				logger.error("Chromosome for region \"{0}\" is not found in list of available chromosomes ({1})".format(self, list(boundaries_dict.keys())))
-				sys.exit()
+				sys.exit(1)
 
 			self = None	#cannot cut to bounds when boundaries are not known; remove
 			return(self)
@@ -156,7 +156,7 @@ class OneRegion(list):
 				
 			elif action == "exit":
 				logger.error("Region \"{0}\" is outside of the chromosome boundaries ({1}: {2})".format(self, self.chrom, boundaries_dict[self.chrom]))
-				sys.exit()
+				sys.exit(1)
 
 		return(self)
 
@@ -223,7 +223,7 @@ class RegionList(list):
 			#Test line format
 			if re.match(r"[^\s]+\t\d+\t\d+\b.*", line) == None:
 				logger.error("Line {0} in {1} is not proper bed format:\n{2}".format(i+1, bedfile_f, line))
-				sys.exit()
+				sys.exit(1)
 
 			columns = line.split("\t") #split (and then .rstrip() afterwards)
 			columns[-1] = columns[-1].rstrip() # remove line-ending from last col
@@ -232,7 +232,7 @@ class RegionList(list):
 			
 			if columns[1] >= columns[2]:
 				logger.error("Start position is larger than end position in line {0} in {1}:\n{2}".format(i+1, bedfile_f, line))
-				sys.exit()
+				sys.exit(1)
 
 			region = OneRegion(columns)
 			self[i] = region

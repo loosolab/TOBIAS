@@ -147,7 +147,7 @@ def run_tfbscan(args):
 	regions = regions.apply_method(OneRegion.check_boundary, fasta_chrom_info, "cut")
 	if len(regions) == 0:
 		logger.error("No regions found.")
-		sys.exit()
+		sys.exit(1)
 	logger.info("- Total of {0} regions (after splitting)".format(len(regions)))
 	
 	#Background gc

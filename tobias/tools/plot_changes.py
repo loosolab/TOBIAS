@@ -73,8 +73,8 @@ def run_plotchanges(args):
 		args.conditions = conditions_file
 	else:
 		if not all([z in conditions_file for z in args.conditions]):
-			logger.info("ERROR: --conditions {0} is not a subset of bindetect conditions ({1})".format(args.conditions, conditions_file))
-			sys.exit()
+			logger.error("ERROR: --conditions {0} is not a subset of bindetect conditions ({1})".format(args.conditions, conditions_file))
+			sys.exit(1)
 		
 	logger.info("Conditions in order: {0}".format(args.conditions))
 

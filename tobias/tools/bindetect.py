@@ -109,11 +109,11 @@ def run_bindetect(args):
 	#Check that cond_names are the right length and are unique:
 	if len(args.cond_names) != len(args.signals):
 		logger.error("The given number of given '--cond-names' ({0}) differ from the given input '--signals' ({1}). Please enter one condition name per signal.".format(len(args.cond_names), len(args.signals)))
-		sys.exit()
+		sys.exit(1)
 
 	if len(args.cond_names) != len(set(args.cond_names)):
 		logger.error("The condition names are not unique ({0}). Please use --cond-names to set a unique set of condition names.".format(args.cond_names))
-		sys.exit()
+		sys.exit(1)
 
 	#Check opening/writing of files
 	logger.info("Checking reading/writing of files")
@@ -170,7 +170,7 @@ def run_bindetect(args):
 	for i, peak in enumerate(peaks):
 		if len(peak) != n_cols:
 			logger.error("The lines in --peaks have a varying number of columns. Line 1 has {0} columns, but line {1} has {2} columns! Please adjust the format of this file to run TOBIAS BINDetect.".format(n_cols, i+1, len(peak)))
-			sys.exit()
+			sys.exit(1)
 
 	#Merge overlapping peaks
 	peaks = peaks.merge()	
@@ -178,7 +178,7 @@ def run_bindetect(args):
 
 	if len(peaks) == 0:
 		logger.error("Input --peaks file is empty!")
-		sys.exit()
+		sys.exit(1)
 		
 	#Read header and check match with number of peak columns
 	peak_columns = len(peaks[0]) #number of columns
@@ -191,7 +191,7 @@ def run_bindetect(args):
 		#Check whether peak header fits with number of peak columns
 		if len(args.peak_header_list) != peak_columns:
 			logger.error("Length of --peak_header ({0}) does not fit number of columns in --peaks ({1}).".format(len(args.peak_header_list), peak_columns))
-			sys.exit()
+			sys.exit(1)
 	else:
 		args.peak_header_list = ["peak_chr", "peak_start", "peak_end"] + ["additional_" + str(num + 1) for num in range(peak_columns-3)]
 	logger.debug("Peak header list: {0}".format(args.peak_header_list))
@@ -466,7 +466,7 @@ def run_bindetect(args):
 	logger.debug("Size of background array after filtering > 0: {0}".format(bg_values.size))
 	if len(bg_values) == 0:
 		logger.error("Error processing bigwig scores from background. It could be that there are no scores in the bigwig (= all scores are 0) assigned for the peaks. Please check your input files.")
-		sys.exit()
+		sys.exit(1)
 
 	x_max = np.percentile(bg_values, [99]) 
 	bg_values = bg_values[bg_values < x_max]
