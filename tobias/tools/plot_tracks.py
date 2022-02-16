@@ -16,7 +16,8 @@ import numpy as np
 
 from PyPDF2 import PdfFileMerger, PdfFileReader
 import matplotlib
-from matplotlib import font_manager, textpath
+from matplotlib import textpath
+from matplotlib.font_manager import findfont, FontProperties
 import matplotlib.colors as mcolors
 
 #Bio-stuff
@@ -51,8 +52,12 @@ def svist4get_defaults():
 
 	#Get fonts
 	data_dir = os.path.join(os.path.dirname(sv4g.__file__), "svist4get_data")	#data dir of the svist4get module
-	c["mono_font"] = os.path.join(data_dir, "fonts", "iosevka-regular.ttf")
-	c["regular_font"] = os.path.join(data_dir, "fonts", "Lato-Regular.ttf")
+	if os.path.exists(data_dir):
+		c["mono_font"] = os.path.join(data_dir, "fonts", "iosevka-regular.ttf")
+		c["regular_font"] = os.path.join(data_dir, "fonts", "Lato-Regular.ttf")
+	else:
+		c["mono_font"] = findfont(FontProperties(family=['monospace']))
+		c["regular_font"] = findfont(FontProperties(family=['sans-serif']))
 
 	#Page parameters
 	c["page_width"] = 8
@@ -268,7 +273,6 @@ def run_tracks(args):
 			#Call commandline svist4get
 			logger.debug("Setting up svist4get call")
 
-			path_to_config = os.path.join(args.outdir, "svist4get_data", "A4_l.cfg")
 			pa = sv4g.manager.Parameters()
 			pa.initialize(os.path.join(args.outdir, "custom_config.cfg"))
 
