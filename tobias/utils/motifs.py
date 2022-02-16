@@ -74,6 +74,17 @@ def float_to_int(afloat):
 	else:
 		pass #if afloat is a string with multiple "."'s
 
+def is_symmetric(matrix):
+	""" Check if a matrix is symmetric around the diagonal """
+
+	s = matrix.shape
+	if s[0] != s[1]:
+		b = False #Not diagonal since rows != cols
+	else:
+		b = np.allclose(matrix, matrix.T, equal_nan=True)
+
+	return(b)
+
 #----------------------------------------------------------------------------------------#
 #List of OneMotif objects
 class MotifList(list):
@@ -490,7 +501,10 @@ class MotifList(list):
 		self.similarity_matrix = generate_similarity_matrix(score_dict)
 
 		# Clustering
-		vector = ssd.squareform(self.similarity_matrix.to_numpy())
+		if is_symmetric(self.similarity_matrix) == True: #is matrix is symmetric, checks are not necessary
+			vector = ssd.squareform(self.similarity_matrix, checks=False)
+		else:
+			vector = ssd.squareform(self.similarity_matrix, checks=True)
 		self.linkage_mat = linkage(vector, method=clust_method)
 
 		# Flatten clusters
@@ -504,9 +518,10 @@ class MotifList(list):
 
 		return cluster_dict
 
-	def create_consensus(self):
+	def create_consensus(self, metric="pcc"):
 		""" Create consensus motif from MotifList """
 
+		from gimmemotifs.motif import Motif
 		from gimmemotifs.comparison import MotifComparer
 
 		self = [motif.get_gimmemotif() if motif.gimme_obj is None else motif for motif in self]	#fill in gimme_obj if it is not found
@@ -517,7 +532,7 @@ class MotifList(list):
 			mc = MotifComparer()
 
 			#Initialize score_dict
-			score_dict = mc.get_all_scores(motif_list, motif_list, match = "total", metric = "pcc", combine = "mean")
+			score_dict = mc.get_all_scores(motif_list, motif_list, match="total", metric=metric, combine="mean")
 
 			while not consensus_found:
 
@@ -525,7 +540,7 @@ class MotifList(list):
 				best_similarity_motifs = sorted(find_best_pair(motif_list, score_dict))   #indices of most similar motifs in cluster_motifs
 
 				#Merge
-				new_motif = merge_motifs(motif_list[best_similarity_motifs[0]], motif_list[best_similarity_motifs[1]]) 
+				new_motif = merge_motifs(motif_list[best_similarity_motifs[0]], motif_list[best_similarity_motifs[1]], metric=metric) 
 
 				del(motif_list[best_similarity_motifs[1]])
 				motif_list[best_similarity_motifs[0]] = new_motif
@@ -539,12 +554,15 @@ class MotifList(list):
 					score_dict[new_motif.id] = score_dict.get(new_motif.id, {})
 
 					for m in motif_list:
-						score_dict[new_motif.id][m.id] = mc.compare_motifs(new_motif, m, metric= "pcc")
-						score_dict[m.id][new_motif.id] = mc.compare_motifs(m, new_motif, metric = "pcc")
+						score_dict[new_motif.id][m.id] = mc.compare_motifs(new_motif, m, metric=metric)
+						score_dict[m.id][new_motif.id] = mc.compare_motifs(m, new_motif, metric=metric)
 	
 		#Round pwm values
 		gimmemotif_consensus = motif_list[0]
-		gimmemotif_consensus.pwm = [[round(f, 5) for f in l] for l in gimmemotif_consensus.pwm]
+		gimme_id = gimmemotif_consensus.id
+		pwm = [[round(f, 5) for f in l] for l in gimmemotif_consensus.pwm]
+		gimmemotif_consensus = Motif(pwm) #create new motif with the rounded values
+		gimmemotif_consensus.id = gimme_id
 
 		#Convert back to OneMotif obj
 		onemotif_consensus = gimmemotif_to_onemotif(gimmemotif_consensus)
@@ -667,7 +685,7 @@ def generate_similarity_matrix(score_dict):
 	return dataframe
 
 #--------------------------------------------------------------------------------------------------------#
-def merge_motifs(motif_1, motif_2):
+def merge_motifs(motif_1, motif_2, metric="pcc"):
 	"""Creates the consensus motif from two provided motifs, using the pos and orientation calculated by gimmemotifs get_all_scores()
 
 	Parameter:
@@ -684,8 +702,8 @@ def merge_motifs(motif_1, motif_2):
 	from gimmemotifs.comparison import MotifComparer
 
 	mc = MotifComparer()
-	_, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric= "pcc")
-	consensus = motif_1.average_motifs(motif_2, pos = pos, orientation = orientation)
+	_, pos, orientation = mc.compare_motifs(motif_1, motif_2, metric=metric)
+	consensus = motif_1.average_motifs(motif_2, pos=pos, orientation=orientation)
 	consensus.id = motif_1.id + "+" + motif_2.id
 
 	return consensus
@@ -855,12 +873,10 @@ class OneMotif:
 			motif_rows.append(row)
 
 		# generate gimmemotif motif instance
-		self.gimme_obj = Motif()
+		self.gimme_obj = Motif(pfm=motif_rows)
   
 		# populate empty object
 		self.gimme_obj.id = self.id + " " + self.name
-		self.gimme_obj.pfm = motif_rows
-		self.gimme_obj.pwm = self.gimme_obj.pfm_to_pwm(motif_rows)
 
 		return(self)
 		
