@@ -19,6 +19,7 @@ import matplotlib
 from matplotlib import textpath
 from matplotlib.font_manager import findfont, FontProperties
 import matplotlib.colors as mcolors
+from shutil import which
 
 #Bio-stuff
 import pyBigWig
@@ -133,6 +134,11 @@ def write_out_config(config, outfile):
 			else: 
 				f.write("{0} = {1}\n".format(key, config[key]))
 
+def is_executable(tool):
+	"""Checks whether 'tool' is available on the system PATH and can be executed."""
+
+	return which(tool) is not None #True if tool exists
+
 #--------------------------------------------------------------------------------------------------------#
 def run_tracks(args):
 
@@ -148,6 +154,11 @@ def run_tracks(args):
 	parser = add_tracks_arguments(argparse.ArgumentParser())
 	logger.arguments_overview(parser, args)
 
+	############# Check that dependencies are available #############
+
+	if is_executable("gs") == False:
+		logger.error("gs (Ghostscript) is not available on PATH but is needed for PlotTracks. Please install gs to continue.")
+		sys.exit(1)
 
 	################# Setup custom config file ####################
 
