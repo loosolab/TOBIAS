@@ -394,8 +394,10 @@ def bias_correction(regions_list, params, bias_obj):
 			#Send to writer per strand
 			for strand in strands_to_write:
 				key = "{0}:{1}".format(track, strand)
-				logger.spam("Sending {0} signal from region {1} to writer queue".format(key, reg_key))
-				qs[key].put((key, reg_key, out_signals[reg_key][track][strand]))
+
+				if key in qs: #only write the signals where the files were initialized
+					logger.spam("Sending {0} signal from region {1} to writer queue".format(key, reg_key))
+					qs[key].put((key, reg_key, out_signals[reg_key][track][strand]))
 
 		#Sent to qs - delete from this process
 		out_signals[reg_key] = None

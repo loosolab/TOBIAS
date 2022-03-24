@@ -3,6 +3,7 @@
 - Fixed bug in creating gimmemotifs object
 - Integrated checks related to gimmemotifs, pandas and python versions in ClusterMotifs
 - Added check for fonts and 'gs' in PlotTracks
+- Fixed bug for --track-off in TOBIAS ATACorrect
 
 ## 0.13.2 (2021-12-21)
 - Fix for bug introduced in 0.13.1 - faulty reading of motifs from .meme files
