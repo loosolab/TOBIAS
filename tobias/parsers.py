@@ -319,6 +319,7 @@ def add_heatmap_arguments(parser):
 	PLOT.add_argument('--title', metavar="", default="TOBIAS heatmap")
 	PLOT.add_argument('--TFBS-labels', metavar="", nargs="*", action='append', help="Labels of TFBS (default: basename of --TFBS)")
 	PLOT.add_argument('--signal-labels', metavar="", nargs="*", help="Labels of signals (default: basename of --signals)")
+	PLOT.add_argument('--cmap', metavar="", help="Name of colormap to use for heatmaps (default: seismic)", default="seismic")
 
 	PLOT.add_argument('--show-columns', nargs="*", metavar="", type=int, help="Show scores from TFBS column besides heatmap. Set to 0-based python coordinates (for example -1 for last column) (default: None)", default=[])
 	PLOT.add_argument('--sort-by', metavar="", help="Columns in .bed to sort heatmap by (default: input .beds are not sorted)", type=int)

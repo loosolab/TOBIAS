@@ -77,6 +77,12 @@ def run_heatmap(args):
 			logger.info("Using {0} with signal from {1}".format(args.TFBS[i], signal))
 
 	#todo: logger overview of bedfiles per column?
+
+	#check if cmap is available
+	cmap_list = plt.colormaps()
+	if args.cmap not in cmap_list:
+		logger.error("Given colormap '{0}' is not available in matplotlib. Available colormaps are: {1}".format(args.cmap, cmap_list))
+		sys.exit(1) #error
 	
 	######################################################################################
 	##################################### INPUT DATA #####################################
@@ -326,7 +332,7 @@ def run_heatmap(args):
 				lim = np.max([np.abs(heatmap_info[col][row]["vmin"]),np.abs(heatmap_info[col][row]["vmax"])])
 				heatmap_info[col][row]["vmin"] = -lim
 				heatmap_info[col][row]["vmax"] = lim
-				heatmap = axdict[col][row].imshow(heatmap_info[col][row]["signal_mat"], aspect="auto", cmap="seismic", norm=mpl.colors.Normalize(vmin=heatmap_info[col][row]["vmin"], vmax=heatmap_info[col][row]["vmax"]))
+				heatmap = axdict[col][row].imshow(heatmap_info[col][row]["signal_mat"], aspect="auto", cmap=args.cmap, norm=mpl.colors.Normalize(vmin=heatmap_info[col][row]["vmin"], vmax=heatmap_info[col][row]["vmax"]))
 
 				#Insert colorbar (inserted multiple times for each bigwig, but since it is shared for the same bigwig, it doesn't matter)
 				fig.colorbar(heatmap, cax=axdict[col]["colorbar"], orientation="horizontal")
@@ -342,7 +348,7 @@ def run_heatmap(args):
 			vmin, vmax = np.percentile(values, [1, 99])
 			lim = np.max([abs(vmin), abs(vmax)])
 
-			axdict[col][row].imshow(values, aspect="auto", cmap="seismic", norm=mpl.colors.Normalize(vmin=-lim, vmax=lim))
+			axdict[col][row].imshow(values, aspect="auto", cmap=args.cmap, norm=mpl.colors.Normalize(vmin=-lim, vmax=lim))
 
 
 	#------------------------------------------------------------------------------------#
