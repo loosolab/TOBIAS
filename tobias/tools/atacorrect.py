@@ -163,6 +163,17 @@ def run_atacorrect(args):
 	bam_references = [ref for ref in bam_references if ref in fasta_chrom_info]
 	chrom_in_common = [ref for ref in chrom_in_common if ref in bam_references]
 
+	#Drop mitochrondrial (or other chroms) from list
+	chrom_in_common_orig = chrom_in_common
+	chrom_in_common = [chrom for chrom in chrom_in_common if chrom not in args.drop_chroms]
+	bam_references = [chrom for chrom in bam_references if chrom in chrom_in_common]
+
+	dropped = set(chrom_in_common_orig) - set(chrom_in_common)
+	if len(dropped) > 0:
+		logger.info("The following contigs were dropped from analysis because they were found in '--drop-chroms': {0}".format(list(dropped)))
+	else:
+		logger.warning("No additional chromosomes were removed. Consider using '--drop-chroms' to remove mitochondrial and/or other unwanted contigs.")
+
 	#Check if any contigs were left; else exit
 	if len(chrom_in_common) == 0:
 		logger.error("No common contigs left to run ATACorrect on. Please check that '--bam' and '--fasta' are matching.")
@@ -175,8 +186,7 @@ def run_atacorrect(args):
 	logger.info("Processing input/output regions")
 
 	#Chromosomes included in analysis
-	genome_regions = RegionList().from_list([OneRegion([chrom, 0, bam_chrom_info[chrom]]) for chrom in bam_references if not "M" in chrom])		#full genome length
-	chrom_in_common = [chrom for chrom in chrom_in_common if "M" not in chrom]
+	genome_regions = RegionList().from_list([OneRegion([chrom, 0, bam_chrom_info[chrom]]) for chrom in chrom_in_common]) #full genome length
 	logger.debug("CHROMS\t{0}".format("; ".join(["{0} ({1})".format(reg.chrom, reg.end) for reg in genome_regions])))
 	genome_bp = sum([region.get_length() for region in genome_regions])
 

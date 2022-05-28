@@ -41,6 +41,7 @@ def add_atacorrect_arguments(parser):
 	optargs.add_argument('--split-strands', help="Write out tracks per strand", action="store_true")
 	optargs.add_argument('--norm-off', help="Switches off normalization based on number of reads", action='store_true')
 	optargs.add_argument('--track-off', metavar="<track>", help="Switch off writing of individual .bigwig-tracks (uncorrected/bias/expected/corrected)", nargs="*", choices=["uncorrected", "bias", "expected", "corrected"], default=[])
+	optargs.add_argument('--drop-chroms', metavar="<chrom>", help="Drop any chromosomes in the list from the correction. The default is to drop the mitochrondrial chromosome. Default: ['chrM', 'chrMT', 'M', 'MT', 'Mito']", nargs="*", default=['chrM', 'chrMT', 'M', "MT", "Mito"])
 
 	optargs = parser.add_argument_group('Advanced ATACorrect arguments (no need to touch)')
 	optargs.add_argument('--k_flank', metavar="<int>", help="Flank +/- of cutsite to estimate bias from (default: 12)", type=int, default=12)
