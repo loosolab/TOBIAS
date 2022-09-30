@@ -759,6 +759,20 @@ def run_bindetect(args):
 		info_table[base + "_change"] = info_table[base + "_change"].round(5)
 		info_table[base + "_pvalue"] = info_table[base + "_pvalue"].map("{:.5E}".format, na_action="ignore")
 
+		#Define whether TF is going to be highlighted in plot
+		names = info_table["output_prefix"]
+		changes = info_table[base + "_change"].astype(float)
+		pvalues = info_table[base + "_pvalue"].astype(float)
+		pval_min = np.percentile(pvalues[pvalues > 0], 5)	#5% smallest pvalues
+		change_min, change_max = np.percentile(changes, [5, 95])	#5% smallest and largest changes
+		
+		#Add "highlighted" information to info_table
+		for i, (change, pvalue) in enumerate(zip(changes, pvalues)):
+			if change < change_min or change > change_max or pvalue < pval_min:
+				info_table.at[names[i], base + "_highlighted"] = True
+			else:
+				info_table.at[names[i], base + "_highlighted"] = False
+	
 	#Write bindetect results tables
 	#info_table.insert(0, "TF_name", info_table.index)	 #Set index as first column
 	bindetect_out = os.path.join(args.outdir, args.prefix + "_results.txt")
@@ -784,21 +798,16 @@ def run_bindetect(args):
 			logger.info("- {0} / {1} (static plot)".format(cond1, cond2))
 			base = cond1 + "_" + cond2
 
-			#Define which motifs to show
-			xvalues = info_table[base + "_change"].astype(float)
-			yvalues = info_table[base + "_pvalue"].astype(float)
-			y_min = np.percentile(yvalues[yvalues > 0], 5)	#5% smallest pvalues
-			x_min, x_max = np.percentile(xvalues, [5, 95])	#5% smallest and largest changes
-
 			#Fill motifs with metadata (.change, .pvalue, .logpvalue etc.)
 			for motif in motif_list:
 				name = motif.prefix
 				motif.change = float(info_table.at[name, base + "_change"])	#change for this comparison
 				motif.pvalue = float(info_table.at[name, base + "_pvalue"])	#pvalue for this comparison
 				motif.logpvalue = -np.log10(motif.pvalue) if motif.pvalue > 0 else -np.log10(1e-308)
+				motif.highlighted = info_table.at[name, base + "_highlighted"]
 
 				#Assign each motif to group
-				if motif.change < x_min or motif.change > x_max or motif.pvalue < y_min:
+				if motif.highlighted == True:
 					if motif.change < 0:
 						motif.group = cond2 + "_up"
 					if motif.change > 0:

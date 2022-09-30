@@ -1,6 +1,7 @@
 ## 0.14.0 (in progress)
 - Added '--cmap' option in PlotHeatmap (#130)
 - Added 'drop-chrom' in ATACorrect to gain more control over which chromosomes should be excluded (#142)
+- Added a True/False "<cond1>_<cond2>_highlighted" column in bindetect_results.txt/.xlsx files. These columns mark the highlighted TFs for each volcano plot.
 
 ## 0.13.3 (2022-03-24)
 - Fix of bug in utilities:match_lists leading to false list-to-list assignment in PlotChanges (#110)
