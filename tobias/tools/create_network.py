@@ -82,7 +82,14 @@ def run_network(args):
 	for fil in args.TFBS:
 		logger.debug("- {0}".format(fil))
 
-		df = pd.read_csv(fil, sep="\t", header=None)
+		try:
+			df = pd.read_csv(fil, sep="\t", header=None)
+		except pd.errors.EmptyDataError:
+			logger.warning(f"- File '{fil}' is empty: no sites could be read")
+		except Exception as e:
+			logger.warning(f"- Error occurred while reading '{fil}'")
+			raise e
+
 		dataframes.append(df)
 
 	logger.debug("Joining sites from all files")
