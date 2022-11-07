@@ -737,22 +737,7 @@ def run_bindetect(args):
 	info_table["total_tfbs"] = info_table["total_tfbs"].map(int)
 	for condition in args.cond_names:
 		info_table[condition + "_bound"] = info_table[condition + "_bound"].map(int)
-
-	#### Write excel ###
-	bindetect_excel = os.path.join(args.outdir, args.prefix + "_results.xlsx")
-	writer = pd.ExcelWriter(bindetect_excel, engine='xlsxwriter')
-
-	#Tables
-	info_table.to_excel(writer, index=False, sheet_name="Individual motifs")	
-	info_table_clustered.to_excel(writer, index=False, sheet_name="Motif clusters")
 	
-	for sheet in writer.sheets:
-		worksheet = writer.sheets[sheet]
-		n_rows = worksheet.dim_rowmax
-		n_cols = worksheet.dim_colmax
-		worksheet.autofilter(0,0,n_rows,n_cols)
-	writer.save()
-
 	#Format comparisons
 	for (cond1, cond2) in comparisons:
 		base = cond1 + "_" + cond2
@@ -778,6 +763,20 @@ def run_bindetect(args):
 	bindetect_out = os.path.join(args.outdir, args.prefix + "_results.txt")
 	info_table.to_csv(bindetect_out, sep="\t", index=False, header=True, na_rep="NA")
 
+	#### Write excel ###
+	bindetect_excel = os.path.join(args.outdir, args.prefix + "_results.xlsx")
+	writer = pd.ExcelWriter(bindetect_excel, engine='xlsxwriter')
+
+	#Tables
+	info_table.to_excel(writer, index=False, sheet_name="Individual motifs")	
+	info_table_clustered.to_excel(writer, index=False, sheet_name="Motif clusters")
+	
+	for sheet in writer.sheets:
+		worksheet = writer.sheets[sheet]
+		n_rows = worksheet.dim_rowmax
+		n_cols = worksheet.dim_colmax
+		worksheet.autofilter(0,0,n_rows,n_cols)
+	writer.save()
 	
 	#-------------------------------------------------------------------------------------------------------------#	
 	#------------------------------------------- Make BINDetect plot ---------------------------------------------#	

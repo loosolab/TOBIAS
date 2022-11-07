@@ -1,3 +1,6 @@
+## 0.14.1 (in progress)
+- Fixed True/False highlighted column from 0.14.0 to include bindetect excel output as well.
+
 ## 0.14.0 (2022-10-03)
 - Added '--cmap' option in PlotHeatmap (#130)
 - Added 'drop-chrom' in ATACorrect to gain more control over which chromosomes should be excluded (#142)
