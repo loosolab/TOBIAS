@@ -49,6 +49,7 @@ def add_atacorrect_arguments(parser):
 	optargs.add_argument('--bg_shift', metavar="<int>", type=int, help="Read shift for estimation of background frequencies (default: 100)", default=100)
 	optargs.add_argument('--window', metavar="<int>", help="Window size for calculating expected signal (default: 100)", type=int, default=100)
 	optargs.add_argument('--score_mat', metavar="<mat>", help="Type of matrix to use for bias estimation (PWM/DWM) (default: DWM)", choices=["PWM", "DWM"], default="DWM")
+	optargs.add_argument('--bias-pkl', metavar="<obj>", help="Path to a pre-calculated AtacBias.pkl-object, as output from a previous ATACorrect run (default: None). Can be used to bypass the internal bias estimation.", default=None)
 
 	runargs = parser.add_argument_group('Run arguments')
 	runargs.add_argument('--prefix', metavar="<prefix>", help="Prefix for output files (default: same as .bam file)")

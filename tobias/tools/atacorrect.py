@@ -312,17 +312,24 @@ def run_atacorrect(args):
 	#----------------------------------------------------------------------------------------------------#
 
 	logger.comment("")
-	logger.info("Started estimation of sequence bias...")
 
-	input_region_chunks = input_regions.chunks(args.split)										#split to 100 chunks (also decides the step of output)
-	out_lst = run_parallel(bias_estimation, input_region_chunks, [args], args.cores, logger)	#Output is list of AtacBias objects
+	if args.bias_pkl is None:
 
-	#Join objects
-	estimated_bias = out_lst[0]		#initialize object with first output
-	for output in out_lst[1:]:
-		estimated_bias.join(output)		#bias object contains bias/background SequenceMatrix objects
+		logger.info("Started estimation of sequence bias...")
 
-	logger.debug("Bias estimated\tno_reads: {0}".format(estimated_bias.no_reads))
+		input_region_chunks = input_regions.chunks(args.split)										#split to 100 chunks (also decides the step of output)
+		out_lst = run_parallel(bias_estimation, input_region_chunks, [args], args.cores, logger)	#Output is list of AtacBias objects
+
+		#Join objects
+		estimated_bias = out_lst[0]		#initialize object with first output
+		for output in out_lst[1:]:
+			estimated_bias.join(output)		#bias object contains bias/background SequenceMatrix objects
+
+		logger.debug("Bias estimated\tno_reads: {0}".format(estimated_bias.no_reads))
+
+	else:
+		logger.info("Loading sequence bias from '--bias-pkl' file...")
+		estimated_bias = AtacBias().from_pickle(args.bias_pkl)
 
 	#----------------------------------------------------------------------------------------------------#
 	# Join estimations from all chunks of regions
