@@ -730,7 +730,7 @@ def run_bindetect(args):
 	info_table.insert(3, "cluster", cluster_names)
 	
 	#Cluster table on motif clusters
-	info_table_clustered = info_table.groupby("cluster").mean() 	#mean of each column
+	info_table_clustered = info_table.groupby("cluster").mean(numeric_only=True) 	#mean of each column
 	info_table_clustered.reset_index(inplace=True)
 
 	#Map correct type
@@ -765,19 +765,20 @@ def run_bindetect(args):
 
 	#### Write excel ###
 	bindetect_excel = os.path.join(args.outdir, args.prefix + "_results.xlsx")
-	writer = pd.ExcelWriter(bindetect_excel, engine='xlsxwriter')
 
-	#Tables
-	info_table.to_excel(writer, index=False, sheet_name="Individual motifs")	
-	info_table_clustered.to_excel(writer, index=False, sheet_name="Motif clusters")
-	
-	for sheet in writer.sheets:
-		worksheet = writer.sheets[sheet]
-		n_rows = worksheet.dim_rowmax
-		n_cols = worksheet.dim_colmax
-		worksheet.autofilter(0,0,n_rows,n_cols)
-	writer.save()
-	
+	with pd.ExcelWriter(bindetect_excel, engine='xlsxwriter') as writer:
+
+		#Tables
+		info_table.to_excel(writer, index=False, sheet_name="Individual motifs")
+		info_table_clustered.to_excel(writer, index=False, sheet_name="Motif clusters")
+
+		for sheet in writer.sheets:
+			worksheet = writer.sheets[sheet]
+			n_rows = worksheet.dim_rowmax
+			n_cols = worksheet.dim_colmax
+			worksheet.autofilter(0,0,n_rows,n_cols)
+
+
 	#-------------------------------------------------------------------------------------------------------------#	
 	#------------------------------------------- Make BINDetect plot ---------------------------------------------#	
 	#-------------------------------------------------------------------------------------------------------------#	

@@ -454,14 +454,14 @@ def process_tfbs(TF_name, args, log2fc_params): 	#per tf
 	if args.skip_excel == False and n_rows > 0:
 		try:
 			overview_excel = os.path.join(args.outdir, TF_name, TF_name + "_overview.xlsx")
-			writer = pd.ExcelWriter(overview_excel, engine='xlsxwriter') #, options=dict(constant_memory=True))
-			bed_table.to_excel(writer, index=False, columns=overview_columns)
 
-			#autfilter not possible with constant_memory
-			worksheet = writer.sheets['Sheet1']
-			no_rows, no_cols = bed_table.shape
-			worksheet.autofilter(0,0,no_rows, no_cols)
-			writer.save()
+			with pd.ExcelWriter(overview_excel, engine='xlsxwriter') as writer:
+				bed_table.to_excel(writer, index=False, columns=overview_columns)
+
+				#autfilter not possible with constant_memory
+				worksheet = writer.sheets['Sheet1']
+				no_rows, no_cols = bed_table.shape
+				worksheet.autofilter(0,0,no_rows, no_cols)
 
 		except Exception as e:
 			logger.warning("Could not write excelfile for TF {0}. Exception was: {1}".format(TF_name, e))
