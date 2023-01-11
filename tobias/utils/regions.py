@@ -213,7 +213,15 @@ class RegionList(list):
 		""" Initialize Object from bedfile """
 
 		#Read all lines
-		bedlines = open(bedfile_f).readlines()
+		try:
+			bedlines = open(bedfile_f).readlines()
+		except UnicodeDecodeError as e:
+			logger.error("Could not read input file '{0}'. It looks like the file might be compressed. TOBIAS only reads .bed-files in raw text format. Exception is: '{1}'".format(bedfile_f, e))
+			sys.exit(1)
+		except Exception as e:
+			logger.error("Could not read input file '{0}'. Exception is: '{1}'".format(bedfile_f, e))
+			sys.exit(1)
+
 		self = RegionList([None]*len(bedlines))	#intialize to prevent appending for large bedfiles
 		for i, line in enumerate(bedlines):
 		

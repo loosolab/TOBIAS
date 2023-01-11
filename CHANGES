@@ -1,5 +1,6 @@
 ## 0.15.1 (in progress)
 - Fixed deprecation errors for writer.save() and DataFrameGroupBy.mean
+- Improved error when .bed.gz is input to regions.from_bed()
 
 ## 0.15.0 (2022-12-04)
 - Fixed True/False highlighted column from 0.14.0 to include bindetect excel output as well.
