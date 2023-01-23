@@ -1,3 +1,6 @@
+## 0.15.2 (in progress)
+- Pinned adjustText<0.8 due to Attribute error (#116 and #182)
+
 ## 0.15.1 (2023-01-16)
 - Fixed deprecation errors for writer.save() and DataFrameGroupBy.mean
 - Improved error when .bed.gz is input to regions.from_bed (#180)

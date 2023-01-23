@@ -77,7 +77,7 @@ setup(name='tobias',
 			'pandas',
 			'pypdf2',
 			'xlsxwriter',
-			'adjustText',
+			'adjustText<0.8',		#text_from_points AttributeError in 0.8
 			'pyBigWig>=0.3',		#to use values(numpy=True)
 			'MOODS-python',
 			'svist4get>=1.2.24',	#pin due to changes in API
