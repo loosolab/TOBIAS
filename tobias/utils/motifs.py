@@ -918,6 +918,7 @@ class OneMotif:
 
 		pfm_pseudocount = np.true_divide(self.pfm + pseudo_vector, np.sum(self.pfm + pseudo_vector, axis=0)) #pfm with added pseudocounts
 		self.pssm = np.log(pfm_pseudocount) - np.log(bg_col) #pfm/bg
+		self.pssm = np.nan_to_num(self.pssm)  # replace NaN with 0; can happen if a position is all 0s
 
 		return(self)
 
