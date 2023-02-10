@@ -8,7 +8,7 @@ Small utility for mering pdfs
 @license: MIT
 """
 
-from PyPDF2 import PdfFileMerger, PdfFileReader
+from PyPDF2 import PdfMerger, PdfReader
 import argparse
 import sys
 import os
@@ -30,10 +30,10 @@ def run_mergepdf(args):
 
 	#Join pdfs
 	print("Starting to merge PDFs")
-	merger = PdfFileMerger(strict=False)
+	merger = PdfMerger(strict=False)
 	for pdf in args.input:
 		if os.stat(pdf).st_size != 0:	#only join files containing plots
-			merger.append(PdfFileReader(pdf))
+			merger.append(PdfReader(pdf))
 	
 	print("Writing merged file: {0}".format(args.output))
 	merger.write(args.output)

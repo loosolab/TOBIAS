@@ -75,7 +75,7 @@ setup(name='tobias',
 			'matplotlib>=2',
 			'scikit-learn',
 			'pandas',
-			'pypdf2',
+			'pypdf2>=1.28.0',
 			'xlsxwriter',
 			'adjustText<0.8',		#text_from_points AttributeError in 0.8
 			'pyBigWig>=0.3',		#to use values(numpy=True)
