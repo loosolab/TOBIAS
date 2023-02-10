@@ -75,7 +75,7 @@ setup(name='tobias',
 			'matplotlib>=2',
 			'scikit-learn',
 			'pandas',
-			'pypdf2',
+			'pypdf2>=1.28.0',
 			'xlsxwriter',
 			'adjustText',
 			'pyBigWig>=0.3',		#to use values(numpy=True)
