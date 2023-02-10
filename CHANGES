@@ -1,6 +1,7 @@
-## 0.15.2 (in progress)
+## 0.16.0 (in progress)
 - Pinned adjustText<0.8 due to Attribute error (#116 and #182)
 - Solved std::bad_alloc error in BINDetect due to 0-counts in motifs (#192)
+- Solved deprecation error for pypdf2: PdfFileMerger -> PdfMerger and set lower limit for pypdf version
 
 ## 0.15.1 (2023-01-16)
 - Fixed deprecation errors for writer.save() and DataFrameGroupBy.mean
