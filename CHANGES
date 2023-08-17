@@ -1,7 +1,8 @@
-## 0.16.0 (in progress)
+## 0.16.0 (2023-08-17)
 - Pinned adjustText<0.8 due to Attribute error (#116 and #182)
 - Solved std::bad_alloc error in BINDetect due to 0-counts in motifs (#192)
 - Solved deprecation error for pypdf2: PdfFileMerger -> PdfMerger and set lower limit for pypdf version
+- Fixed BINDetect error causing "Falling back to 'constant' normalization" arising from "ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions." due to upgrade of numpy.
 
 ## 0.15.1 (2023-01-16)
 - Fixed deprecation errors for writer.save() and DataFrameGroupBy.mean

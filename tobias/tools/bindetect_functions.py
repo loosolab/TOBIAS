@@ -172,13 +172,16 @@ def quantile_normalization(list_of_arrays, names, pdfpages=None, logger=TobiasLo
 		#Fit sigmoid to prevent oscillations from low values in interpolation
 		try:
 			a_range = np.min(xdata), np.max(xdata)
-			L_range = np.diff(np.percentile(y_inter, [5,95]))
-			popt, pcov = curve_fit(sigmoid, xvals, y_inter, bounds=((a_range[0],-np.inf, 0, 0), (a_range[1], np.inf, L_range, np.inf)))
+			L_range = np.diff(np.percentile(y_inter, [5,95]))[0]  # np.diff returns an array
+
+			bounds = ((a_range[0], -np.inf, 0, 0), (a_range[1], np.inf, L_range, np.inf))
+			popt, pcov = curve_fit(sigmoid, xvals, y_inter, bounds=bounds)
 			func = "sigmoid"
 
-		except: #if curve fit failed; fall back on a constant normalization factor
+		except Exception as e:  # if curve fit failed; fall back on a constant normalization factor
 			popt = np.mean(y_inter)	#popt is the factor used for normalization
 			logger.warning("Curve-fitting quantile normalization failed for '{0}'. Falling back to 'constant' normalization (factor = {1:.2f}).".format(bigwig, popt))
+			logger.warning(f"Error was: {e}")
 			func = "constant"
 
 		#Create norm object for this bigwig
