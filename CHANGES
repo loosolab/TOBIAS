@@ -1,3 +1,6 @@
+## 0.16.1 (in progress)
+- Fixed error with 'matplotlib.cbook.mplDeprecation', which is found at 'matplotlib.MatplotlibDeprecationWarning' in matplotlib>=3.8. TOBIAS now checks for the matplotlib version when filtering warnings.
+
 ## 0.16.0 (2023-08-17)
 - Pinned adjustText<0.8 due to Attribute error (#116 and #182)
 - Solved std::bad_alloc error in BINDetect due to 0-counts in motifs (#192)
