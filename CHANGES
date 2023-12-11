@@ -1,4 +1,4 @@
-## 0.16.1 (in progress)
+## 0.16.1 (2023-12-11)
 - Fixed error with 'matplotlib.cbook.mplDeprecation', which is found at 'matplotlib.MatplotlibDeprecationWarning' in matplotlib>=3.8. TOBIAS now checks for the matplotlib version when filtering warnings.
 - Improved error messages when reading corrupt bigwig file in BINDetect
 
