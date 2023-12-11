@@ -34,8 +34,16 @@ from tobias import __version__ as TOBIAS_VERSION
 #Ignore gimmemotifs plot warning
 import warnings
 import matplotlib
-import matplotlib.cbook
-warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+matplotlib_version = tuple([int(i) for i in matplotlib.__version__.split(".")])
+
+try:
+	if matplotlib_version < (3, 8):
+		import matplotlib.cbook
+		warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+	else:
+		warnings.filterwarnings("ignore", category=matplotlib.MatplotlibDeprecationWarning)  # after 3.8, cbook.mplDeprecation is deprecated
+except Exception:
+	pass  # error in filtering warnings; not critical
 
 
 def main():

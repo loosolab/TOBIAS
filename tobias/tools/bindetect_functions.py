@@ -300,11 +300,12 @@ def scan_and_score(regions, motifs_obj, args, log_q, qs):
 
 		#Read footprints in region
 		footprints = {}
-		for condition in args.cond_names:
+		for j, condition in enumerate(args.cond_names):
 			footprints[condition] = region.get_signal(pybw[condition], logger=logger, key=condition)
-				
+
 			if len(footprints[condition]) == 0:
-				logger.error("ERROR IN REGION: {0}".format(region))
+				logger.error("Error reading signal from '{0}' in region: {1}".format(condition, region))
+				logger.error("Bigwig file might be corrupt or truncated - please check the file: {0}".format(args.signals[j]))
 				raise Exception
 
 			#Read random positions for background
