@@ -106,8 +106,3 @@ DOI: https://doi.org/10.1038/s41467-020-18035-1
 License
 ------------
 This project is licensed under the [MIT license](LICENSE). 
-
-
-Contact
-------------
-Mette Bentsen (mette.bentsen (at) mpi-bn.mpg.de)
