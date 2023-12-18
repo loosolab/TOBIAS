@@ -121,7 +121,7 @@ def add_bindetect_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('--signals', metavar="<bigwig>", help="Signal per condition (.bigwig format)", nargs="*")
 	required.add_argument('--peaks', metavar="<bed>", help="Peaks.bed containing open chromatin regions across all conditions")
-	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar/meme format", nargs="*")
+	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar/meme/transfac format", nargs="*")
 	required.add_argument('--genome', metavar="<fasta>", help="Genome .fasta file")
 
 	optargs = parser.add_argument_group('Optional arguments')
@@ -165,7 +165,7 @@ def add_tfbscan_arguments(parser):
 	parser._action_groups.pop()	#pop -h
 
 	required_arguments = parser.add_argument_group('Required arguments')
-	required_arguments.add_argument('-m', '--motifs', metavar="", help='File containing motifs in either MEME, PFM or JASPAR format')
+	required_arguments.add_argument('-m', '--motifs', metavar="", help='File containing motifs in either MEME, PFM, JASPAR or TRANSFAC format')
 	required_arguments.add_argument('-f', '--fasta', metavar="", help='A fasta file of sequences to use for scanning motifs') 	# whole genome file or regions of interest in FASTA format to be scanned with motifs')
 
 	#all other arguments are optional

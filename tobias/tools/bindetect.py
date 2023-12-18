@@ -229,7 +229,12 @@ def run_bindetect(args):
 	motif_list = MotifList()
 	args.motifs = expand_dirs(args.motifs)
 	for f in args.motifs:
-		motif_list += MotifList().from_file(f)  #List of OneMotif objects
+		try:
+			motif_list += MotifList().from_file(f)  #List of OneMotif objects
+		except Exception as e:
+			logger.error("Error reading motifs from '{0}'. Error message was: {1}".format(f, e))
+			sys.exit(1)
+
 	no_pfms = len(motif_list)
 	logger.info("- Read {0} motifs".format(no_pfms))
 
