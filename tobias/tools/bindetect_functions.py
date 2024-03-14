@@ -716,6 +716,9 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 		ax3.axis('off')
 		labels = IDS
 
+	# add vertical threshold line
+	ax3.axvline(x=args.cluster_threshold, linestyle="dashed", alpha=0.5, color="grey")
+
 	########## Differential binding scores per TF ##########
 	ax2.set_xlabel("Differential binding score\n" + "(" + cond2 + r' $\leftarrow$' + r'$\rightarrow$ ' + cond1 + ")") #First position in comparison equals numerator in log2fc division
 	ax2.xaxis.set_label_position('bottom') 
