@@ -691,7 +691,7 @@ def run_bindetect(args):
 	#-------------------------------------------------------------------------------------------------------------#	
 	
 	clustering = RegionCluster(TF_overlaps)
-	clustering.cluster()
+	clustering.cluster(threshold=args.cluster_threshold)
 
 	#Convert full ids to alt ids
 	convert = {motif.prefix: motif.name for motif in motif_list}
