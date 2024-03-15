@@ -270,6 +270,10 @@ class MotifList(list):
 						if len(self) == 0:
 							raise ValueError("Error when reading motifs from {0}! No motif header found before first motif.".format(path))
 
+						# skip empty lines
+						if len(line.rstrip()) == 0:
+							continue
+
 						values = re.sub(r"^[ACGT\s\[]+", "", line.strip()).replace("]", "").split()  # Remove any jaspar line suffix / prefix and split on whitespace
 						counts = list(map(float, values))  # from string to float
 						count_matrix.append(counts)
