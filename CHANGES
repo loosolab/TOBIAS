@@ -1,6 +1,7 @@
 ## 0.16.2 (in progress)
 - Fixed bug when reading motifs in "long" format. An error is now written if the pfm/jaspar motif does not follow 4-row format.
 - Added transfac as possible input through biopython parser.
+- Fixed issues related to deprecated adjustText parameters.
 
 ## 0.16.1 (2023-12-11)
 - Fixed error with 'matplotlib.cbook.mplDeprecation', which is found at 'matplotlib.MatplotlibDeprecationWarning' in matplotlib>=3.8. TOBIAS now checks for the matplotlib version when filtering warnings.

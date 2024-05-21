@@ -773,7 +773,7 @@ def plot_bindetect(motifs, cluster_obj, conditions, args):
 	legend_elements = [Line2D([0],[0], marker='o', color='w', markerfacecolor="red", label="Higher scores in {0}".format(conditions[0])),
 						Line2D([0],[0], marker='o', color='w', markerfacecolor="blue", label="Higher scores in {0}".format(conditions[1]))]
 	l = ax1.legend(handles=legend_elements, loc="lower left", framealpha=0.5)
-	adjust_text(txts, ax=ax1, add_objects=[l], text_from_points=True, arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
+	adjust_text(txts, ax=ax1, objects=[l], arrowprops=dict(arrowstyle='-', color='black', lw=0.5))  #, expand_text=(0.1,1.2), expand_objects=(0.1,0.1))
 	
 	"""
 	#Add arrows to other cluster members
