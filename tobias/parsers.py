@@ -565,8 +565,8 @@ def add_submerge_arguments(parser):
 
 	#Required arguments
 	required = parser.add_argument_group('Required arguments')
-	required.add_argument("--bindetect", "--TFBS", "--input", type=os.path.abspath, dest="tfbs", help="Path to the output directory of BINDetect containing all TFBS files.")
-	required.add_argument("--regions", help="Path to the query regions bed file.", type=os.path.abspath, dest="regions")
+	required.add_argument("--bindetect", "--TFBS", "--input", required=True, type=os.path.abspath, dest="tfbs", help="Path to the output directory of BINDetect containing all TFBS files.")
+	required.add_argument("--regions", required=True, help="Path to the query regions bed file.", type=os.path.abspath, dest="regions")
 
 
 	#Optional arguments
