@@ -565,14 +565,14 @@ def add_submerge_arguments(parser):
 
 	#Required arguments
 	required = parser.add_argument_group('Required arguments')
-	required.add_argument("--bindetect", "--TFBS", "--input", required=True, type=os.path.abspath, dest="tfbs", help="Path to the output directory of BINDetect containing all TFBS files.")
+	required.add_argument("--input", required=True, type=os.path.abspath, dest="tfbs", help="Path to the output directory of BINDetect containing all TFBS files.")
 	required.add_argument("--regions", required=True, help="Path to the query regions bed file.", type=os.path.abspath, dest="regions")
 
 
 	#Optional arguments
 	optional = parser.add_argument_group('Optional arguments')
-	optional.add_argument( "--output", default='./merged_TFBS_subset.xlsx', help="Path for output file. If file name ends with .bed, no header column will be added.", type=os.path.abspath, dest="output")
-	optional.add_argument("--TFs", help="Path to the file containing the list of TFs to subset.", type=os.path.abspath, dest="TF", default=None)
+	optional.add_argument( "--output", default='./merged_TFBS_subset.tsv', help="Path for output file. If file name ends with .bed, no header column will be added. If file name ends with .xlsx, file will be converted into an excel file. Default: ./merged_TFBS_subset.tsv", type=os.path.abspath, dest="output")
+	optional.add_argument("--TFs", help="Path to the file containing the list of TFs to subset. File has to contain one column with the TFBS names in the same format used in the BINDetect output files/directories.", type=os.path.abspath, dest="tf", default=None)
 	optional = add_logger_args(optional)
 
 	return(parser)
