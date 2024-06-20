@@ -102,9 +102,7 @@ def run_submerge(args):
     logger.debug('Merging all intersections')
     with open(args.output, "w") as f:
 
-        if args.output.endswith(".bed"):
-            pass
-        else:
+        if not args.output.endswith(".bed"):
             query_header = "query chr\tquery start\tquery end\tquery id\tquery score\tquery strand\t"
             header = query_header + tfbs_header
             f.write(header)
