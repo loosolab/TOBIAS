@@ -9,6 +9,7 @@ TOBIAS top-level parser
 """
 
 import argparse
+import os
 from tobias.utils.utilities import format_help_description, restricted_float, add_underscore_options
 from tobias.utils.logger import add_logger_args
 
@@ -553,3 +554,25 @@ def add_downloaddata_arguments(parser):
 	arguments = add_logger_args(arguments)
 
 	return parser
+
+def add_submerge_arguments(parser):
+
+	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
+	description = "Subsets the analysis results of BINDetect to given genomic regions and merges the information of all TFBS found within them into one table."
+	parser.description = format_help_description("SubMerge", description)
+
+	parser._action_groups.pop()	#pop -h
+
+	#Required arguments
+	required = parser.add_argument_group('Required arguments')
+	required.add_argument("--input", required=True, type=os.path.abspath, dest="tfbs", help="Path to the output directory of BINDetect containing all TFBS files.")
+	required.add_argument("--regions", required=True, help="Path to the query regions bed file.", type=os.path.abspath, dest="regions")
+
+
+	#Optional arguments
+	optional = parser.add_argument_group('Optional arguments')
+	optional.add_argument( "--output", default='./merged_TFBS_subset.tsv', help="Path for output file. If file name ends with .bed, no header column will be added. If file name ends with .xlsx, file will be converted into an excel file. Default: ./merged_TFBS_subset.tsv", type=os.path.abspath, dest="output")
+	optional.add_argument("--TFs", help="Path to the file containing the list of TFs to subset. File has to contain one column with the TFBS names in the same format used in the BINDetect output files/directories.", type=os.path.abspath, dest="tf", default=None)
+	optional = add_logger_args(optional)
+
+	return(parser)
