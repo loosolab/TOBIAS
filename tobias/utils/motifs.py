@@ -118,15 +118,9 @@ class MotifList(list):
 		Read a file of motifs to MotifList format
 		"""
 		
-		biopython_formats = ["jaspar"]
-
 		#Establish format of motif
 		content = open(path).read()
 		file_format = get_motif_format(content)
-
-		#For biopython reading
-		if file_format == "pfm":
-			file_format = "jaspar"
 
 		#parse MEME file
 		if file_format == "meme":
@@ -251,14 +245,53 @@ class MotifList(list):
 						#Set counts for current OneMotif object
 						self[-1].set_counts(count_matrix)	#this also checks for format
 
-
 		# parse PFM/ JASPAR
-		elif file_format in biopython_formats:
+		elif file_format in ["jaspar", "pfm"]:  # in biopython, pfm is a format without header; however, we classify it as the jaspar motif without "[" and "]" per line, which is read same way as jaspar
 			with open(path) as f:
-				for m in motifs.parse(f, file_format):
-					self.append(OneMotif(motifid=m.matrix_id, name=m.name, counts=[m.counts[base] for base in ["A", "C", "G", "T"]]))
-					self[-1].biomotifs_obj = m		#biopython motif object	
-					self[-1].get_pfm()	#fill in .pfm
+				for line in f:
+					if line.startswith(">"):
+
+						# Save previous motif
+						if len(self) > 0:
+							self[-1].set_counts(count_matrix)  # this will also check for the correct length
+
+						# Get name of new motif
+						columns = line.split()
+						if len(columns) > 1:  # MOTIF, ID, NAME
+							motif_id, name = columns[0].replace(">", ""), columns[1]
+						elif len(columns) == 1:  # MOTIF, ID
+							motif_id, name = columns[0].replace(">", ""), "" 	# alternative name not given
+
+						# Initialize new motif
+						self.append(OneMotif(name=name, motifid=motif_id))
+						count_matrix = []
+
+					else:
+						if len(self) == 0:
+							raise ValueError("Error when reading motifs from {0}! No motif header found before first motif.".format(path))
+
+						# skip empty lines
+						if len(line.rstrip()) == 0:
+							continue
+
+						values = re.sub(r"^[ACGT\s\[]+", "", line.strip()).replace("]", "").split()  # Remove any jaspar line suffix / prefix and split on whitespace
+						counts = list(map(float, values))  # from string to float
+						count_matrix.append(counts)
+
+				# Save last motif
+				if len(self) > 0:
+					self[-1].set_counts(count_matrix)
+	
+				# Fill in pfm for all motifs
+				for motif in self:
+					motif.get_pfm()	 # fill in .pfm
+	
+		elif file_format == "transfac":
+			with open(path) as f:
+				for m in motifs.parse(f, file_format, strict=False):
+					self.append(OneMotif(motifid=m.get("AC", ""), name=m.get("ID", ""), counts=[m.counts[base] for base in ["A", "C", "G", "T"]]))
+					self[-1].biomotifs_obj = m
+
 		else:
 			sys.exit("Error when reading motifs from {0}! File format: {1}".format(path, file_format))
 
@@ -1071,7 +1104,7 @@ class OneMotif:
   		"""
     	# check counts input
 		if len(counts) != 4:
-			raise ValueError("Input counts must be of length 4. Received length {0} for motif (id='{1}', name='{2}'). Input counts are: {3}".format(len(counts), self.id, self.name, counts))
+			raise ValueError("Input counts must be of length 4 (ACGT), but received length {0} for motif (id='{1}', name='{2}'). Input counts are: {3}. Please adjust matrix format to one nucleotide per line in order to load motif.".format(len(counts), self.id, self.name, counts))
 		lengths = [len(base) for base in counts]
 		if len(set(lengths)) != 1:
 			raise ValueError("All lists in counts must be of same length.")
@@ -1132,7 +1165,7 @@ class OneMotif:
 				self.get_pfm()
 
 			precision = 6
-			for row in self.pfm.T: #add frequency per position
+			for row in self.pfm.T:  # add frequency per position
 				out_string += " {0}\n".format("  ".join(map(lambda f: format(round(f, precision), f".{precision}f"), row)))
 
 		# TODO also implementation in from_file needed

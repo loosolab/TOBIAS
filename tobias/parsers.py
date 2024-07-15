@@ -9,6 +9,7 @@ TOBIAS top-level parser
 """
 
 import argparse
+import os
 from tobias.utils.utilities import format_help_description, restricted_float, add_underscore_options
 from tobias.utils.logger import add_logger_args
 
@@ -121,7 +122,7 @@ def add_bindetect_arguments(parser):
 	required = parser.add_argument_group('Required arguments')
 	required.add_argument('--signals', metavar="<bigwig>", help="Signal per condition (.bigwig format)", nargs="*")
 	required.add_argument('--peaks', metavar="<bed>", help="Peaks.bed containing open chromatin regions across all conditions")
-	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar/meme format", nargs="*")
+	required.add_argument('--motifs', metavar="<motifs>", help="Motif file(s) in pfm/jaspar/meme/transfac format", nargs="*")
 	required.add_argument('--genome', metavar="<fasta>", help="Genome .fasta file")
 
 	optargs = parser.add_argument_group('Optional arguments')
@@ -130,6 +131,7 @@ def add_bindetect_arguments(parser):
 	optargs.add_argument('--naming', metavar="<string>", help="Naming convention for TF output files ('id', 'name', 'name_id', 'id_name') (default: 'name_id')", choices=["id", "name", "name_id", "id_name"], default="name_id")
 	optargs.add_argument('--motif-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for motif scanning (default: 1e-4)", default=0.0001)
 	optargs.add_argument('--bound-pvalue', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set p-value threshold for bound/unbound split (default: 0.001)", default=0.001)
+	optargs.add_argument('--cluster-threshold', metavar="<float>", type=lambda x: restricted_float(x, 0, 1), help="Set the clustering threshold. Motifs below this threshold will be assigned to one cluster (default: 0.5)", default=0.5)
 	#optargs.add_argument('--volcano-diff-thresh', metavar="<float>", help="", default=0.2)	#not yet implemented
 	#optargs.add_argument('--volcano-p-thresh', metavar="<float>", help="", default=0.05)	#not yet implemented
 
@@ -165,7 +167,7 @@ def add_tfbscan_arguments(parser):
 	parser._action_groups.pop()	#pop -h
 
 	required_arguments = parser.add_argument_group('Required arguments')
-	required_arguments.add_argument('-m', '--motifs', metavar="", help='File containing motifs in either MEME, PFM or JASPAR format')
+	required_arguments.add_argument('-m', '--motifs', metavar="", help='File containing motifs in either MEME, PFM, JASPAR or TRANSFAC format')
 	required_arguments.add_argument('-f', '--fasta', metavar="", help='A fasta file of sequences to use for scanning motifs') 	# whole genome file or regions of interest in FASTA format to be scanned with motifs')
 
 	#all other arguments are optional
@@ -552,3 +554,25 @@ def add_downloaddata_arguments(parser):
 	arguments = add_logger_args(arguments)
 
 	return parser
+
+def add_submerge_arguments(parser):
+
+	parser.formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=40, width=90)
+	description = "Subsets the analysis results of BINDetect to given genomic regions and merges the information of all TFBS found within them into one table."
+	parser.description = format_help_description("SubMerge", description)
+
+	parser._action_groups.pop()	#pop -h
+
+	#Required arguments
+	required = parser.add_argument_group('Required arguments')
+	required.add_argument("--input", required=True, type=os.path.abspath, dest="tfbs", help="Path to the output directory of BINDetect containing all TFBS files.")
+	required.add_argument("--regions", required=True, help="Path to the query regions bed file.", type=os.path.abspath, dest="regions")
+
+
+	#Optional arguments
+	optional = parser.add_argument_group('Optional arguments')
+	optional.add_argument( "--output", default='./merged_TFBS_subset.tsv', help="Path for output file. If file name ends with .bed, no header column will be added. If file name ends with .xlsx, file will be converted into an excel file. Default: ./merged_TFBS_subset.tsv", type=os.path.abspath, dest="output")
+	optional.add_argument("--TFs", help="Path to the file containing the list of TFs to subset. File has to contain one column with the TFBS names in the same format used in the BINDetect output files/directories.", type=os.path.abspath, dest="tf", default=None)
+	optional = add_logger_args(optional)
+
+	return(parser)

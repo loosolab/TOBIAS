@@ -63,6 +63,7 @@ def main():
 							"FormatMotifs": {"help": "Utility to deal with motif files", "add_arguments": add_formatmotifs_arguments, "function": "tobias.tools.format_motifs.run_formatmotifs"},
 							"ClusterMotifs": {"help": "Cluster motifs by similarity", "add_arguments": add_motifclust_arguments, "function": "tobias.tools.motif_clust.run_motifclust", "space":"\t"},
 							"ScoreBed": {"help":"Score .bed-file with signal from .bigwig-file(s)", "add_arguments": add_scorebed_arguments, "function": "tobias.tools.score_bed.run_scorebed"},
+							"SubMerge": {"help":"Get all TFBS in a list of regions, merged into one file", "add_arguments": add_submerge_arguments, "function": "tobias.tools.submerge.run_submerge"}
 							},
 
 						"Visualization tools":

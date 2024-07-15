@@ -91,7 +91,7 @@ def run_plotchanges(args):
 
 		#Choose whether to show individual TFs or clusters
 		if cluster_flag == True:
-			table = bindetect.loc[chosen_TFS,].groupby("cluster").mean() #mean of each column
+			table = bindetect.loc[chosen_TFS,].groupby("cluster").mean(numeric_only=True) #mean of each column
 		else:
 			table = bindetect.loc[chosen_TFS]
 		

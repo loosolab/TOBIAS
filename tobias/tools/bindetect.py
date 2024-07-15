@@ -229,7 +229,12 @@ def run_bindetect(args):
 	motif_list = MotifList()
 	args.motifs = expand_dirs(args.motifs)
 	for f in args.motifs:
-		motif_list += MotifList().from_file(f)  #List of OneMotif objects
+		try:
+			motif_list += MotifList().from_file(f)  #List of OneMotif objects
+		except Exception as e:
+			logger.error("Error reading motifs from '{0}'. Error message was: {1}".format(f, e))
+			sys.exit(1)
+
 	no_pfms = len(motif_list)
 	logger.info("- Read {0} motifs".format(no_pfms))
 
@@ -686,7 +691,7 @@ def run_bindetect(args):
 	#-------------------------------------------------------------------------------------------------------------#	
 	
 	clustering = RegionCluster(TF_overlaps)
-	clustering.cluster()
+	clustering.cluster(threshold=args.cluster_threshold)
 
 	#Convert full ids to alt ids
 	convert = {motif.prefix: motif.name for motif in motif_list}
