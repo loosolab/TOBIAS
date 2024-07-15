@@ -1,6 +1,3 @@
-## 0.17.1-b (in progress)
-- ...
-
 ## 0.17.0 (2023-07-15)
 - Fixed bug when reading motifs in "long" format. An error is now written if the pfm/jaspar motif does not follow 4-row format.
 - Added transfac as possible input through biopython parser.
