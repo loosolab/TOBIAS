@@ -84,7 +84,7 @@ Pipelines
 While each TOBIAS tool can be run independently, they are developed to be run as part of an analysis pipeline. We provide ready-made pipelines for performing bias-correction, footprinting, differential binding and visualization for multiple conditions automatically.
 
 **Snakemake pipeline**  
-We provide a pre-set snakemake workflow which is found [here](https://github.molgen.mpg.de/loosolab/TOBIAS_snakemake).
+We provide a pre-set snakemake workflow which is found [here](https://github.com/loosolab/TOBIAS_snakemake).
 
 **Nextflow pipeline**  
 You can also run the TOBIAS tool as a nextflow pipeline. The pre-set workflow can be found [here](https://github.molgen.mpg.de/loosolab/TOBIAS-nextflow).
@@ -106,8 +106,3 @@ DOI: https://doi.org/10.1038/s41467-020-18035-1
 License
 ------------
 This project is licensed under the [MIT license](LICENSE). 
-
-
-Contact
-------------
-Mette Bentsen (mette.bentsen (at) mpi-bn.mpg.de)
