@@ -93,10 +93,11 @@ def run_submerge(args):
 
     if args.output.endswith(".xlsx"):
         df.to_excel(args.output, index=False)
-    elif args.output.endswith(".bed"):
-        df.to_csv(args.output, sep='\t', index=False, header=False)
     else:
-        df.to_csv(args.output, sep="\t", index=False)
+        df.to_csv(args.output,
+                  sep="\t", 
+                  index=False,
+                  header=not args.output.endswith(".bed"))
 
     logger.info("Output written to: " + args.output)
     logger.end()
