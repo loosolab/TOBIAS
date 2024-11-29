@@ -60,7 +60,7 @@ class NucleotideMatrix(SequenceMatrix):
 
 	@cython.boundscheck(False)
 	@cython.wraparound(False)
-	def add_sequence(self, np.ndarray[np.int_t, ndim=1] sequence, double amount = 1.0):
+	def add_sequence(self, np.ndarray[np.int64_t, ndim=1] sequence, double amount = 1.0):
 		""" Adds sequence to SequenceMatrix the number of times specified in amount """
 
 		cdef int Sm, m
@@ -90,7 +90,7 @@ class NucleotideMatrix(SequenceMatrix):
 
 	@cython.boundscheck(False)
 	@cython.wraparound(False)		
-	def add_background(self, np.ndarray[np.int_t, ndim=1] sequence, double amount = 1.0):
+	def add_background(self, np.ndarray[np.int64_t, ndim=1] sequence, double amount = 1.0):
 		""" Adds sequence to count of background nucleotides """
 
 		cdef int Sm, m
@@ -120,7 +120,7 @@ class NucleotideMatrix(SequenceMatrix):
 	@cython.boundscheck(False)	#dont check boundaries
 	@cython.cdivision(True)		#no check for zero division
 	@cython.wraparound(False) 	#dont deal with negative indices
-	def score_sequence(self, np.ndarray[np.int_t, ndim=1] sequence):
+	def score_sequence(self, np.ndarray[np.int64_t, ndim=1] sequence):
 		""" Score nucleotide sequence against motif """ 
 
 		cdef np.ndarray[np.float64_t, ndim=2] pssm = self.pssm
@@ -175,7 +175,7 @@ class DiNucleotideMatrix(SequenceMatrix):
 
 	@cython.boundscheck(False)
 	@cython.wraparound(False) 	#dont deal with negative indices
-	def add_sequence(self, np.ndarray[np.int_t, ndim=1] sequence, double amount = 1.0):
+	def add_sequence(self, np.ndarray[np.int64_t, ndim=1] sequence, double amount = 1.0):
 
 		cdef np.ndarray[np.float64_t, ndim=4] bias_counts = self.counts
 		cdef int L = self.length
@@ -200,7 +200,7 @@ class DiNucleotideMatrix(SequenceMatrix):
 
 	@cython.boundscheck(False)
 	@cython.wraparound(False)		
-	def add_background(self, np.ndarray[np.int_t, ndim=1] sequence, double amount = 1.0):
+	def add_background(self, np.ndarray[np.int64_t, ndim=1] sequence, double amount = 1.0):
 		""" Adds sequence to count of background nucleotides """
 
 		cdef np.ndarray[np.float64_t, ndim=4] bg_counts = self.bg_counts
@@ -260,7 +260,7 @@ class DiNucleotideMatrix(SequenceMatrix):
 	@cython.boundscheck(False)
 	@cython.cdivision(True)		#no check for zero division
 	@cython.wraparound(False) 	#dont deal with negative indices
-	def score_sequence(self, np.ndarray[np.int_t, ndim=1] sequence):
+	def score_sequence(self, np.ndarray[np.int64_t, ndim=1] sequence):
 		#Score nucleotide sequence against dinucleotide motif
 
 		cdef np.ndarray[np.float64_t, ndim=2] bias_PWM = self.bias_pwm_log
@@ -346,7 +346,7 @@ def nuc_to_num(str sequence):
 	""" Convert DNA sequence string to internal number format """
 
 	cdef int length = len(sequence)
-	cdef np.ndarray[np.int_t, ndim=1] num_sequence = np.zeros(length, dtype=int)
+	cdef np.ndarray[np.int64_t, ndim=1] num_sequence = np.zeros(length, dtype=int)
 	cdef int i, num
 	cdef str nuc
 
@@ -387,8 +387,8 @@ class GenomicSequence:
 
 		cdef str fasta = fasta_obj.fetch(self.region.chrom, self.region.start, self.region.end)
 		cdef int length = self.length
-		cdef np.ndarray[np.int_t, ndim=1] sequence = self.sequence
-		cdef np.ndarray[np.int_t, ndim=1] revcomp_sequence = self.revcomp
+		cdef np.ndarray[np.int64_t, ndim=1] sequence = self.sequence
+		cdef np.ndarray[np.int64_t, ndim=1] revcomp_sequence = self.revcomp
 		cdef int i, num, comp
 		cdef str nuc
 
