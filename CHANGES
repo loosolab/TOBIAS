@@ -1,3 +1,8 @@
+## 0.17.1 (2024-12-03)
+- fixed a bug caused by usage of deprecated cython data types that arose after the update to numpy>=2
+- fixed a bug with SubMerge when input region files had more columns than expected
+- SubMerge received a new paramter to adjust the order or contig for sorting
+
 ## 0.17.0 (2023-07-15)
 - Fixed bug when reading motifs in "long" format. An error is now written if the pfm/jaspar motif does not follow 4-row format.
 - Added transfac as possible input through biopython parser.
