@@ -5,7 +5,7 @@ channels:
   - conda-forge
 
 dependencies:
-  - python
+  - python>=3.12
   - pysam
   - pybigwig
   - samtools
@@ -14,7 +14,7 @@ dependencies:
   - bedtools
   - cython
   - matplotlib>=2
-  - numpy
+  - numpy>=2
   - scipy
   - pypdf2
   - scikit-learn

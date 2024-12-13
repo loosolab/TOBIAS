@@ -64,14 +64,14 @@ class SignalList(list):
 		pass
 
 #--------------------------------------------------------------------------------------------------#
-def shuffle_array(np.ndarray[np.float64_t, ndim=1] arr, int no_rand, np.ndarray[np.int_t, ndim=1] shift_options):
+def shuffle_array(np.ndarray[np.float64_t, ndim=1] arr, int no_rand, np.ndarray[np.int64_t, ndim=1] shift_options):
 	""" Shuffles array of values within the boundaries given in shift """
 
 	cdef int max_shift = max([abs(np.min(shift_options)), abs(np.max(shift_options))])
 	cdef np.ndarray[np.float64_t, ndim=1] ext_arr = np.concatenate((np.zeros(max_shift), arr, np.zeros(max_shift)))	 #pad with max shift to allow for shuffling outside borders
 	cdef int ext_arr_len = len(ext_arr)
 
-	cdef np.ndarray[np.int_t, ndim=1] nonzero_index = np.nonzero(ext_arr)[0]
+	cdef np.ndarray[np.int64_t, ndim=1] nonzero_index = np.nonzero(ext_arr)[0]
 	cdef int no_shift = len(nonzero_index)
 
 	cdef np.ndarray[np.int64_t, ndim=2] rand_rel_positions = np.random.choice(shift_options, size=(no_shift, no_rand)) 		#positions of shuffled reads

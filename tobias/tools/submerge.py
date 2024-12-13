@@ -41,8 +41,21 @@ def run_submerge(args):
 
             regions_columns = len(regions_df.columns)
 
-    # convert df back to bedtool
-    regions_obj = BedTool.from_dataframe(regions_df)
+        # convert back to BedTool
+        regions_obj = BedTool.from_dataframe(regions_df)
+
+    elif regions_columns > 6:
+            
+        logger.warning("Regions file contains more than 6 columns. Only the first 6 columns will be used.")
+
+        # convert to dataframe
+        regions_df = regions_obj.to_dataframe()
+
+        # remove columns
+        regions_df = regions_df.iloc[:, :6]
+
+        # convert back to BedTool
+        regions_obj = BedTool.from_dataframe(regions_df)
 
     # Read TFs
     if args.tf is not None:
@@ -86,10 +99,23 @@ def run_submerge(args):
 
     logger.debug('Sorting')
 
+    # get order or chromosomes
+    if type(args.order) == list:
+        contig_order = args.order
+    else:
+        order_df = pd.read_csv(args.order, sep="\t")
+        # get first column
+        contig_order = order_df.iloc[:, 0].tolist()
+
+    # add order column
+    df['contig_order'] = df['query chr'].apply(lambda x: contig_order.index(x) if x in contig_order else len(contig_order))
+
     # Sort the dataframe
-    df.sort_values(by=["query chr", "query start", "TFBS_name", "TFBS_chr", "TFBS_start"],
-                   key=lambda x: x.str.replace("chr", "").astype(int) if x.name in ["query chr", "TFBS_chr"] else x,
+    df.sort_values(by=["contig_order", "query start", "TFBS_name", "TFBS_start"],
                    inplace=True)
+    
+    # Drop the order column
+    df.drop(columns=['contig_order'], inplace=True)
 
     if args.output.endswith(".xlsx"):
         df.to_excel(args.output, index=False)

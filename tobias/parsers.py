@@ -572,6 +572,10 @@ def add_submerge_arguments(parser):
 	#Optional arguments
 	optional = parser.add_argument_group('Optional arguments')
 	optional.add_argument( "--output", default='./merged_TFBS_subset.tsv', help="Path for output file. If file name ends with .bed, no header column will be added. If file name ends with .xlsx, file will be converted into an excel file. Default: ./merged_TFBS_subset.tsv", type=os.path.abspath, dest="output")
+	optional.add_argument( "--order", 
+					   default=['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX', 'chrY', 'chrM'],
+					   help="Path to file containing the order of chormosomes to sort by. Entries should either be the first column of a table / one contig per line. Default: human chromosomes",
+					   type=os.path.abspath, dest="order")
 	optional.add_argument("--TFs", help="Path to the file containing the list of TFs to subset. File has to contain one column with the TFBS names in the same format used in the BINDetect output files/directories.", type=os.path.abspath, dest="tf", default=None)
 	optional = add_logger_args(optional)
 
