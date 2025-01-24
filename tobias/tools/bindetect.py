@@ -753,7 +753,13 @@ def run_bindetect(args):
 		names = info_table["output_prefix"]
 		changes = info_table[base + "_change"].astype(float)
 		pvalues = info_table[base + "_pvalue"].astype(float)
-		pval_min = np.percentile(pvalues[pvalues > 0], 5)	#5% smallest pvalues
+
+		filtered_pvalues = pvalues[pvalues > 0]
+		if len(filtered_pvalues) >= 1:
+			pval_min = np.percentile(filtered_pvalues, 5)  #5% smallest pvalues
+		else:
+			pval_min = 1.0  # workaround for the index error in issue #294
+
 		change_min, change_max = np.percentile(changes, [5, 95])	#5% smallest and largest changes
 		
 		#Add "highlighted" information to info_table

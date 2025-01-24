@@ -1,3 +1,6 @@
+## 0.17.2 (in Progress)
+- disabled p-value highlighting in volcano plots if no p-values fulfill conditions (allows better intvestigation of the reasons for that if BINDetect does not crash because of it)
+
 ## 0.17.1 (2024-12-13)
 - fixed a bug caused by usage of deprecated cython data types that arose after the update to numpy>=2
 - fixed a bug with SubMerge when input region files had more columns than expected
