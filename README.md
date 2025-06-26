@@ -24,6 +24,8 @@ ATAC-seq (Assay for Transposase-Accessible Chromatin using high-throughput seque
 
 For information on each tool, please see the [wiki](https://github.com/loosolab/TOBIAS/wiki/).
 
+Although TOBIAS was originally developed for bulk experiments, it can also be applied to single-cell resolution data. To do that, we recommend generating individual pseudobulk BAM files from scATAC-seq cell type clusters. This can be done using the [sc-framework](https://github.com/loosolab/SC-Framework), which also contains a [notebook specifically designed for scATAC-seq TOBIAS analyses](https://github.com/loosolab/SC-Framework/blob/main/atac_analysis/notebooks/05_tobias.ipynb). It is important to note that the quality of the single cells and the cell clustering is paramount for achieving a clean footprinting analysis. Therefore, we recommend using [PEAKQC](https://github.com/loosolab/PEAKQC) for cell quality assessment beforehand.
+
 Installation
 ------------
 TOBIAS is written as a python package and can be quickly installed via pip:
