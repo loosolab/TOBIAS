@@ -22,8 +22,5 @@ dependencies:
   - pyyaml>=5.1
   - boto3
   - adjustText>=0.8
-  - sklearn-contrib-lightning
   - xlsxwriter
   - pip
-  - pip:
-    - gimmemotifs
