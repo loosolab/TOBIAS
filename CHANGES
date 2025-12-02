@@ -1,3 +1,6 @@
+## 0.17.3 (2025-12-02)
+- fix numpy >= 2 in setup.py
+
 ## 0.17.2 (2025-09-10)
 - disabled p-value highlighting in volcano plots if no p-values fulfill conditions (allows better intvestigation of the reasons for that if BINDetect does not crash because of it)
 - Removed sklearn-contrib-lightning as its causing version conflicts and is not longer used anyway
@@ -231,3 +234,4 @@
 
 ## 0.3.1 (2019-04-10)
 - Split motif ids between name/motif_id/output_prefix
+
