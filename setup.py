@@ -68,7 +68,7 @@ setup(name='tobias',
 		cmdclass=cmdclass,
 		setup_requires=["numpy"],
 		install_requires=[
-			'numpy',
+			'numpy>=2',
 			'scipy',
 			'pysam',
 			'pybedtools',
