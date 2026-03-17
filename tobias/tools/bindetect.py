@@ -765,9 +765,9 @@ def run_bindetect(args):
 		#Add "highlighted" information to info_table
 		for i, (change, pvalue) in enumerate(zip(changes, pvalues)):
 			if change < change_min or change > change_max or pvalue < pval_min:
-				info_table.at[names[i], base + "_highlighted"] = True
+				info_table.at[names.iloc[i], base + "_highlighted"] = True
 			else:
-				info_table.at[names[i], base + "_highlighted"] = False
+				info_table.at[names.iloc[i], base + "_highlighted"] = False
 	
 	#Write bindetect results tables
 	#info_table.insert(0, "TF_name", info_table.index)	 #Set index as first column
