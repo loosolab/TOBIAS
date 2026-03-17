@@ -1,3 +1,6 @@
+## 0.17.4 (2025-03-17)
+- fix deprecated pandas indexing fallback #346
+
 ## 0.17.3 (2025-12-02)
 - fix numpy >= 2 in setup.py
 
