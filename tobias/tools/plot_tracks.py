@@ -14,7 +14,7 @@ import sys
 import argparse
 import numpy as np
 
-from PyPDF2 import PdfFileMerger, PdfFileReader
+from PyPDF2 import PdfMerger, PdfReader
 import matplotlib
 from matplotlib import textpath
 from matplotlib.font_manager import findfont, FontProperties
@@ -388,11 +388,11 @@ def run_tracks(args):
 			output_plots.append(pa.config["output_filename"])
 
 	#Done plotting all regions; join to one pdf
-	merger = PdfFileMerger(strict=False)
+	merger = PdfMerger(strict=False)
 	pdf_filenames = [prefix + ".pdf" for prefix in output_plots]
 	for pdf in pdf_filenames:
 		if os.stat(pdf).st_size != 0:	#only join files containing plots
-			merger.append(PdfFileReader(pdf))
+			merger.append(PdfReader(pdf))
 	merger.write(os.path.join(args.outdir, "all_plots.pdf"))
 
 	#End PlotTracks
