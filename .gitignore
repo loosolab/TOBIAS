@@ -6,3 +6,4 @@ dist/
 *.egg
 *.egg-info
 *.so
+.idea/
