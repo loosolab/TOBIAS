@@ -14,7 +14,12 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
-    {name = "Mette Bentsen", email = "mette.bentsen@mpi-bn.mpg.de"}
+    {name = "Mette Bentsen"}
+]
+maintainers = [
+    {name = "Hendrik Schultheis", email = "hendrik.schultheis@mpi-bn.mpg.de"},
+    {name = "Moritz Hobein", email = "moritz.hobein@mpi-bn.mpg.de"},
+    {name = "Jan Detleffsen", email = "jan.detleffsen@mpi-bn.mpg.de"}
 ]
 dependencies = [
     "numpy>=2",
@@ -27,7 +32,7 @@ dependencies = [
     "pypdf2>=1.28.0",     # PdfFileMerger -> PdfMerger
     "xlsxwriter",
     "adjustText>=0.8",
-    "pyBigWig>=0.3",      # to use values(numpy=True)
+    "pyBigWig>=0.3.25",      # to use values(numpy=True)
     "MOODS-python",
     "svist4get>=1.2.24",  # pin due to changes in API
     #"gimmemotifs",       # only used for MotifClust; now warns for this tool if it is not there
