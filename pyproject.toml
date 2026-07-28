@@ -5,3 +5,64 @@ requires = [
     "cython"
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "tobias"
+dynamic = ["version"]
+description = "Transcription factor Occupancy prediction By Investigation of ATAC-seq Signal"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Mette Bentsen"}
+]
+maintainers = [
+    {name = "Hendrik Schultheis", email = "hendrik.schultheis@mpi-bn.mpg.de"},
+    {name = "Moritz Hobein", email = "moritz.hobein@mpi-bn.mpg.de"},
+    {name = "Jan Detleffsen", email = "jan.detleffsen@mpi-bn.mpg.de"}
+]
+dependencies = [
+    "numpy>=2",
+    "scipy",
+    "pysam",
+    "pybedtools",
+    "matplotlib>=2",
+    "scikit-learn",
+    "pandas",
+    "pypdf2>=1.28.0",     # PdfFileMerger -> PdfMerger
+    "xlsxwriter",
+    "adjustText>=0.8",
+    "pyBigWig>=0.3.25",      # to use values(numpy=True)
+    "MOODS-python",
+    "svist4get>=1.2.24",  # pin due to changes in API
+    #"gimmemotifs",       # only used for MotifClust; now warns for this tool if it is not there
+    "logomaker",
+    "seaborn>=0.9.1",
+    "boto3",
+    "pyyaml>5.1",         # requirement for norns full_load
+    "kneed"
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Programming Language :: Python :: 3"
+]
+
+[project.urls]
+Homepage = "https://github.com/loosolab/TOBIAS"
+
+[project.scripts]
+TOBIAS = "tobias.TOBIAS:main"
+
+[tool.setuptools]
+script-files = [
+    "tobias/scripts/filter_important_factors.py",
+    "tobias/scripts/cluster_sites_by_overlap.py"
+]
+zip-safe = false  # gives cython import error if true
+
+[tool.setuptools.packages.find]
+include = ["tobias*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "tobias.__version__"}

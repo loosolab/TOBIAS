@@ -1,3 +1,8 @@
+## 0.17.5 (in progress)
+- migrated metadata and python build to pyproject.toml
+- fix BINDetect deprecated fallback to positional indexing #350
+- fix pypdf2 replace deprecated PdfFileMerger with PdfMerger
+
 ## 0.17.4 (2025-03-17)
 - fix deprecated pandas indexing fallback #346
 

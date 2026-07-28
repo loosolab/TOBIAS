@@ -1,3 +1,4 @@
 include README.md
 include LICENSE
 recursive-include tobias *.c
+recursive-include tobias *.pyx
